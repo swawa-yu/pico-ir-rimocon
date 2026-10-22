@@ -1,6 +1,52 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>赤外線ロジアナ｜Pico教材</title><link rel="stylesheet" href="style.css"><script src="analyzer.js" defer></script></head><body><header><a href="index.html">← 教材へ</a><strong>赤外線ロジアナ</strong></header><main><p class="eyebrow">時間 → 波形 → ビット → 文字</p><h1>受信した信号を観察する</h1><p>Picoが表示した配列を貼り付けて解析します。処理はこのブラウザ内で行います。サンプルだけでも試せます。</p>
-<section class="card"><label for="signal">ON/OFFの時間配列（µs）</label><p class="hint">ONから始まる正の配列 [ON, OFF, …]、または [+ON, -OFF, …]。Picoの出力文ごと貼り付ける場合は、配列を1つだけ含めてください。</p><textarea id="signal" placeholder="[4480, 2240, 560, 560, …]" spellcheck="false"></textarea><div class="actions"><button id="analyze">解析する</button><button id="sample" class="secondary">サンプル「A」を入れる</button></div><p id="status" role="status" aria-live="polite"></p>
-<div class="grid"><div><label for="gap">フレーム区切りのOFF時間（µs）</label><input id="gap" type="number" value="20000" min="1" step="1"></div><div><label for="frame">観察するフレーム</label><select id="frame" disabled><option>解析後に選択できます</option></select></div></div></section>
-<section class="card"><h2>1. 波形と区間の長さ</h2><p class="hint">初期表示は赤外線ONを上に表示します。区間をクリックすると持続時間が分かります。横にスクロールして観察できます。</p><div class="grid"><div><label for="zoom">横方向の拡大率</label><input id="zoom" type="range" min="1" max="12" value="1"></div><div><label for="polarity">表示する信号</label><select id="polarity"><option value="envelope">赤外線ON/OFF（ONが上）</option><option value="receiver">受信モジュール出力（ONがLOW）</option></select></div></div><p id="summary">配列を入力してください。</p><div id="wave-wrap"><canvas id="wave" width="1000" height="210" aria-label="赤外線の時間波形"></canvas></div><p id="selection" aria-live="polite">区間の数値は下の表でも確認できます。</p></section>
-<section class="card"><h2>2. ONとOFFの比からビットを読む</h2><p>ON:OFFが1:1なら0、1:3なら1と読む教材用の判定です。比が0.5〜1.5なら0、2.5〜3.5なら1、それ以外は「?」にします。</p><div class="grid"><div><label for="start">データ開始位置（0始まり・偶数）</label><input id="start" type="number" min="0" step="2" value="2"></div><div><label for="order">1バイト内のビット順</label><select id="order"><option value="msb">MSBから（教材03）</option><option value="lsb">LSBから</option></select></div></div><p class="hint">先頭のON/OFFをリーダとして飛ばす場合は2にします。末尾に単独で残るONはビットに含めません。フレームごとに開始位置を指定します。</p><label for="bits">受信順のビット列</label><pre id="bits">—</pre><label for="hex">16進数（8ビットごと）</label><pre id="hex">—</pre><label for="ascii">ASCII（表示可能な文字のみ）</label><pre id="ascii">—</pre><p id="decode-note" class="hint"></p><p class="hint">家電リモコンには異なる符号化方式もあります。この判定結果だけでは規格やコマンドの意味を確定できません。</p></section>
-<section class="card"><h2>3. 区間の数値を確かめる</h2><p class="hint">受信モジュールのLOWは赤外線ON、HIGHはOFFに対応します。38kHzの搬送波そのものは、このデータには含まれません。</p><div class="table-wrap"><table><thead><tr><th>位置</th><th>赤外線</th><th>開始（µs）</th><th>長さ（µs）</th></tr></thead><tbody id="intervals"></tbody></table></div></section></main><footer>参考：picow-rimocon / oscillo-original.html。測定データはページを閉じると失われます。</footer></body></html>
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>赤外線ロジアナ｜Pico教材</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="analyzer.js" defer></script>
+</head>
+<body class="analyzer">
+<header><a href="index.html">← 教材へ</a><strong>Pico / MicroPython</strong></header>
+<main>
+  <h1>赤外線ロジアナ</h1>
+  <section class="card signal-input" aria-label="信号の入力">
+    <label for="signal">受信データ <span class="unit">µs</span></label>
+    <textarea id="signal" placeholder="[4480, 2240, 560, 560, …]" spellcheck="false"></textarea>
+    <div class="actions"><button id="analyze">解析する</button><button id="sample" class="secondary">サンプル「A」</button></div>
+    <p id="status" role="status" aria-live="polite"></p>
+  </section>
+  <section class="card workspace" aria-label="波形と解析結果">
+    <div class="wave-toolbar">
+      <div><label for="frame">フレーム</label><select id="frame" disabled><option>—</option></select></div>
+      <div><label for="polarity">波形</label><select id="polarity"><option value="envelope">赤外線 ON / OFF</option><option value="receiver">受信出力 HIGH / LOW</option></select></div>
+      <div><label for="zoom">拡大</label><input id="zoom" type="range" min="1" max="12" value="1"></div>
+    </div>
+    <div class="wave-meta"><p id="summary">—</p></div>
+    <div id="wave-wrap"><canvas id="wave" width="1000" height="210" aria-label="赤外線の時間波形"></canvas></div>
+    <p id="selection" aria-live="polite"></p>
+    <div class="decoded">
+      <div class="bits-result"><h2>ビット</h2><pre id="bits">—</pre></div>
+      <div><h2>HEX</h2><pre id="hex">—</pre></div>
+      <div><h2>ASCII</h2><pre id="ascii">—</pre></div>
+    </div>
+    <p id="decode-note" class="hint"></p>
+    <details class="settings"><summary>解析設定</summary>
+      <div class="grid">
+        <div><label for="gap">フレーム間隔（µs）</label><input id="gap" type="number" value="20000" min="1" step="1"></div>
+        <div><label for="start">データ開始位置</label><input id="start" type="number" min="0" step="2" value="2"></div>
+        <div><label for="order">ビット順</label><select id="order"><option value="msb">MSBから</option><option value="lsb">LSBから</option></select></div>
+      </div>
+    </details>
+  </section>
+  <details class="card"><summary>区間データ</summary><div class="table-wrap"><table><thead><tr><th>位置</th><th>赤外線</th><th>開始（µs）</th><th>長さ（µs）</th></tr></thead><tbody id="intervals"></tbody></table></div></details>
+  <details class="card help"><summary>入力形式と判定方法</summary>
+    <p>ONから始まる時間配列 [ON, OFF, …]、または [+ON, -OFF, …] を入力します。出力文を含める場合は配列を1つにしてください。解析はブラウザ内で行い、入力データは保存しません。</p>
+    <p>データ開始位置は0始まりの偶数です。初期値2では先頭のON/OFFをリーダとして除外します。末尾に単独で残るONはビットに含めません。</p>
+    <p>OFF / ONの比が0.5〜1.5なら0、2.5〜3.5なら1、それ以外は?と判定します。家電リモコンの符号化方式によっては、この方法では読み取れません。</p>
+    <p>8ビット単位でHEXとASCIIに変換します。?を含むバイトは??、表示できない文字は·です。受信モジュールは赤外線ONでLOWになります。波形は包絡線を表し、38kHzの搬送波は含みません。</p>
+  </details>
+</main>
+</body>
+</html>

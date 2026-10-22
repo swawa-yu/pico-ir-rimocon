@@ -54,7 +54,14 @@ function sampleSignal() {
   return [...signal, 560];
 }
 
-if (typeof module !== "undefined") module.exports = { parseSignal, splitFrames, decode, sampleSignal };
+function timeAxis(total, width) {
+  const target = total / Math.max(1, Math.floor(width / 100));
+  const magnitude = 10 ** Math.floor(Math.log10(target));
+  const step = Math.max(1, [1, 2, 5, 10].find(n => n * magnitude >= target) * magnitude);
+  return { step, max: Math.ceil(total / step) * step };
+}
+
+if (typeof module !== "undefined") module.exports = { parseSignal, splitFrames, decode, sampleSignal, timeAxis };
 
 if (typeof document !== "undefined") {
   const $ = id => document.getElementById(id);
@@ -75,50 +82,74 @@ if (typeof document !== "undefined") {
     try {
       if (!$("start").value.trim()) throw new Error("データ開始位置を入力してください。");
       const result = decode(frames[Number($("frame").value)], Number($("start").value), $("order").value);
-      $("bits").textContent = result.bits || "（完全なON/OFFペアがありません）";
+      $("bits").replaceChildren();
+      for (const bit of result.bits) {
+        const span = document.createElement("span");
+        span.className = bit === "0" ? "bit-zero" : bit === "1" ? "bit-one" : "bit-unknown";
+        span.textContent = bit;
+        $("bits").append(span);
+      }
+      if (!result.bits) $("bits").textContent = "—";
       $("hex").textContent = result.bytes.map(b => b === null ? "??" : b.toString(16).padStart(2, "0").toUpperCase()).join(" ") || "—";
       $("ascii").textContent = result.bytes.map(b => b !== null && b >= 32 && b <= 126 ? String.fromCharCode(b) : "·").join("") || "—";
-      $("decode-note").textContent = `${result.bits.length}ビット / ${result.bytes.length}バイト / 末尾の未変換 ${result.remainder}ビット。?を含むバイトは??、表示できない文字は·です。`;
+      $("decode-note").textContent = result.remainder ? `末尾 ${result.remainder}ビットはバイト未満` : "";
       $("status").textContent = "";
     } catch (e) { $("status").textContent = e.message; }
   }
   function draw() {
     const signal = frames[Number($("frame").value)];
     if (!signal) return;
-    const width = Math.min(16000, Math.max(600, $("wave-wrap").clientWidth - 2) * Number($("zoom").value));
+    const width = Math.min(16000, Math.max(280, $("wave-wrap").clientWidth) * Number($("zoom").value));
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(width * dpr); canvas.height = 210 * dpr;
     canvas.style.width = `${width}px`; canvas.style.height = "210px";
     ctx.scale(dpr, dpr);
-    const left = 64, right = width - 24, total = signal.reduce((a,b) => a+b, 0);
-    const x = t => left + t / total * (right - left);
-    ctx.font = '12px sans-serif'; ctx.fillStyle = "#445e6c";
-    const physical = $("polarity").value === "receiver";
-    ctx.fillText(physical ? "HIGH" : "ON", 10, 66); ctx.fillText(physical ? "LOW" : "OFF", 10, 136);
-    for (let i = 0; i <= 5; i++) {
-      const t = total * i / 5, px = x(t);
-      ctx.strokeStyle = "#dce5eb"; ctx.beginPath(); ctx.moveTo(px, 38); ctx.lineTo(px, 150); ctx.stroke();
-      ctx.fillStyle = "#445e6c"; ctx.textAlign = i === 5 ? "right" : "left";
-      ctx.fillText(`${Math.round(t).toLocaleString()} µs`, px, 182);
+    const left = 50, right = width - 28, total = signal.reduce((a,b) => a+b, 0);
+    const axis = timeAxis(total, right - left);
+    const x = t => left + t / axis.max * (right - left);
+    ctx.font = '12px sans-serif';
+    let bits = "", start = Number($("start").value);
+    try {
+      if ($("start").value.trim()) bits = decode(signal, start, $("order").value).bits;
+    } catch (_) { /* Invalid settings leave the waveform available for inspection. */ }
+    let offset = signal.slice(0, start).reduce((a,b) => a+b, 0);
+    for (let i = 0; i < bits.length; i++) {
+      const duration = signal[start + 2*i] + signal[start + 2*i + 1];
+      const a = x(offset), b = x(offset + duration), bit = bits[i];
+      ctx.fillStyle = bit === "0" ? "#dcebf9" : bit === "1" ? "#fce6d1" : "#edf0f2";
+      ctx.fillRect(a, 38, b-a, 112);
+      if (b-a > 14) {
+        ctx.fillStyle = bit === "0" ? "#185b91" : bit === "1" ? "#914809" : "#586874";
+        ctx.textAlign = "center"; ctx.fillText(bit, (a+b)/2, 26);
+      }
+      offset += duration;
     }
-    ctx.textAlign = "left";
+    for (let i = 0; i <= Math.round(axis.max / axis.step); i++) {
+      const t = i * axis.step, px = x(t);
+      ctx.strokeStyle = "#e1e8ed"; ctx.beginPath(); ctx.moveTo(px,38); ctx.lineTo(px,150); ctx.stroke();
+      ctx.fillStyle = "#667d89"; ctx.textAlign = i === 0 ? "left" : "center";
+      ctx.fillText(t.toLocaleString("en-US", {maximumFractionDigits: 0}),px,178);
+    }
+    ctx.textAlign = "right"; ctx.fillText("µs",right,202);
+    ctx.textAlign = "left"; ctx.fillStyle = "#445e6c";
+    const physical = $("polarity").value === "receiver";
+    ctx.fillText(physical ? "HIGH" : "ON", 0, 66); ctx.fillText(physical ? "LOW" : "OFF", 0, 136);
     let time = 0, previousY;
     ranges = [];
     signal.forEach((duration, i) => {
       const a = x(time), b = x(time + duration), on = i % 2 === 0;
       const y = (physical ? !on : on) ? 62 : 132;
-      ctx.fillStyle = on ? "#dceff7" : "#f1f4f6"; ctx.fillRect(a, 38, Math.max(.5,b-a), 112);
-      ctx.strokeStyle = "#075b81"; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.strokeStyle = "#334b5c"; ctx.lineWidth = 1.5; ctx.beginPath();
       ctx.moveTo(a, previousY === undefined ? y : previousY); ctx.lineTo(a,y); ctx.lineTo(b,y); ctx.stroke();
-      if (b-a > 50) { ctx.fillStyle = "#172c3c"; ctx.fillText(`${duration}`, a+4, 26); }
       ranges.push({a,b,i,duration,time,on}); time += duration; previousY = y;
     });
   }
+
   function renderFrame() {
     const signal = frames[Number($("frame").value)];
     if (!signal) return;
-    $("summary").textContent = `${signal.length}区間 / ${(signal.reduce((a,b)=>a+b,0)/1000).toFixed(3)} ms（区切りのOFF時間を除く）`;
-    $("selection").textContent = "区間をクリックするか、下の数値表を確認してください。";
+    $("summary").textContent = `${(signal.reduce((a,b)=>a+b,0)/1000).toFixed(3)} ms · ${signal.length}区間`;
+    $("selection").textContent = "";
     $("intervals").replaceChildren();
     let time = 0;
     const fragment = document.createDocumentFragment();
@@ -129,16 +160,16 @@ if (typeof document !== "undefined") {
       }
       fragment.append(row); time += duration;
     });
-    $("intervals").append(fragment); draw(); renderDecode();
+    $("intervals").append(fragment); renderDecode(); draw();
   }
   function analyze() {
     try {
       frames = splitFrames(parseSignal($("signal").value), integer("gap"));
-      $("frame").replaceChildren(...frames.map((s,i) => new Option(`フレーム ${i+1}（${s.length}区間）`, i)));
+      $("frame").replaceChildren(...frames.map((s,i) => new Option(`${i+1} / ${frames.length}`, i)));
       $("frame").disabled = false; $("status").textContent = ""; renderFrame();
     } catch(e) {
       frames = []; ranges = []; ctx.clearRect(0,0,canvas.width,canvas.height); clearDecode();
-      $("intervals").replaceChildren(); $("frame").replaceChildren(new Option("解析後に選択できます")); $("frame").disabled = true;
+      $("intervals").replaceChildren(); $("frame").replaceChildren(new Option("—")); $("frame").disabled = true;
       $("summary").textContent = "入力を確認してください。"; $("selection").textContent = ""; $("status").textContent = e.message;
     }
   }
@@ -146,12 +177,12 @@ if (typeof document !== "undefined") {
   $("sample").addEventListener("click", () => { $("signal").value = JSON.stringify(sampleSignal()); $("gap").value=20000; $("start").value=2; $("order").value="msb"; analyze(); });
   $("frame").addEventListener("change",renderFrame);
   $("gap").addEventListener("change",analyze);
-  for (const id of ["start","order"]) $(id).addEventListener("change",renderDecode);
+  for (const id of ["start","order"]) $(id).addEventListener("change",() => { renderDecode(); draw(); });
   for (const id of ["zoom","polarity"]) $(id).addEventListener("input",draw);
   window.addEventListener("resize",draw);
   canvas.addEventListener("click",event => {
     const x = event.clientX - canvas.getBoundingClientRect().left;
     const r = ranges.find(r => x >= r.a && x < r.b);
-    if (r) $("selection").textContent = `位置 ${r.i} / ${r.on ? "ON（受信出力LOW）" : "OFF（受信出力HIGH）"} / 開始 ${r.time} µs / 長さ ${r.duration} µs`;
+    if (r) $("selection").textContent = `#${r.i} · ${r.on ? "ON" : "OFF"} · ${r.duration.toLocaleString()} µs · 開始 ${r.time.toLocaleString()} µs`;
   });
 }
