@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Picoで学ぶ赤外線通信｜10月25日セミナー</title><link rel="stylesheet" href="style.css"></head>
+<body><header><strong>Pico / MicroPython</strong><a href="analyzer.html">赤外線ロジアナを開く →</a></header><main>
+<p class="eyebrow">2026.10.25 · セミナー教材 / 準備版</p><h1>赤外線を送る。<br>波形を見て、データを読む。</h1>
+<p>PicoとMicroPythonで、ボタンの入力、LEDの出力、赤外線の送受信を組み合わせます。受信した時間データをロジアナに貼り付けて、信号とビットの関係を確かめましょう。</p>
+<p class="notice">この教材は準備版です。採用する部品の型番と回路、Pico実機での動作は確認前です。配線はセミナーで確認する回路に合わせてください。</p>
+<section class="card"><h2>まず準備する</h2><ol><li>PicoにMicroPythonを用意し、エディタからプログラムを実行できるようにします。</li><li>赤外線を使う教材では、<a href="programs/infrared.py" download>infrared.py</a>をPicoのルートに保存します。</li><li>取り組む教材のプログラムもPicoに保存し、そのファイルを実行します。一度に実行する教材は1本です。</li></ol><p>下のリンクからファイルを保存できます。ブラウザにコードが表示された場合は、表示されたファイルを保存してください。</p></section>
+<div class="grid"><section class="card"><p class="eyebrow">01 · 入力と出力</p><h2>ボタンでLEDを点灯する</h2><p>ボタンの状態を読み、LEDの状態に反映します。条件を書き換えて、点灯の仕方を変えてみましょう。</p><a href="programs/01_button_led.py" download>プログラムを保存</a></section>
+<section class="card"><p class="eyebrow">02 · 観察する</p><h2>赤外線を受信する</h2><p>リモコンや別のPicoから届く信号のON/OFF時間を表示します。表示された配列をロジアナへ貼り付けます。</p><a href="programs/02_receive.py" download>プログラムを保存</a></section>
+<section class="card"><p class="eyebrow">03 · データを送る</p><h2>ボタンで8ビット送信する</h2><p>ボタンを押すと65（文字A）の8ビットを送ります。VALUEを変更して波形の違いを比べましょう。</p><a href="programs/03_button_send.py" download>プログラムを保存</a></section></div>
+<section class="card"><h2>ピンの割当案</h2><div class="table-wrap"><table><thead><tr><th>部品</th><th>GPIO番号</th><th>プログラムの前提</th></tr></thead><tbody><tr><td>ボタン</td><td>GP14</td><td>押すと3.3V。内部プルダウンを使用</td></tr><tr><td>可視光LED</td><td>GP13</td><td>HIGHで点灯。電流制限抵抗を使用</td></tr><tr><td>赤外線受信モジュール</td><td>GP15</td><td>赤外線検出時にLOWになる出力</td></tr><tr><td>赤外線送信回路</td><td>GP16</td><td>HIGHで発光する駆動回路。38kHz、デューティ比1/3</td></tr></tbody></table></div><p class="hint">GPは物理ピン番号ではありません。受信モジュールの端子順・電源仕様と、送信LEDの抵抗・駆動回路は採用部品に合わせて確認します。GPIOへ5Vを入力しないでください。</p></section>
+<section class="card"><h2>波形からビットへ</h2><p>教材03では、先頭にON 8T / OFF 4Tを送り、データはON 1T / OFF 1Tを0、ON 1T / OFF 3Tを1とします。Tは560µs、8ビットはMSBから送ります。最後にON 1Tを付けます。これは教材用の形式です。</p><p>受信プログラムはONから始まる正の時間配列を出力します。受信モジュールの出力ではONがLOWです。観察するのは搬送波を検出した後の包絡線で、38kHzの細かなパルスはこの配列には含まれません。</p><a class="button" href="analyzer.html">サンプル波形を解析する →</a><p class="hint">受信は待機最大100ms、捕捉最大200msの間、処理を占有します。末尾の無信号が20ms続くと受信を終えます。長いメッセージや並行処理は、この準備版の対象に含めていません。</p></section>
+</main><footer>参考実装：picow-rimocon の read2_clean.py / send_message.py / oscillo-original.html。<a href="https://docs.micropython.org/en/latest/library/machine.PWM.html">MicroPython PWMリファレンス</a></footer></body></html>
