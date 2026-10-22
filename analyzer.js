@@ -145,7 +145,7 @@ if (typeof document !== "undefined") {
       if (b - a >= ctx.measureText(label).width + 8) {
         ctx.fillStyle = "#334b5c";
         ctx.textAlign = "center";
-        ctx.fillText(label, (a + b) / 2, y === 62 ? 84 : 120);
+        ctx.fillText(label, (a + b) / 2, y + (on ? -12 : 22));
       }
       ranges.push({a,b,i,duration,time,on}); time += duration; previousY = y;
     });
