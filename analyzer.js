@@ -142,11 +142,12 @@ if (typeof document !== "undefined") {
       ctx.strokeStyle = "#334b5c"; ctx.lineWidth = 1.5; ctx.beginPath();
       ctx.moveTo(a, previousY === undefined ? y : previousY); ctx.lineTo(a,y); ctx.lineTo(b,y); ctx.stroke();
       const label = String(duration);
-      if (b - a >= ctx.measureText(label).width + 8) {
-        ctx.fillStyle = "#334b5c";
-        ctx.textAlign = "center";
-        ctx.fillText(label, (a + b) / 2, y + (on ? -12 : 22));
-      }
+      ctx.save();
+      ctx.font = "9px sans-serif";
+      ctx.fillStyle = "#334b5c";
+      ctx.textAlign = "center";
+      ctx.fillText(label, (a + b) / 2, y + (on ? -12 : 22));
+      ctx.restore();
       ranges.push({a,b,i,duration,time,on}); time += duration; previousY = y;
     });
   }
