@@ -326,3 +326,32 @@ test('carrier ON and OFF generate named-part calls with the required import',()=
  assert.match(code,/infrared\.on\(\)\ninfrared\.off\(\)/);
  w.dispose();
 });
+
+test('BOOTSEL sample switches the infrared carrier on while pressed and off after release',()=>{
+ const w=workspace('bootsel');
+ try{
+  const source=generate(w)['main.py'];
+  const output=python(`import sys,types,json
+source=sys.stdin.read()
+events=[]
+parts=types.ModuleType('parts')
+class Infrared:
+ def on(self):events.append('on')
+ def off(self):events.append('off')
+parts.infrared=Infrared()
+sys.modules['parts']=parts
+rp2=types.ModuleType('rp2')
+levels=iter([0,1,1,0])
+rp2.bootsel_button=lambda: next(levels)
+sys.modules['rp2']=rp2
+import time
+time.sleep=lambda seconds: None
+try:
+ exec(source)
+except StopIteration:
+ pass
+print(json.dumps(events))
+`,source);
+  assert.deepEqual(JSON.parse(output),['off','on','on','off']);
+ }finally{w.dispose();}
+});

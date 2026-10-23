@@ -39,6 +39,7 @@
       {type:'pico_start',message0:'実行したとき %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],colour:45},
       {type:'pico_forever',message0:'ずっと %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,colour:45},
       {type:'pico_wait',message0:'%1 秒待つ',args0:[{type:'input_value',name:'SECONDS',check:'Number'}],previousStatement:null,nextStatement:null,colour:45},
+      {type:'pico_bootsel',message0:'BOOTSEL が押されている',output:'Boolean',colour:200},
       {type:'pico_button',message0:'%1 が押されている',args0:[{type:'field_dropdown',name:'PART',options:options('button')}],output:'Boolean',colour:200},
       {type:'pico_led',message0:'%1 を %2',args0:[{type:'field_dropdown',name:'PART',options:options('led')},{type:'field_dropdown',name:'ON',options:[['点灯','1'],['消灯','0']]}],previousStatement:null,nextStatement:null,colour:150},
       {type:'pico_send',message0:'%1 で %2 を送る',args0:[{type:'field_dropdown',name:'PART',options:options('infrared')},{type:'input_value',name:'VALUE',check:'Number'}],previousStatement:null,nextStatement:null,colour:285},
@@ -64,6 +65,7 @@
     generator.forBlock.pico_start=(b,g)=>g.statementToCode(b,'DO').replace(/^  /gm,'')||'pass\n';
     generator.forBlock.pico_forever=(b,g)=>'while True:\n'+(g.statementToCode(b,'DO')||'  pass\n');
     generator.forBlock.pico_wait=(b,g)=>`time.sleep(max(0, ${g.valueToCode(b,'SECONDS',g.ORDER_NONE)||'0'}))\n`;
+    generator.forBlock.pico_bootsel=()=>['rp2.bootsel_button()',generator.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_button=(b,g)=>[`${part(b)}.is_pressed()`,g.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_led=b=>`${part(b)}.${b.getFieldValue('ON')==='1'?'on':'off'}()\n`;
     generator.forBlock.pico_send=(b,g)=>`${part(b)}.send(${g.valueToCode(b,'VALUE',g.ORDER_NONE)||'0'})\n`;
@@ -128,6 +130,7 @@
     const imports=[];
     if(used.length)imports.push('from parts import '+used.map(p=>p.id).join(', '));
     if(blocks.some(b=>b.type==='pico_wait'))imports.push('import time');
+    if(blocks.some(b=>b.type==='pico_bootsel'))imports.push('import rp2');
     if(sourceMap){
       const offset=imports.length?imports.length+1:0;
       for(const range of sourceMap.values()){range.from+=offset;range.to+=offset;}
@@ -226,6 +229,7 @@
     blink:()=>root({type:'pico_forever',inputs:{DO:{block:stack(led(1),wait(.5),led(0),wait(.5))}}}),
     button:()=>root({type:'pico_forever',inputs:{DO:{block:stack({type:'controls_if',extraState:{hasElse:true},inputs:{IF0:button(),DO0:{block:led(1)},ELSE:{block:led(0)}}},wait(.01))}}}),
     send:()=>root(send()),
+    bootsel:()=>root({type:'pico_forever',inputs:{DO:{block:stack({type:'controls_if',extraState:{hasElse:true},inputs:{IF0:{block:{type:'pico_bootsel'}},DO0:{block:{type:'pico_carrier',fields:{PART:'infrared',ON:'1'}}},ELSE:{block:{type:'pico_carrier',fields:{PART:'infrared',ON:'0'}}}}},wait(.01))}}}),
     button_send:()=>root({type:'pico_forever',inputs:{DO:{block:stack({type:'controls_if',inputs:{IF0:button(),DO0:{block:stack(led(1),send(),{type:'controls_whileUntil',fields:{MODE:'WHILE'},inputs:{BOOL:button(),DO:{block:wait(.01)}}},led(0))}}},wait(.01))}}})
   };
   const peripheralParts=()=>[

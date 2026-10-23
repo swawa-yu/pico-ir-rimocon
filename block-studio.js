@@ -24,7 +24,7 @@
       {kind:'block',type:'controls_if'},{kind:'block',type:'controls_repeat_ext',inputs:{TIMES:number(10)}},
       {kind:'block',type:'controls_whileUntil'},{kind:'block',type:'controls_for',inputs:{FROM:number(0),TO:number(63),BY:number(1)}},
       {kind:'block',type:'pico_wait',inputs:{SECONDS:number(.5)}}]},
-    {kind:'category',name:'入力',colour:200,contents:[{kind:'block',type:'pico_button',fields:{PART:'send_button'}},{kind:'block',type:'pico_dip_on',inputs:{NUMBER:number(1)}},{kind:'block',type:'pico_dip_value'}]},
+    {kind:'category',name:'入力',colour:200,contents:[{kind:'block',type:'pico_bootsel'},{kind:'block',type:'pico_button',fields:{PART:'send_button'}},{kind:'block',type:'pico_dip_on',inputs:{NUMBER:number(1)}},{kind:'block',type:'pico_dip_value'}]},
     {kind:'category',name:'出力',colour:150,contents:[{kind:'block',type:'pico_led',fields:{PART:'status_led'}},{kind:'block',type:'pico_speaker_on',inputs:{HZ:number(880)}},{kind:'block',type:'pico_speaker_off'}]},
     {kind:'category',name:'画面',colour:150,contents:[
       {kind:'block',type:'pico_display_pixel',inputs:{X:number(0),Y:number(0),COLOR:number(1)}},
@@ -378,6 +378,17 @@
       commitFileBlocks();
       const edits={...fileStore.edits,'my_tools.py':'def twice(value):\n    return value * 2\n\nclass Counter:\n    def __init__(self, value=0):\n        self.value = value\n\n    def add(self, amount):\n        self.value += amount\n        return self.value\n','main.py':'from my_tools import twice, Counter\n\nprint(twice(21))\ncounter = Counter(10)\nprint(counter.add(5))\n'};
       if(loadWorkspace(Blockly.serialization.workspaces.save(workspace),true,parts,edits))openFile('main.py');return;
+    }if($('example').value==='bootsel'&&!parts.some(p=>p.kind==='infrared')){
+      const next=[...parts];let infrared;
+      for(const pin of [16,17,18,19,20,21,22,26,27,28,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]){
+        const candidate={id:'infrared',name:'赤外線LED',kind:'infrared',pin,unit:560};
+        while(next.some(p=>p.id===candidate.id))candidate.id+='_';
+        try{PicoBlocks.validateParts([...next,candidate]);infrared=candidate;break;}catch(_){}
+      }
+      if(!infrared)throw Error('赤外線LED用の空きピンがありません。部品設定を確認してください。');
+      next.push(infrared);const state=PicoBlocks.examples.bootsel();
+      function remapInfrared(value){if(!value||typeof value!=='object')return;if(value.fields?.PART==='infrared')value.fields.PART=infrared.id;Object.values(value).forEach(remapInfrared);}remapInfrared(state);
+      const edits={...fileStore.edits};delete edits['main.py'];delete edits['parts.py'];loadWorkspace(state,true,next,edits);return;
     }if(['peripherals','pixels'].includes($('example').value)){const edits={...fileStore.edits};delete edits['main.py'];delete edits['parts.py'];const name=$('example').value;loadWorkspace(PicoBlocks.examples[name](),true,PicoBlocks.peripheralParts().filter(p=>name!=='pixels'||p.kind==='ssd1306'),edits);return;}const state=PicoBlocks.examples[$('example').value]();const mapping={send_button:'button',status_led:'led',infrared:'infrared'};function remap(value){if(!value||typeof value!=='object')return;const id=value.fields?.PART;if(id&&!parts.some(p=>p.id===id)){const replacement=parts.find(p=>p.kind===mapping[id]);if(replacement)value.fields.PART=replacement.id;}Object.values(value).forEach(remap);}remap(state);const edits={...fileStore.edits};delete edits['main.py'];loadWorkspace(state,true,parts,edits);}catch(error){notify(error.message);}});
   $('project-save').addEventListener('click',()=>{download('pico-blocks.json',JSON.stringify(project(),null,2),'application/json');dirty=false;});
   $('python-save').addEventListener('click',()=>{if(codeValid)download(activeFile.split('/').pop(),files[activeFile],'text/x-python');});
