@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ライブロジアナ｜Pico教材</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="live-analyzer.css">
+  <script src="live-core.js" defer></script>
+  <script src="pico-repl.js" defer></script>
+  <script src="pico-devices.js" defer></script>
+  <script src="pico-sources.js" defer></script>
+  <script src="live-analyzer.js" defer></script>
+</head>
+<body class="analyzer live-analyzer">
+<header><a href="index.html">← 教材へ</a><a href="analyzer.html">配列から解析</a></header>
+<main>
+  <h1>ライブロジアナ</h1>
+  <section class="card connection" aria-label="USB接続">
+    <div class="connection-row"><select id="observer-device" aria-label="ロジアナで使うPico"></select><span id="connection-state" role="status">USB未接続</span><button id="connect">USB接続する</button><button id="disconnect" class="secondary" disabled>USBを切断する</button></div>
+    <p class="hint">1台なら両タブで同じPicoを選びます。別のエディタで使うときはUSBを切断してください。</p>
+    <div class="receiver-controls"><label for="receiver-pin">受信ピン</label><select id="receiver-pin"></select><button id="receiver-start" disabled>受信開始</button><button id="receiver-stop" class="secondary" disabled>受信停止</button><span id="receiver-state" role="status">未接続</span></div>
+    <div class="actions samples"><button id="demo-fast" class="secondary">通常再生</button><button id="demo-slow" class="secondary">ゆっくり再生</button><button id="demo-stop" class="secondary" hidden>再生を止める</button><span>サンプル</span></div>
+    <p id="status" role="status" aria-live="polite"></p>
+  </section>
+  <section class="card" aria-label="ライブ波形">
+    <div class="section-bar"><h2>ライブ</h2><div class="compact-controls"><label for="window">表示幅</label><select id="window"><option value="1000">1 ms</option><option value="2000">2 ms</option><option value="5000">5 ms</option><option value="10000">10 ms</option><option value="20000">20 ms</option><option value="50000">50 ms</option><option value="100000">100 ms</option><option value="200000">200 ms</option><option value="500000">500 ms</option><option value="1000000">1秒</option><option value="5000000" selected>5秒</option><option value="20000000">20秒</option><option value="60000000">1分</option><option value="300000000">5分</option></select><button id="live-zoom-out" class="secondary" aria-label="ライブを縮小">−</button><button id="live-zoom-in" class="secondary" aria-label="ライブを拡大">＋</button><button id="pause" class="secondary">表示を一時停止</button></div></div>
+    <div class="timeline-controls"><select id="live-record" aria-label="ライブの記録"></select><label><input id="live-follow" type="checkbox" checked>ライブに追従</label><input id="live-position" type="range" min="0" max="1" value="1" step="0.001" aria-label="ライブ記録の表示位置"><span id="live-retained"></span></div>
+    <canvas id="live-overview" height="76" tabindex="0" aria-label="記録全体と現在の表示範囲" title="クリック・ドラッグで表示位置を移動"></canvas>
+    <div id="live-empty" class="live-empty" role="status">USB接続して受信を開始するか、サンプルを再生してください。</div>
+    <canvas id="live-wave" hidden height="140" tabindex="0" aria-label="流れる受信波形" title="ドラッグ・ホイールで移動、Ctrl / ⌘＋ホイールで拡大・縮小。矢印キーでも移動できます。"></canvas>
+    <div class="live-meta"><span id="signal-state" role="status">ピンレベル —</span><span id="live-time">—</span></div>
+  </section>
+  <section class="card" aria-label="固定した信号">
+    <div class="section-bar"><h2 id="capture-title">固定波形</h2><button id="arm" class="secondary" aria-pressed="true">次の信号を待機中</button></div>
+    <div id="empty-capture">信号を受信すると、ここに固定します。</div>
+    <div id="capture-content" hidden>
+      <div class="capture-name-row"><label for="capture-name">名前</label><input id="capture-name" type="text" maxlength="80" placeholder="例：DAISO LEDライト「ON」" autocomplete="off"></div>
+      <div class="capture-toolbar"><p id="summary"></p><button id="capture-locate" class="secondary">ライブで見る</button><label for="zoom">拡大</label><input id="zoom" type="range" min="1" max="12" value="1"></div>
+      <div id="capture-wrap"><canvas id="capture-wave" height="210" aria-label="固定した信号の波形"></canvas></div>
+      <p id="selection" aria-live="polite"></p>
+      <div class="decoded"><div class="bits-result"><h2>ビット</h2><pre id="bits">—</pre></div><div><h2>HEX</h2><pre id="hex">—</pre></div><div><h2>ASCII</h2><pre id="ascii">—</pre></div></div>
+    </div>
+    <details class="settings"><summary>解析設定</summary><div class="grid">
+      <div><label for="ratio">終了とするOFF / ON比</label><input id="ratio" type="number" min="4" max="100" value="8" step="1"></div>
+      <div><label for="start">データ開始位置</label><input id="start" type="number" min="0" step="2" value="2"></div>
+      <div><label for="order">ビット順</label><select id="order"><option value="msb">MSBから</option><option value="lsb">LSBから</option></select></div>
+    </div></details>
+  </section>
+  <section class="card history-card" aria-label="受信履歴">
+    <div class="section-bar"><h2>履歴 <span id="history-count">0</span></h2><div class="actions"><button id="save" class="secondary" disabled>保存</button><button id="load" class="secondary">開く</button><input type="file" id="history-file" accept=".json,application/json" hidden></div></div>
+    <div id="history-list"><p id="history-empty" class="hint">受信履歴はありません。</p><table id="history-table" hidden><thead><tr><th>名前</th><th>種類</th><th>長さ</th><th>ビット数</th><th>HEX</th><th title="直前の信号の開始からの時間">開始間隔</th><th>記録時刻</th><th class="history-binary">バイナリ</th></tr></thead><tbody id="history-rows"></tbody></table></div>
+    <p class="hint history-limit">履歴は2,000件・合計262,144区間、ライブは262,144変化まで。古い記録から更新します。保存にはライブの変化時刻も含みます。</p>
+  </section>
+  <details class="card help"><summary>Picoの準備・判定ルール</summary>
+    <ol><li>MicroPython導入済みの観測用PicoをUSB接続します。</li><li>受信ピンを選び、「受信開始」を押します。受信プログラムはRAM上で実行します。</li></ol>
+    <p>受信モジュールは、赤外線検出時にLOWになるものを使います。<a href="programs/live_receiver.py" download>受信プログラム</a></p>
+    <table><thead><tr><th>項目</th><th>設定・動作</th></tr></thead><tbody>
+      <tr><td>入力</td><td>受信ピンで選んだGPIO。初期値はGP15</td></tr>
+      <tr><td>終了</td><td>OFFが直前のONの8倍以上。終了待ちのOFFは固定波形から除外</td></tr>
+      <tr><td>表示の停止・固定</td><td>USB受信と履歴への追加は継続</td></tr>
+      <tr><td>ビット判定</td><td>OFF / ONが2未満 → 0、2以上 → 1</td></tr>
+      <tr><td>接続・再生の切替</td><td>途中の信号を破棄。固定波形と履歴は保持</td></tr>
+      <tr><td>測定方式</td><td>GPIO割り込みによる包絡線の記録。38kHzの搬送波は対象外。実機での精度確認は未実施</td></tr>
+    </tbody></table>
+  </details>
+</main>
+</body>
+</html>

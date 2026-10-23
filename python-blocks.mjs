@@ -1,0 +1,162 @@
+import {parser} from '@lezer/python';
+
+function hasError(tree){let bad=false;tree.iterate({enter(node){if(node.type.isError)bad=true;}});return bad;}
+function indentSource(source,indent,remove=false){
+  const strings=[];parser.parse(source).iterate({enter(node){if(['String','FormatString'].includes(node.name))strings.push([node.from,node.to]);}});
+  let offset=0;
+  return source.split(/(?<=\n)/).map(line=>{
+    const inside=strings.some(([from,to])=>offset>from&&offset<to);offset+=line.length;
+    if(inside)return line;
+    return remove?(line.startsWith(indent)?line.slice(indent.length):line):(line.trim()?indent+line:line);
+  }).join('');
+}
+function raw(code){return {type:'pico_python',extraState:{code}};}
+function chain(blocks){let first=null,last=null;for(const block of blocks){if(last)last.next={block};else first=block;last=block;}return first;}
+function importState(text){
+  let match=text.match(/^import\s+([^\s,]+)(?:\s+as\s+(\S+))?$/);
+  if(match)return {type:match[2]?'pico_import_as':'pico_import',fields:{MODULE:match[1],...(match[2]?{ALIAS:match[2]}:{})}};
+  match=text.match(/^from\s+(\S+)\s+import\s+(.+)$/);
+  return match?{type:'pico_from_import',fields:{MODULE:match[1],NAMES:match[2]}}:null;
+}
+function importCode(block){
+  const module=block.getFieldValue('MODULE');
+  if(block.type==='pico_from_import')return `from ${module} import ${block.getFieldValue('NAMES')}`;
+  return `import ${module}`+(block.type==='pico_import_as'?` as ${block.getFieldValue('ALIAS')}`:'');
+}
+function parse(source){
+  const tree=parser.parse(source);
+  if(hasError(tree))return source.trim()?[raw(source)]:[];
+  const blocks=[];let end=0,pending='';
+  function append(block){if(pending){block.extraState={...block.extraState,before:pending};pending='';}blocks.push(block);}
+  function appendRaw(code){
+    if(!code)return;
+    if(!code.trim()){const last=blocks.at(-1),newline=code.match(/^\r?\n/)?.[0];if(last?.type==='pico_python'&&newline&&!last.extraState.code.endsWith('\n')){last.extraState.code+=newline;code=code.slice(newline.length);}pending+=code;return;}
+    const last=blocks.at(-1);
+    if(last?.type==='pico_python'){last.extraState.code+=pending+code;pending='';}else append(raw(code));
+  }
+  for(let node=tree.topNode.firstChild;node;node=node.nextSibling){
+    appendRaw(source.slice(end,node.from));
+    const text=source.slice(node.from,node.to),body=node.getChild('Body');
+    const imported=node.name==='ImportStatement'&&!text.includes('\n')?importState(text):null;
+    if(imported&&(node.to===source.length||/^[\r\n]/.test(source.slice(node.to)))){
+      const eol=source.slice(node.to).match(/^\r?\n/)?.[0]||'';
+      append({...imported,extraState:{eol,importCode:text,importFields:imported.fields}});
+      end=node.to+eol.length;continue;
+    }
+    else if(['ClassDefinition','FunctionDefinition'].includes(node.name)&&body){
+      const match=source.slice(node.from,body.from).match(/^(class|def) ([^\r\n]+)$/);
+      const content=source.slice(body.from+1,node.to),newline=content.match(/^([^\S\r\n]*\r?\n)([ \t]+)/);
+      if(match&&newline){
+        const indent=newline[2],bodySource=indentSource(content.slice(newline[1].length),indent,true);
+        const children=chain(parse(bodySource));
+        append({type:match[1]==='class'?'pico_class':'pico_def',fields:{HEADER:match[2]},extraState:{original:text,header:match[2],body:bodySource,indent},...(children?{inputs:{DO:{block:children}}}:{})});
+      }else appendRaw(text);
+    }else appendRaw(text);
+    end=node.to;
+  }
+  appendRaw(source.slice(end));
+  if(pending&&blocks.length)blocks.at(-1).extraState={...blocks.at(-1).extraState,after:pending};
+  return blocks;
+}
+function positionRoots(blocks){
+  let y=24;
+  function count(block){let n=1;for(const input of Object.values(block.inputs||{})){let child=input.block;while(child){n+=count(child);child=child.next?.block;}}return n;}
+  for(const block of blocks){block.x=24;block.y=y;y+=48*count(block)+32;}
+  return blocks;
+}
+export function fromSource(source){return {blocks:{languageVersion:0,blocks:positionRoots(parse(source))}};}
+export function upgrade(state){
+  const copy=structuredClone(state);
+  function clean(first){
+    const result=[];let gap='';
+    for(let block=first;block;){
+      const next=block.next?.block;delete block.next;
+      for(const input of Object.values(block.inputs||{}))if(input.block)input.block=chain(clean(input.block));
+      if(block.type==='pico_python'&&!block.extraState?.code?.trim()){gap+=(block.extraState?.before||'')+(block.extraState?.code||'')+(block.extraState?.after||'');block=next;continue;}
+      if(block.type==='pico_import'&&Object.hasOwn(block.fields||{},'CODE')){
+        const code=block.fields.CODE,imported=importState(code);
+        if(imported){block.type=imported.type;block.fields=imported.fields;block.extraState={...block.extraState,importCode:code,importFields:imported.fields};}
+        else{block.type='pico_python';delete block.fields;block.extraState={...block.extraState,code:code+(block.extraState?.eol??'\n')};}
+      }
+      if(gap){block.extraState={...block.extraState,before:gap+(block.extraState?.before||'')};gap='';}
+      result.push(block);block=next;
+    }
+    if(gap&&result.length)result.at(-1).extraState={...result.at(-1).extraState,after:(result.at(-1).extraState?.after||'')+gap};
+    return result;
+  }
+  const roots=[];let unwrapped=false;
+  for(const root of copy.blocks?.blocks||[]){
+    if(['pico_class','pico_def','pico_import','pico_import_as','pico_from_import','pico_python'].includes(root.type)&&root.disabledReasons?.includes('PICO_UNCONNECTED'))root.disabledReasons=[...new Set([...root.disabledReasons,'MANUALLY_DISABLED'])];
+    if(root.type==='pico_module'){const body=clean(root.inputs?.DO?.block);for(const block of body){delete block.x;delete block.y;const reasons=(root.disabledReasons||[]).filter(reason=>reason!=='PICO_UNCONNECTED');if(reasons.length)block.disabledReasons=[...new Set([...(block.disabledReasons||[]),...reasons])];}roots.push(...body);unwrapped=true;}
+    else{const list=clean(root);if(list.length)roots.push(chain(list));}
+  }
+  if(copy.blocks)copy.blocks.blocks=unwrapped?positionRoots(roots):roots;
+  return copy;
+}
+export function layout(workspace){
+  let y=24;
+  for(const block of workspace.getTopBlocks(true)){
+    if(!block.getHeightWidth)continue;
+    const point=block.getRelativeToSurfaceXY();block.moveBy(24-point.x,y-point.y);y+=block.getHeightWidth().height+24;
+  }
+}
+const rootTypes=['pico_module','pico_start','pico_class','pico_def','pico_import','pico_import_as','pico_from_import','pico_python','procedures_defnoreturn','procedures_defreturn'];
+export function configure(B,g,editRaw){
+  B.defineBlocksWithJsonArray([
+    {type:'pico_module',message0:'ファイル %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],colour:45},
+    {type:'pico_import',message0:'import %1',args0:[{type:'field_input',name:'MODULE',text:'time'}],previousStatement:null,nextStatement:null,colour:165},
+    {type:'pico_from_import',message0:'from %1 import %2',args0:[{type:'field_input',name:'MODULE',text:'my_tools'},{type:'field_input',name:'NAMES',text:'Counter, twice'}],previousStatement:null,nextStatement:null,colour:165},
+    {type:'pico_import_as',message0:'import %1 as %2',args0:[{type:'field_input',name:'MODULE',text:'time'},{type:'field_input',name:'ALIAS',text:'clock'}],previousStatement:null,nextStatement:null,colour:165},
+    {type:'pico_class',message0:'クラス %1 %2 %3',args0:[{type:'field_input',name:'HEADER',text:'MyClass'},{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,colour:215},
+    {type:'pico_def',message0:'関数 %1 %2 %3',args0:[{type:'field_input',name:'HEADER',text:'my_function()'},{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,colour:290}
+  ]);
+  B.Blocks.pico_python={
+    init(){this.appendDummyInput().appendField(new B.FieldLabelSerializable('pass'),'LABEL');this.setPreviousStatement(true);this.setNextStatement(true);this.setColour(210);this.pythonCode='pass\n';},
+    saveExtraState(){return {code:this.pythonCode};},
+    loadExtraState(state){if(typeof state.code!=='string')throw Error('Pythonブロックの内容が不正です。');this.pythonCode=state.code;this.setFieldValue(state.code.split('\n').find(s=>s.trim())?.trim().slice(0,80)||'空行','LABEL');this.setTooltip(state.code);},
+    setCode(code){const before=JSON.stringify(this.saveExtraState());B.Events.disable();try{this.loadExtraState({...this.saveExtraState(),code});}finally{B.Events.enable();}B.Events.fire(new B.Events.BlockChange(this,'mutation',null,before,JSON.stringify(this.saveExtraState())));},
+    customContextMenu(options){options.push({text:'Pythonを編集…',enabled:true,callback:()=>editRaw(this)});}
+  };
+  for(const type of ['pico_import','pico_import_as','pico_from_import']){
+    B.Blocks[type].saveExtraState=function(){return this.originalImport||{eol:'\n'};};
+    B.Blocks[type].loadExtraState=function(state){this.originalImport=state;};
+  }
+  for(const type of ['pico_class','pico_def']){
+    B.Blocks[type].saveExtraState=function(){return this.originalPython||{};};
+    B.Blocks[type].loadExtraState=function(state){this.originalPython=state.original?state:null;};
+  }
+  for(const type of ['pico_class','pico_def','pico_import','pico_import_as','pico_from_import','pico_python']){
+    const definition=B.Blocks[type],save=definition.saveExtraState,load=definition.loadExtraState;
+    definition.saveExtraState=function(){return {...save.call(this),...(this.pythonBefore?{before:this.pythonBefore}:{}),...(this.pythonAfter?{after:this.pythonAfter}:{})};};
+    definition.loadExtraState=function(state){const {before='',after='',...rest}=state;this.pythonBefore=before;this.pythonAfter=after;load.call(this,rest);};
+  }
+  function sequence(block,g,one=false){let code='';while(block){if(block.isEnabled()&&!block.getInheritedDisabled()){
+    code+=block.pythonBefore||'';
+    if(['pico_module','pico_start'].includes(block.type))code+=sequence(block.getInputTargetBlock('DO'),g);
+    else if(block.type==='pico_python')code+=block.pythonCode;
+    else if(['pico_import','pico_import_as','pico_from_import'].includes(block.type)){const original=block.originalImport;const unchanged=original?.importFields&&Object.entries(original.importFields).every(([field,value])=>block.getFieldValue(field)===value);code+=(unchanged?original.importCode:importCode(block))+(original?.eol??'\n');}
+    else if(['pico_class','pico_def'].includes(block.type)){
+      let body=sequence(block.getInputTargetBlock('DO'),g),header=block.getFieldValue('HEADER');const original=block.originalPython;
+      if(original&&body===original.body){const prefix=block.type==='pico_class'?'class ':'def ';code+=prefix+header+original.original.slice(prefix.length+original.header.length);}
+      else{if(!body.trim())body='pass\n';const indent=original?.indent||'    ';code+=(block.type==='pico_class'?'class ':'def ')+header+':\n'+indentSource(body,indent);if(!code.endsWith('\n'))code+='\n';}
+    }else{const value=g.blockToCode(block,true);code+=Array.isArray(value)?value[0]+'\n':value;}
+  code+=block.pythonAfter||'';
+  }if(one)break;const next=block.getNextBlock();if(next&&code&&!code.endsWith('\n')&&!(/^[\r\n]/.test(next.pythonBefore||'')||next.type==='pico_python'&&/^[\r\n]/.test(next.pythonCode)))code+='\n';block=next;}return code;}
+  for(const type of ['pico_module','pico_class','pico_def','pico_import','pico_import_as','pico_from_import','pico_python'])g.forBlock[type]=(block,g)=>sequence(block,g,true);
+  return {generate(workspace,parts=[],path='main.py'){
+    B.Events.disable();
+    try{
+      for(const block of workspace.getAllBlocks(false)){const root=block.getRootBlock(),manual=block.hasDisabledReason('MANUALLY_DISABLED');block.setDisabledReason(!rootTypes.includes(root.type),'PICO_UNCONNECTED');if(manual)block.setDisabledReason(true,'MANUALLY_DISABLED');}
+      g.init(workspace);
+      let code='';const roots=workspace.getTopBlocks(false).sort((a,b)=>{const p=a.getRelativeToSurfaceXY(),q=b.getRelativeToSurfaceXY();return p.y-q.y||p.x-q.x;});
+      for(const block of roots)if(block.isEnabled()){const text=sequence(block,g);if(code&&!code.endsWith('\n')&&text&&!/^[\r\n]/.test(text))code+='\n';code+=text;}
+      const imports=[];
+      const enabled=workspace.getAllBlocks(false).filter(b=>b.isEnabled()&&!b.getInheritedDisabled());
+      const used=parts.filter(p=>enabled.some(b=>b.getFieldValue('PART')===p.id));
+      if(used.length&&path!=='parts.py')imports.push('from parts import '+used.map(p=>p.id).join(', '));
+      if(enabled.some(b=>b.type==='pico_wait')&&!/^import time\s*$/m.test(code))imports.push('import time');
+      const definitions=Object.values(g.definitions_||{}).filter(text=>!code.includes(text));
+      return [...imports,...definitions].map(text=>text+'\n').join('')+code;
+    }finally{B.Events.enable();}
+  }};
+}

@@ -8,13 +8,13 @@
   <script src="analyzer.js" defer></script>
 </head>
 <body class="analyzer">
-<header><a href="index.html">← 教材へ</a><strong>Pico / MicroPython</strong></header>
+<header><a href="index.html">← 教材へ</a><a href="block-studio.html#analyzer">ライブロジアナ</a></header>
 <main>
   <h1>赤外線ロジアナ</h1>
   <section class="card signal-input" aria-label="信号の入力">
     <label for="signal">受信データ <span class="unit">µs</span></label>
     <textarea id="signal" placeholder="[4480, 2240, 560, 560, …]" spellcheck="false"></textarea>
-    <div class="actions"><button id="analyze">解析する</button><button id="sample" class="secondary">サンプル「A」</button></div>
+    <div class="actions"><button id="analyze">解析する</button><button id="sample" class="secondary">サンプルの信号</button></div>
     <p id="status" role="status" aria-live="polite"></p>
   </section>
   <section class="card workspace" aria-label="波形と解析結果">
@@ -60,9 +60,9 @@
     <table>
       <thead><tr><th>OFF時間 ÷ ON時間</th><th>ビット</th></tr></thead>
       <tbody>
-        <tr><td>0.5〜1.5</td><td><span class="bit-zero">0</span></td></tr>
-        <tr><td>2.5〜3.5</td><td><span class="bit-one">1</span></td></tr>
-        <tr><td>上記以外</td><td><span class="bit-unknown">?</span></td></tr>
+        <tr><td>2未満</td><td><span class="bit-zero">0</span></td></tr>
+        <tr><td>2以上</td><td><span class="bit-one">1</span></td></tr>
+        <tr><td>時間が不正</td><td><span class="bit-unknown">?</span></td></tr>
       </tbody>
     </table>
     <p class="hint">家電リモコンの符号化方式によっては、この判定方法では読み取れません。</p>

@@ -1,0 +1,49 @@
+export * as blocks from './python-blocks.mjs';
+export * as step from './pico-step.mjs';
+import {basicSetup} from 'codemirror';
+import {EditorState, StateEffect, StateField, Compartment} from '@codemirror/state';
+import {EditorView, keymap, Decoration} from '@codemirror/view';
+import {indentWithTab} from '@codemirror/commands';
+import {indentUnit} from '@codemirror/language';
+import {python} from '@codemirror/lang-python';
+
+export function create(parent,{onChange,onDefinition,onSave}){
+  const documents=new Map();
+  let active=null,changing=false;
+  const access=new Compartment();
+  const setHighlight=StateEffect.define();
+  const highlights=StateField.define({create:()=>Decoration.none,update(value,transaction){
+    if(transaction.docChanged)value=Decoration.none;
+    for(const effect of transaction.effects)if(effect.is(setHighlight)){
+      value=Decoration.set(effect.value.map(line=>Decoration.line({class:'cm-block-source'}).range(transaction.state.doc.line(line).from)));
+    }
+    return value;
+  },provide:field=>EditorView.decorations.from(field)});
+  const extensions=[basicSetup,python(),access.of([]),indentUnit.of('    '),highlights,
+    keymap.of([indentWithTab,{key:'F12',run:()=>{onDefinition();return true;}},{key:'Mod-s',run:()=>{onSave();return true;}}]),
+    EditorView.contentAttributes.of({'aria-label':'MicroPythonエディタ'}),
+    EditorView.updateListener.of(update=>{if(update.docChanged&&!changing&&active){documents.set(active,update.state);onChange(active,update.state.doc.toString());}}),
+    EditorView.theme({'&':{height:'100%',fontSize:'13px'},'.cm-scroller':{overflow:'auto',fontFamily:'ui-monospace, SFMono-Regular, Consolas, monospace'},'.cm-content':{padding:'12px 0'},'.cm-gutters':{backgroundColor:'#f5f7f9',border:'none'},'.cm-block-source':{backgroundColor:'#fff0bf',boxShadow:'inset 3px 0 #d19a21'}})
+  ];
+  const view=new EditorView({parent,state:EditorState.create({extensions})});
+  function setFile(path,text){
+    changing=true;
+    try{
+      if(active)documents.set(active,view.state);
+      let state=documents.get(path)||EditorState.create({doc:text,extensions});
+      if(state.doc.toString()!==text)state=state.update({changes:{from:0,to:state.doc.length,insert:text}}).state;
+      active=path;documents.set(path,state);view.setState(state);
+    }finally{changing=false;}
+  }
+  return {setFile,
+    setReadOnly(value){view.dispatch({effects:access.reconfigure([EditorState.readOnly.of(value),EditorView.editable.of(!value)])});},
+    highlightLines(range){
+      const lines=range?Array.from({length:range.to-range.from+1},(_,i)=>range.from+i).filter(n=>n>=1&&n<=view.state.doc.lines):[];
+      const effects=[setHighlight.of(lines)];
+      if(lines.length)effects.push(EditorView.scrollIntoView(view.state.doc.line(lines[0]).from,{y:'nearest'}));
+      view.dispatch({effects});
+    },
+    goLine(number){const line=view.state.doc.line(Math.max(1,Math.min(number,view.state.doc.lines)));view.dispatch({selection:{anchor:line.from},effects:EditorView.scrollIntoView(line.from,{y:'center'})});view.focus();},
+    word(){const {from,to}=view.state.selection.main;if(from!==to)return view.state.sliceDoc(from,to);const line=view.state.doc.lineAt(from),offset=from-line.from;const before=line.text.slice(0,offset).match(/[\p{L}\p{N}_]+$/u)?.[0]||'';const after=line.text.slice(offset).match(/^[\p{L}\p{N}_]+/u)?.[0]||'';return before+after;}
+  };
+}

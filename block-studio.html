@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Picoスタジオ｜赤外線通信教材</title>
+  <link rel="stylesheet" href="style.css?v=e50109bd6cca">
+  <link rel="stylesheet" href="block-studio.css?v=3150f1d55055">
+  <link rel="stylesheet" href="live-analyzer.css?v=ccf66910c052">
+  <script src="vendor/blockly/blockly_compressed.js?v=cc761aa447e0" defer></script>
+  <script src="vendor/blockly/blocks_compressed.js?v=4f0b3d4079fe" defer></script>
+  <script src="vendor/blockly/python_compressed.js?v=7d880e1763a1" defer></script>
+  <script src="vendor/blockly/msg/ja.js?v=81647ef6b769" defer></script>
+  <script src="pico-blocks.js?v=c48b48c785da" defer></script>
+  <script src="display-preview.js?v=58978d24e695" defer></script>
+  <script src="vendor/petme128.js?v=12454bca4f13" defer></script>
+  <script src="pico-repl.js?v=24fce0bfb042" defer></script>
+  <script src="pico-devices.js?v=a8577b05ef8e" defer></script>
+  <script src="pico-project.js?v=2500a4b1d394" defer></script>
+  <script src="vendor/codemirror/editor.js?v=c882b65500b4" defer></script>
+  <script src="studio-files.js?v=1ae19f45e0dd" defer></script>
+  <script src="pico-sources.js?v=cf18c9709411" defer></script>
+  <script src="live-core.js?v=d47659fb5907" defer></script>
+  <script src="live-view.js?v=9952c6dd9b68" defer></script>
+  <script src="live-analyzer.js?v=012fddc3be12" defer></script>
+  <script src="block-studio.js?v=38a58ef92093" defer></script>
+</head>
+<body class="block-studio">
+<header><a href="index.html">← 教材へ</a><a href="analyzer.html">配列から解析</a></header>
+<main>
+  <h1>Picoスタジオ</h1>
+  <section class="card shared-connection" aria-label="USB接続">
+    <div class="bar"><select id="program-device" aria-label="このタブで使うPico"></select><span id="program-state" role="status">USB未接続</span><button id="program-connect">USB接続する</button><button id="program-disconnect" class="secondary" disabled>USBを切断する</button></div>
+  </section>
+  <div class="studio-tabs" role="tablist" aria-label="作業"><button id="program-tab" role="tab" aria-selected="true" aria-controls="program-panel">プログラム</button><button id="analyzer-tab" role="tab" aria-selected="false" aria-controls="observer-panel" tabindex="-1">ロジアナ</button></div>
+  <div id="program-panel" role="tabpanel" aria-labelledby="program-tab">
+  <section class="editor-section" aria-label="プログラム編集">
+    <div class="bar project-bar"><label for="example">サンプル</label><select id="example"><option value="send">赤外線を1回送信</option><option value="button_send">ボタンで赤外線送信</option><option value="blink">LED点滅</option><option value="button">ボタンでLED</option><option value="pixels">ピクセルで斜線を描く</option><option value="console">コンソールで入出力</option><option value="modules">自作モジュールをimport</option><option value="peripherals">画面・音・DIPスイッチ</option></select><button id="example-load" class="secondary">読み込む</button><button id="project-save" class="secondary">プロジェクトを保存</button><button id="project-load" class="secondary">開く</button><input id="project-file" type="file" accept=".json,application/json" hidden></div>
+    <details class="card parts-settings"><summary>部品設定</summary>
+      <table><thead><tr><th>名前</th><th>部品</th><th>接続（GP）</th><th>設定</th><th></th></tr></thead><tbody id="parts-rows"></tbody></table>
+      <div class="bar"><select id="new-part-kind" aria-label="追加する部品"><option value="led">LED</option><option value="button">ボタン</option><option value="infrared">赤外線送信</option><option value="ssd1306">SSD1306（I²C）</option><option value="speaker">圧電スピーカー</option><option value="dip">8連DIPスイッチ</option></select><button id="part-add" class="secondary">部品を追加</button><button id="parts-apply">設定を反映</button></div>
+      <p class="hint">ボタンは押すと3.3V。DIPスイッチはONでGND。SSD1306の文字表示は英数字。</p>
+    </details>
+    <section class="program-workspace" aria-label="ブロックとコードの編集・実行">
+      <div class="workspace-toolbar" role="toolbar" aria-label="プログラムの実行">
+        <button id="run" class="icon-button" aria-label="書き込み・実行" title="書き込み・実行" disabled><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16l14-8z" fill="currentColor"/></svg></button>
+        <button id="stop" class="icon-button secondary" aria-label="停止" title="停止" disabled><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="1" fill="currentColor"/></svg></button>
+        <button id="step-start" class="icon-button secondary" aria-label="1行ずつ実行" title="1行ずつ実行（main.py）" disabled><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14l10-7z" fill="currentColor"/><path d="M18 5v14" stroke="currentColor" stroke-width="2"/></svg></button>
+        <button id="step-next" class="secondary" disabled hidden>次へ</button><span id="step-position" role="status"></span>
+        <p id="studio-status" role="status" aria-live="polite"></p>
+      </div>
+    <div class="editor-grid">
+      <div class="card code-panel">
+        <div class="bar file-bar"><h2 id="file-title">main.py</h2><span id="file-origin"></span><button id="file-reset" class="secondary" disabled>生成に戻す</button><button id="python-save" class="secondary">.pyを保存</button></div>
+        <div class="editor-shell">
+          <aside class="file-sidebar" aria-label="ファイル一覧"><div class="file-actions"><button id="file-create" class="secondary" title="ファイルを作成" aria-label="ファイルを作成"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M14 3H5v18h14V8zM14 3v5h5M8 14h8M12 10v8"/></svg></button><button id="folder-create" class="secondary" title="フォルダを作成" aria-label="フォルダを作成"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 6h7l2 3h9v12H3zM8 15h8M12 11v8"/></svg></button><button id="file-rename" class="secondary" title="名前を変更" aria-label="名前を変更"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m4 16 12-12 4 4L8 20H4zM13 7l4 4"/></svg></button></div><nav id="file-tree" aria-label="プロジェクトのファイル"></nav><details class="outline" open><summary>関数</summary><nav id="file-outline" aria-label="関数一覧"></nav></details></aside>
+          <div id="code-editor"></div>
+        </div>
+      </div>
+      <div class="card blocks-panel"><div id="blockly" aria-label="ブロック編集エリア"></div><div id="file-blockly" aria-label="ファイルのブロック編集エリア" hidden></div></div>
+    </div>
+
+    </section>
+    <details class="card pico-files" id="pico-files-panel">
+      <summary>Pico内のファイル・比較</summary>
+      <div class="bar pico-files-bar"><nav id="pico-directory" aria-label="Pico内のフォルダ"></nav><span id="pico-files-state" role="status">USB接続して取得してください。</span><button id="pico-files-refresh" class="secondary" disabled>一覧を取得</button></div>
+      <div class="pico-files-grid">
+        <div class="file-panes"><section><h3>PC（編集中）</h3><nav id="pc-file-tree" aria-label="PCのファイル一覧"></nav></section><section><h3>Pico内</h3><nav id="pico-file-tree" aria-label="Pico内のファイル一覧"></nav></section></div>
+        <section class="pico-comparison" aria-label="ファイルの比較"><div class="bar"><h2 id="pico-file-title">ファイルを選択</h2><span id="pico-file-status"></span></div><p id="pico-file-message" role="status"></p><div class="diff-scroll"><table id="pico-diff" hidden><thead><tr><th>編集中</th><th>Pico内</th></tr></thead><tbody id="pico-diff-rows"></tbody></table></div></section>
+      </div>
+    </details>
+
+  </section>
+  <section class="card display-preview" id="display-preview" aria-label="SSD1306のプレビュー" hidden>
+    <div class="bar"><h2>SSD1306</h2><select id="display-device" aria-label="プレビューする画面"></select><span class="hint">ブロックのプレビュー</span><button id="display-apply">選択ブロックを表示</button><button id="display-show" class="secondary">変更を反映</button><button id="display-reset" class="secondary">画面を消去</button></div>
+    <div class="display-preview-body"><canvas id="display-canvas" width="128" height="64" role="img" aria-label="SSD1306：未表示"></canvas><div id="display-inputs"></div></div>
+    <p id="display-status" role="status"></p>
+  </section>
+
+  </div>
+  <section id="observer-panel" class="analyzer live-analyzer" role="tabpanel" aria-labelledby="analyzer-tab" hidden></section>
+  <details class="card help"><summary>使い方・配線</summary>
+    <table><thead><tr><th>試すこと</th><th>操作</th></tr></thead><tbody>
+      <tr><td>変換を見る</td><td>ブロックの数値や接続を変更すると、MicroPythonが更新されます。</td></tr>
+      <tr><td>コードを編集</td><td>ファイル一覧から選んで編集できます。F12で定義へ移動、Ctrl+F / ⌘Fで検索。「生成に戻す」で、そのファイルの編集を取り消します。直接編集したファイルは、クラス・関数・importとPythonブロックに再構成します。Pythonブロックは右クリックの「Pythonを編集…」から編集できます。</td></tr>
+      <tr><td>REPL</td><td>プログラム用PicoへUSB接続し、コンソールの入力行でEnterを押すと実行します。Shift+Enterで改行、Ctrl+Cで停止します。</td></tr>
+      <tr><td>ピクセルを描く</td><td>左上が(0, 0)。ピクセル値は0＝消灯、1＝点灯。「ピクセルを〜にする」「全体のピクセル」「座標に描く」で準備し、「変更を反映」で表示します。</td></tr>
+      <tr><td>コンソール入出力</td><td>「コンソール」カテゴリのブロックで表示・入力できます。実行中のinput()には、コンソールの入力行からEnterで送信します。</td></tr>
+      <tr><td>1行ずつ実行</td><td>main.pyを文ごとに実機で実行します。「次へ」で進みます。複数行の式やimport先の処理はまとめて実行します。停止には■を使います。</td></tr>
+      <tr><td>書き込み・実行</td><td>PicoをUSB接続して▶を押します。上書き前のファイルは退避し、成功分は直近1回分、失敗時の復旧データは保持します。main.pyは電源を入れ直したときにも実行されます。</td></tr>
+      <tr><td>実機で観測</td><td>「ロジアナ」に切り替え、観測用PicoをUSB接続します。受信ピンを選んで「受信開始」を押します。</td></tr>
+      <tr><td>ファイル・フォルダ</td><td>ファイル一覧のアイコンから作成・名前変更できます。フォルダには__init__.pyを作成します。名前を変えたらimport文も変更してください。main.py・parts.py・付属ライブラリの名前は固定です。</td></tr>
+      <tr><td>作業を残す</td><td>ブロック・部品設定・編集したPythonは、プロジェクトのJSONで保存できます。各ファイルは個別に保存できます。編集中の内容はこのブラウザにも自動保存します。</td></tr>
+    </tbody></table>
+    <p>ピン番号は「部品設定」で変更できます。観測用Picoの受信ピンは「ロジアナ」で選びます（初期値GP15）。</p>
+    <p>USBは1つのプログラムだけが接続できます。別のエディタで書き込む場合は、この画面の「USBを切断する」を押してから、エディタ側で接続してください。</p>
+    <p class="hint">USB接続はPC版Chromeで使用してください。GPIOへの5V入力は避け、部品に適した抵抗・駆動回路を使ってください。</p>
+    <p class="hint"><a href="https://docs.blockly.com/">Blockly 13.4.0</a> / <a href="vendor/blockly/LICENSE">Apache-2.0</a> · <a href="programs/SSD1306-LICENSE.txt">SSD1306 driver / MIT</a> · <a href="https://codemirror.net/">CodeMirror</a> / <a href="vendor/codemirror/LICENSES.txt">MIT</a></p>
+  </details>
+
+</main>
+<section class="output" id="console-panel" aria-labelledby="console-title">
+  <div class="console-header"><h2 id="console-title">コンソール</h2><span id="console-state" role="status">USB未接続</span></div>
+  <div class="terminal-surface" id="terminal-surface"><pre id="output" role="log" aria-live="polite">—</pre><div class="terminal-line"><span id="console-prompt" aria-hidden="true">&gt;&gt;&gt;</span><textarea id="console-input" rows="1" spellcheck="false" aria-label="コンソール入力" title="Enterで送信・Shift+Enterで改行・Ctrl+Cで停止" disabled></textarea></div></div>
+</section>
+<dialog id="file-dialog" aria-labelledby="file-dialog-title"><form method="dialog"><h2 id="file-dialog-title"></h2><label for="file-path-input">パス</label><input id="file-path-input" required spellcheck="false" autocomplete="off"><p id="file-dialog-message" role="status"></p><div class="bar"><button id="file-dialog-apply" type="button">作成</button><button value="cancel" class="secondary" formnovalidate>キャンセル</button></div></form></dialog>
+<dialog id="python-block-dialog" aria-labelledby="python-block-title">
+  <form method="dialog"><h2 id="python-block-title">Python</h2><textarea id="python-block-code" spellcheck="false" aria-label="Pythonブロックのコード"></textarea><div class="bar"><button id="python-block-apply" value="apply">反映</button><button value="cancel" class="secondary">キャンセル</button></div></form>
+</dialog>
+</body>
+</html>

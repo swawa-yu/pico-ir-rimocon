@@ -1,0 +1,33 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const {createHash}=require('node:crypto');
+const {JSDOM}=require('jsdom');
+
+test('the page loads the current editor bundle and its public highlight API works',()=>{
+  const bundle=fs.readFileSync('vendor/codemirror/editor.js','utf8');
+  const dom=new JSDOM(fs.readFileSync('block-studio.html','utf8'),{runScripts:'outside-only',pretendToBeVisual:true});
+  try{
+    const {window}=dom;
+    for(const asset of window.document.querySelectorAll('script[src],link[rel="stylesheet"]')){
+      const reference=asset.getAttribute(asset.tagName==='SCRIPT'?'src':'href'),[path,query]=reference.split('?');
+      const version=createHash('sha256').update(fs.readFileSync(path)).digest('hex').slice(0,12);
+      assert.equal(query,'v='+version,'stale asset reference: '+path);
+    }
+    window.eval(bundle);
+    const parent=window.document.createElement('div');window.document.body.append(parent);
+    const editor=window.PicoEditor.create(parent,{onChange(){},onDefinition(){},onSave(){}});
+    editor.setFile('main.py','first = 1\nsecond = 2\n');
+    editor.highlightLines({from:2,to:2});
+    assert.equal(parent.querySelector('.cm-block-source').textContent,'second = 2');
+    editor.setReadOnly(true);
+    assert.equal(parent.querySelector('.cm-content').getAttribute('contenteditable'),'false');
+    editor.setFile('other.py','pass\n');editor.setReadOnly(true);
+    assert.equal(parent.querySelector('.cm-content').getAttribute('contenteditable'),'false');
+    editor.setReadOnly(false);
+    assert.equal(parent.querySelector('.cm-content').getAttribute('contenteditable'),'true');
+    editor.setFile('main.py','first = 1\nsecond = 2\n');
+    editor.highlightLines(null);
+    assert.equal(parent.querySelector('.cm-block-source'),null);
+  }finally{dom.window.close();}
+});

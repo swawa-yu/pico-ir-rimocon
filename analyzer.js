@@ -37,7 +37,7 @@ function decode(signal, start, order) {
   const bits = [];
   for (let i = start; i + 1 < signal.length; i += 2) {
     const ratio = signal[i + 1] / signal[i];
-    bits.push(ratio >= .5 && ratio <= 1.5 ? "0" : ratio >= 2.5 && ratio <= 3.5 ? "1" : "?");
+    bits.push(Number.isFinite(ratio) && ratio > 0 ? (ratio < 2 ? "0" : "1") : "?");
   }
   const bytes = [];
   for (let i = 0; i + 7 < bits.length; i += 8) {
@@ -118,6 +118,7 @@ if (typeof document !== "undefined") {
       const a = x(offset), b = x(offset + duration), bit = bits[i];
       ctx.fillStyle = bit === "0" ? "#dcebf9" : bit === "1" ? "#fce6d1" : "#edf0f2";
       ctx.fillRect(a, 38, b-a, 112);
+      ctx.strokeStyle="#8799a677";ctx.lineWidth=.75;ctx.beginPath();ctx.moveTo(a,38);ctx.lineTo(a,150);ctx.moveTo(b,38);ctx.lineTo(b,150);ctx.stroke();
       if (b-a > 14) {
         ctx.fillStyle = bit === "0" ? "#185b91" : bit === "1" ? "#914809" : "#586874";
         ctx.textAlign = "center"; ctx.fillText(bit, (a+b)/2, 26);
