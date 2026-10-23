@@ -153,3 +153,26 @@ test('real-device step controls highlight the original line, advance through USB
   assert(s.calls.some(c=>c[0]==='readonly'&&c[1]===false));
  }finally{s.close();}
 });
+
+test('write-only preserves console output, blocks terminal input throughout transfer, and finishes without running main.py',async()=>{
+ let finishWrite;const s=studio(()=>new Promise(resolve=>finishWrite=resolve));
+ try{
+  s.$('output').textContent='previous result\n';
+  s.$('write-only').click();
+  assert.equal(s.calls.filter(c=>c[0]==='write').length,1);
+  assert.match(s.$('output').textContent,/previous result\n[\s\S]*書き込み中/);
+  assert.equal(s.$('console-input').disabled,true);assert.equal(s.$('console-input').placeholder,'書き込み中…');
+  assert.equal(s.$('console-prompt').textContent,'');assert.match(s.$('console-state').textContent,/書き込み中/);
+  assert(s.$('run').disabled&&s.$('write-only').disabled&&s.$('step-start').disabled);
+  s.device.busy=true;s.device.running=true;s.window.deviceWatcher.onState('running');
+  assert.equal(s.$('console-prompt').textContent,'');assert.match(s.$('console-state').textContent,/書き込み中/);
+  s.$('console-input').value='print(99)';s.$('console-input').dispatchEvent(new s.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
+  assert.equal(s.calls.filter(c=>c[0]==='stdin'||c[0]==='repl').length,0);
+  s.device.busy=false;s.device.running=false;finishWrite(JSON.stringify({backup:'.pico-studio-2',changed:1}));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(s.calls.filter(c=>c[0]==='run').length,0);assert.equal(s.device.running,false);
+  assert.match(s.$('output').textContent,/previous result[\s\S]*書き込み完了[\s\S]*\.pico-studio-2/);
+  assert.equal(s.$('console-input').disabled,false);assert.equal(s.$('console-prompt').textContent,'>>>');
+  assert.equal(s.$('write-only').disabled,false);assert.equal(s.$('run').disabled,false);
+ }finally{s.close();}
+});

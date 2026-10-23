@@ -23,7 +23,7 @@
   <script src="live-core.js?v=d47659fb5907" defer></script>
   <script src="live-view.js?v=9952c6dd9b68" defer></script>
   <script src="live-analyzer.js?v=012fddc3be12" defer></script>
-  <script src="block-studio.js?v=38a58ef92093" defer></script>
+  <script src="block-studio.js?v=d56e85820e9d" defer></script>
 </head>
 <body class="block-studio">
 <header><a href="index.html">← 教材へ</a><a href="analyzer.html">配列から解析</a></header>
@@ -43,6 +43,7 @@
     </details>
     <section class="program-workspace" aria-label="ブロックとコードの編集・実行">
       <div class="workspace-toolbar" role="toolbar" aria-label="プログラムの実行">
+        <button id="write-only" class="icon-button secondary" aria-label="書き込みのみ" title="書き込みのみ（実行しない）" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg></button>
         <button id="run" class="icon-button" aria-label="書き込み・実行" title="書き込み・実行" disabled><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16l14-8z" fill="currentColor"/></svg></button>
         <button id="stop" class="icon-button secondary" aria-label="停止" title="停止" disabled><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="1" fill="currentColor"/></svg></button>
         <button id="step-start" class="icon-button secondary" aria-label="1行ずつ実行" title="1行ずつ実行（main.py）" disabled><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14l10-7z" fill="currentColor"/><path d="M18 5v14" stroke="currentColor" stroke-width="2"/></svg></button>

@@ -326,6 +326,7 @@
     $('program-connect').disabled=browsing||deploying||connecting||Boolean(link.port);
     $('program-disconnect').disabled=browsing||deploying||connecting||!link.port||link.busy;
     $('run').disabled=browsing||partsDirty||deploying||!codeValid||!device.port||device.busy||device.running;
+    $('write-only').disabled=$('run').disabled;
     $('stop').disabled=browsing||deploying||!device.port||!device.running||device.busy;
     $('step-start').disabled=$('run').disabled||Boolean(debugSession||debugStarting);
     $('step-next').hidden=!debugSession;
@@ -333,11 +334,11 @@
     $('python-save').disabled=partsDirty||!codeValid;
     const canConsole=Boolean(device.port)&&!connecting&&!deploying&&!browsing&&!device.busy&&(!device.running||device.task==='program');
     $('console-input').disabled=!canConsole||Boolean(debugSession?.paused);
-    $('console-prompt').textContent=device.running?'':'>>>';
+    $('console-prompt').textContent=canConsole&&!device.running?'>>>':'';
     const label=!device.port?'USB未接続':deploying?'書き込み中':device.running?(device.task==='observer'?'観測中':'実行中'):device.busy?'処理中':'USB接続済み';
     $('console-state').textContent=`Pico ${device.id} · ${label}`;
     $('console-state').dataset.connected=String(Boolean(device.port));
-    $('console-input').placeholder=debugSession?.paused?'「次へ」で進めてください':!device.port?'USB接続してください':device.task==='observer'&&device.running?'ロジアナで観測中':device.running?'入力を送る':'';
+    $('console-input').placeholder=deploying?'書き込み中…':browsing?'ファイルを取得中…':device.busy?'処理中…':debugSession?.paused?'「次へ」で進めてください':!device.port?'USB接続してください':device.task==='observer'&&device.running?'ロジアナで観測中':device.running?'入力を送る':'';
     $('project-save').disabled=partsDirty;
     $('pico-files-refresh').disabled=!device.port||connecting||deploying||browsing||device.busy;
     $('pico-files-refresh').textContent=browsing?'取得中…':device.running?'停止して一覧を更新':picoSnapshot?'一覧を更新':'一覧を取得';
@@ -404,19 +405,21 @@
     if(session){const pending=session.output.flush();if(pending)consoleAppend(pending);if(!session.failed)editor.highlightLines?.(null);}
     $('step-position').textContent='';lockDebug(false);
   }
-  async function startProgram(stepped=false){
+  async function startProgram(mode='run'){
+    const stepped=mode==='step',writeOnly=mode==='write';
     if(deploying||browsing||connecting||partsDirty||!device.port||device.busy||device.running)return;
     commitFileBlocks();refresh();if(!codeValid)return;
     const snapshot={...files};let prepared,token,launch;
     try{
       if(stepped){prepared=PicoEditor.step.prepare(snapshot['main.py']);token=Date.now().toString(36)+Math.random().toString(36).slice(2);launch=PicoProject.launchStepped(snapshot,prepared,token);}
-      else launch=PicoProject.launchFor(snapshot);
+      else if(!writeOnly)launch=PicoProject.launchFor(snapshot);
     }catch(error){notify(error.message);return;}
-    deploying=true;debugStarting=stepped;if(stepped)lockDebug(true);updateDevice();notify();$('output').textContent='';
+    deploying=true;debugStarting=stepped;if(stepped)lockDebug(true);updateDevice();notify();consoleAppend(($('output').textContent==='—'?'':'\n')+'書き込み中…\n');
     try{
       const result=await PicoProject.upload(device,snapshot);clearPicoFiles();
       const message=result.backup?`退避先: ${result.backup}/（manifest.json に元のファイル名を記録）`:'ファイルの変更なし';
-      $('output').textContent=message+'\n'+(result.cleanupErrors?.length?`古い退避フォルダを削除できませんでした: ${result.cleanupErrors.join(', ')}\n`:'');
+      consoleAppend('書き込み完了\n'+message+'\n'+(result.cleanupErrors?.length?`古い退避フォルダを削除できませんでした: ${result.cleanupErrors.join(', ')}\n`:''));
+      if(writeOnly)return;
       if(stepped){
         const session={paused:false,started:false,failed:false,line:null};
         session.output=new PicoEditor.step.Output(token,line=>{
@@ -439,7 +442,8 @@
     try{await device.stop();}catch(error){notify(error.message);}finally{debugStopping=false;updateDevice();}
   }
   $('run').addEventListener('click',()=>startProgram());
-  $('step-start').addEventListener('click',()=>startProgram(true));
+  $('write-only').addEventListener('click',()=>startProgram('write'));
+  $('step-start').addEventListener('click',()=>startProgram('step'));
   $('step-next').addEventListener('click',async()=>{
     const session=debugSession;if(!session?.paused||device.busy)return;
     session.paused=false;updateDevice();
