@@ -48,3 +48,11 @@ test('the shared selector follows the active tab while keeping each role assignm
     assert.equal(pool.roles.program,'1');assert.equal(pool.roles.observer,'2');
   }finally{global.document=previous;dom.window.close();}
 });
+
+test('program output from an unselected Pico can be retained while ordinary role output stays selected',()=>{
+ const pool=new Connections(REPL),background=[],selected=[];
+ pool.forRole('program',{onOutput:text=>selected.push(text),onDeviceOutput:(id,event,text)=>background.push([id,event,text])});
+ pool.devices[1].link.onOutput('two');pool.devices[0].link.onOutput('one');
+ assert.deepEqual(selected,['one']);assert.deepEqual(background,[['2','onOutput','two']]);
+ pool.select('program','2');pool.devices[0].link.onIdleOutput('idle one');assert.deepEqual(background.at(-1),['1','onIdleOutput','idle one']);
+});

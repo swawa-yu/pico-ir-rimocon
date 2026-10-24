@@ -13,7 +13,7 @@
       });
     }
     entry(role){return this.devices.find(item=>item.id===this.roles[role]);}
-    emit(item,event,...args){for(const [role,watcher] of Object.entries(this.watchers))if(this.roles[role]===item.id)watcher[event]?.(...args);}
+    emit(item,event,...args){if(['onOutput','onIdleOutput'].includes(event)&&this.roles.program!==item.id)this.watchers.program?.onDeviceOutput?.(item.id,event,...args);for(const [role,watcher] of Object.entries(this.watchers))if(this.roles[role]===item.id)watcher[event]?.(...args);}
     changed(){for(const listener of this.listeners)listener();}
     select(role,id){
       if(!this.devices.some(item=>item.id===id))throw Error('Picoを選んでください。');
@@ -47,7 +47,7 @@
     bindSelect(element,role){
       const current=()=>typeof role==='function'?role():role;
       const render=()=>{element.replaceChildren();for(const item of this.devices){const option=document.createElement('option');option.value=item.id;option.textContent=`Pico ${item.id}${item.link.port?' · 接続済み':''}`;element.append(option);}element.value=this.roles[current()];};
-      this.listeners.add(render);element.addEventListener('change',()=>{this.select(current(),element.value);});render();
+      this.listeners.add(render);element.addEventListener('change',()=>{try{this.select(current(),element.value);}catch(error){render();element.dispatchEvent(new CustomEvent('device-error',{detail:error.message}));}});render();
     }
   }
   if(typeof module!=='undefined')module.exports={Connections};

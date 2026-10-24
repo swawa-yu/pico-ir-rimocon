@@ -26,7 +26,14 @@ function studio(exec,stored={}){
   w.python={pythonGenerator};
   w.PicoBlocks=require('../pico-blocks.js');w.StudioFiles=require('../studio-files.js');
   w.StudioSamples=require('../studio-samples.js');w.PicoSources=require('../pico-sources.js');w.PicoProject={...require('../pico-project.js'),async upload(device,files){calls.push(['write',files]);return JSON.parse(await exec(files));}};
-  w.PicoDevices={listeners:new Set(),forRole:(_role,watcher)=>{w.deviceWatcher=watcher;return device;},bindSelect(){},changed(){},entry:()=>({id:'2',state:'connected',link:device})};
+  const links={};let linkNumber=0;
+  w.PicoREPL=function(callbacks){const id=String(++linkNumber),link=id==='2'?device:{...device,id};Object.assign(link,callbacks);links[id]=link;return link;};
+  w.eval(fs.readFileSync('pico-devices.js','utf8'));
+  for(const entry of w.PicoDevices.devices){entry.state='connected';entry.task='program';}
+  w.PicoDevices.select('program','2');w.PicoDevices.select('observer','2');
+  const forRole=w.PicoDevices.forRole.bind(w.PicoDevices);w.PicoDevices.forRole=(role,watcher)=>{if(role==='program')w.deviceWatcher=watcher;return forRole(role,watcher);};
+  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
+
   w.eval(fs.readFileSync('vendor/codemirror/editor.js','utf8'));
   w.structuredClone=global.structuredClone;
   w.PicoEditor={blocks:w.PicoEditor.blocks,step:w.PicoEditor.step,create:(_element,callbacks)=>{w.editorCallbacks=callbacks;return {setFile(){},setReadOnly(value){calls.push(['readonly',value]);},highlightLines(range){calls.push(['highlight',range]);},goLine(line){calls.push(['line',line]);}};}};
@@ -35,7 +42,7 @@ function studio(exec,stored={}){
   w.HTMLElement.prototype.scrollIntoView=function(){calls.push(['scroll',this.id]);};
   for(const [key,value] of Object.entries(stored))w.localStorage.setItem(key,value);
   w.eval(fs.readFileSync('block-studio.js','utf8'));
-  return {window:w,device,calls,workspaces,$:id=>w.document.getElementById(id),close(){for(const ws of workspaces)ws.dispose();dom.window.close();for(const type of Object.keys(Blockly.Blocks))if(type.startsWith('pico_'))delete Blockly.Blocks[type];}};
+  return {window:w,device,links,calls,workspaces,$:id=>w.document.getElementById(id),close(){for(const ws of workspaces)ws.dispose();dom.window.close();for(const type of Object.keys(Blockly.Blocks))if(type.startsWith('pico_'))delete Blockly.Blocks[type];}};
 }
 
 test('one click writes and runs without confirmation, keeps the shared console visible, and enables input until stopped',async()=>{
@@ -283,7 +290,7 @@ test('a new named project keeps hardware configuration and a named saved copy re
   const fresh=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
   assert.equal(fresh.name,'赤外線の練習');assert.equal(fresh.files['main.py'],'');assert.deepEqual(fresh.parts,originalParts);
   const saved=[];s.window.URL.createObjectURL=blob=>{saved.push(blob);return 'blob:project';};s.window.URL.revokeObjectURL=()=>{};s.window.HTMLAnchorElement.prototype.click=function(){saved.push(this.download);};
-  s.$('project-save-as').click();s.$('project-name-input').value='別の練習';s.$('project-apply').click();
+  s.$('project-tabs').querySelector('[aria-selected=true]').dispatchEvent(new s.window.MouseEvent('contextmenu',{bubbles:true,clientX:10,clientY:10}));s.$('project-save-as').click();s.$('project-name-input').value='別の練習';s.$('project-apply').click();
   assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).name,'別の練習');assert.equal(saved[1],'別の練習.json');
  }finally{s.close();}
 });
@@ -313,10 +320,10 @@ test('a new named project keeps hardware configuration and a named saved copy re
   const stored=Object.fromEntries(['pico-studio-tabs-1','pico-blocks-project-2'].map(key=>[key,s.window.localStorage.getItem(key)]));
   restored=studio(async()=>JSON.stringify({changed:0}),stored);
   assert.equal(restored.$('project-tabs').querySelectorAll('[role=tab]').length,2);
-  assert.equal(restored.$('project-tabs').querySelector('[aria-selected=true]').textContent,'BOOTSELで扇風機を回す（部品ライブラリ）');
+  assert.equal(restored.$('project-tabs').querySelector('[aria-selected=true] .project-tab-name').textContent,'BOOTSELで扇風機を回す（部品ライブラリ）');
   restored.$('project-tabs').querySelector('[role=tab]').click();
   assert.equal(JSON.parse(restored.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],'value = 7\nprint(value)\n');
-  restored.window.confirm=()=>true;restored.$('project-tabs').querySelectorAll('.project-close')[1].click();
+  restored.window.confirm=()=>true;restored.$('project-tabs').querySelectorAll('.project-close')[1].click();restored.$('project-discard-close').click();
   assert.equal(restored.$('project-tabs').querySelectorAll('[role=tab]').length,1);assert(restored.device.port);assert(!restored.calls.some(call=>call[0]==='write'));
  }finally{restored?.close();s.close();}
 });
@@ -327,5 +334,81 @@ test('parts settings show an empty state before a part is added and after the la
   assert.equal(s.$('parts-empty').hidden,false);assert.equal(s.$('parts-rows').closest('table').hidden,true);
   s.$('new-part-kind').value='receiver';s.$('part-add').click();assert.equal(s.$('parts-empty').hidden,true);
   s.$('parts-rows').querySelector('button').click();assert.equal(s.$('parts-empty').hidden,false);
+ }finally{s.close();}
+});
+
+test('each project restores its Pico, retains background console output, and leaves an independently selected analyzer alone',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));let restored;
+ try{
+  const pool=s.window.PicoDevices;
+  pool.select('program','1');s.links['1'].onOutput('receive one\n');
+  s.$('example').value='basic_send';s.$('example-load').click();pool.select('program','2');s.links['2'].onOutput('send two\n');
+  s.links['1'].onOutput('background receive\n');
+  assert.match(s.$('output').textContent,/send two/);assert.doesNotMatch(s.$('output').textContent,/receive one|background receive/);
+  s.$('project-tabs').querySelector('[role=tab]').click();assert.equal(pool.roles.program,'1');assert.match(s.$('output').textContent,/receive one[\s\S]*background receive/);
+  s.$('project-tabs').querySelectorAll('[role=tab]')[1].click();assert.equal(pool.roles.program,'2');assert.match(s.$('output').textContent,/send two/);
+  pool.select('observer','1');pool.devices[0].task='observer';s.links['1'].running=true;s.$('analyzer-tab').click();
+  assert.match(s.$('console-state').textContent,/Pico 1.*観測中/);assert(s.$('console-input').disabled);
+  s.$('program-tab').click();assert.match(s.$('console-state').textContent,/Pico 2/);assert.equal(pool.roles.observer,'1');
+  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.deepEqual(tabs.projects.map(entry=>entry.data.pico),['1','2']);
+  restored=studio(async()=>JSON.stringify({changed:0}),{'pico-studio-tabs-1':JSON.stringify(tabs)});assert.equal(restored.window.PicoDevices.roles.program,'2');restored.$('project-tabs').querySelector('[role=tab]').click();assert.equal(restored.window.PicoDevices.roles.program,'1');
+ }finally{restored?.close();s.close();}
+});
+
+test('local save clears the dirty marker, undoing text edits restores it, duplicate stays unsaved, and close can be cancelled',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.window.URL.createObjectURL=()=> 'blob:project';s.window.URL.revokeObjectURL=()=>{};s.window.HTMLAnchorElement.prototype.click=function(){};
+  const original=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'];
+  assert(s.$('project-tabs').querySelector('.project-unsaved'));
+  s.$('project-save').click();assert.equal(s.$('project-tabs').querySelector('.project-unsaved'),null);
+  s.window.editorCallbacks.onChange('main.py','value = 9\nprint(value)\n');assert(s.$('project-tabs').querySelector('.project-unsaved'));
+  s.window.editorCallbacks.onChange('main.py',original);assert.equal(s.$('project-tabs').querySelector('.project-unsaved'),null);
+  const tab=s.$('project-tabs').querySelector('[role=tab]');tab.dispatchEvent(new s.window.MouseEvent('contextmenu',{bubbles:true,clientX:20,clientY:20}));assert.equal(s.$('project-menu').hidden,false);
+  s.$('project-duplicate').click();s.$('project-name-input').value='copy';s.$('project-apply').click();
+  assert.equal(s.$('project-tabs').querySelectorAll('[role=tab]').length,2);assert(s.$('project-tabs').querySelectorAll('[role=tab]')[1].querySelector('.project-unsaved'));
+  s.$('project-tabs').querySelectorAll('.project-close')[1].click();assert(s.$('project-close-dialog').open);s.$('project-close-dialog').close();assert.equal(s.$('project-tabs').querySelectorAll('[role=tab]').length,2);
+  const before=new s.window.Event('beforeunload',{cancelable:true});s.window.dispatchEvent(before);assert(before.defaultPrevented);
+  s.$('project-save').click();const after=new s.window.Event('beforeunload',{cancelable:true});s.window.dispatchEvent(after);assert.equal(after.defaultPrevented,false);
+ }finally{s.close();}
+});
+
+test('legacy tabs with no record of local saving remain protected as unsaved, including inactive tabs',()=>{
+ const initial=studio(async()=>JSON.stringify({changed:0}));let restored;
+ try{
+  const data=JSON.parse(initial.window.localStorage.getItem('pico-blocks-project-2'));
+  const tabs={active:0,projects:[{data,file:'main.py',dirty:false},{data:{...data,name:'old copy'},file:'main.py',dirty:false}]};
+  restored=studio(async()=>JSON.stringify({changed:0}),{'pico-studio-tabs-1':JSON.stringify(tabs)});
+  assert.equal(restored.$('project-tabs').querySelectorAll('.project-unsaved').length,2);restored.$('project-tabs').querySelectorAll('.project-close')[1].click();assert(restored.$('project-close-dialog').open);assert.equal(restored.$('project-tabs').querySelectorAll('[role=tab]').length,2);
+ }finally{restored?.close();initial.close();}
+});
+
+test('discarded project tabs can be reopened with their files and Pico assignment',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.$('example').value='basic_send';s.$('example-load').click();s.window.PicoDevices.select('program','1');const source=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'];
+  s.$('project-tabs').querySelectorAll('.project-close')[1].click();assert(s.$('project-close-dialog').open);s.$('project-discard-close').click();
+  s.$('project-add').click();assert.equal(s.$('project-reopen').hidden,false);s.$('project-reopen').click();
+  const reopened=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));assert.equal(reopened.files['main.py'],source);assert.equal(reopened.pico,'1');assert.equal(s.$('project-tabs').querySelectorAll('[role=tab]').length,2);
+ }finally{s.close();}
+});
+
+test('save-and-close saves the targeted inactive project and leaves the other project selected',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  const downloaded=[];s.window.URL.createObjectURL=()=> 'blob:project';s.window.URL.revokeObjectURL=()=>{};s.window.HTMLAnchorElement.prototype.click=function(){downloaded.push(this.download);};
+  s.$('example').value='basic_send';s.$('example-load').click();s.$('project-tabs').querySelector('.project-close').click();assert(s.$('project-close-dialog').open);
+  s.$('project-save-close').click();assert.deepEqual(downloaded,['変数の値を表示.json']);
+  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects.length,1);assert.equal(tabs.projects[0].data.name,'ビット配列を送信する');assert.equal(tabs.closed.data.name,'変数の値を表示');assert.equal(tabs.closed.dirty,false);
+ }finally{s.close();}
+});
+
+test('save-and-close waits if the targeted project Pico is busy without replacing the other tab',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.window.PicoDevices.select('program','1');s.$('example').value='basic_send';s.$('example-load').click();s.window.PicoDevices.select('program','2');
+  s.$('project-tabs').querySelector('.project-close').click();assert(s.$('project-close-dialog').open);s.links['1'].busy=true;
+  s.$('project-save-close').click();assert.equal(s.$('project-tabs').querySelectorAll('[role=tab]').length,2);assert(s.$('project-close-dialog').open);
+  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects[0].data.name,'変数の値を表示');assert.equal(tabs.projects[1].data.name,'ビット配列を送信する');
  }finally{s.close();}
 });

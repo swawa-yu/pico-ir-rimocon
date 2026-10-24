@@ -202,3 +202,17 @@
 .project-tabs [aria-selected=true]{background:white;color:#075b81;border-bottom-color:#075b81;font-weight:600}
 .project-tabs .project-close{background:transparent;color:#667d89;padding:4px 8px}
 #parts-empty{font-size:.85rem;color:#667d89;margin:16px 0}
+
+.project-pico{font-size:10px;margin-left:10px;color:#667d89}
+.project-unsaved{font-size:8px;margin-left:8px;color:#a86612}
+.project-menu{position:fixed;z-index:1000;min-width:200px;padding:5px;background:white;border:1px solid #ccd9df;border-radius:6px;box-shadow:0 5px 20px #172c3c22}
+.project-menu button{display:block;width:100%;text-align:left;background:white;color:#172c3c}
+.project-menu button:hover,.project-menu button:focus{background:#e4eef2}
+#project-add-dialog{max-width:580px}
+#project-add-dialog .sample-picker{display:flex;flex-wrap:wrap;gap:12px;margin:24px 0}
+#project-add-dialog select{flex:1;min-width:220px;font-size:.85rem}
+#project-add-dialog label{width:100%;font-size:.85rem}
+.project-tabs [role=tab]{display:flex;align-items:center}
+.project-tab-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.project-pico,.project-unsaved{flex-shrink:0}
+#project-add{position:sticky;right:0;flex-shrink:0;z-index:1;background:#e4eef2;box-shadow:-5px 0 8px #f2f6f7}
