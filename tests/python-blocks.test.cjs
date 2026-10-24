@@ -399,7 +399,7 @@ assert module.decode([9000,4500,560,1680,560,560,560]) == ([1,0],1)
 
 test('beginner samples expose editable binary, receive and send blocks and regenerate changed digits',()=>{
  const samples=require('../studio-samples.js');
- for(const name of ['console','binary','send','receive','button_send','carrier','fan']){
+ for(const name of ['times','button_times','receive_times','console','binary','number','send','receive','button_send','carrier','fan','rgb']){
   const sample=samples.beginner(name),source=sample.files['main.py'],ws=new B.Workspace();testParts=sample.parts;
   B.serialization.workspaces.load(fromSource(source,sample.parts),ws);
   try{
@@ -407,10 +407,21 @@ test('beginner samples expose editable binary, receive and send blocks and regen
 assert ast.dump(ast.parse(sys.stdin.read())) == ast.dump(ast.parse(${JSON.stringify(source)}))`],{input:api.generate(ws,sample.parts),encoding:'utf8'});
    assert.equal(original.status,0,original.stderr);
    if(['binary','send','button_send'].includes(name)){
-    const edits=ws.getAllBlocks(false).filter(b=>b.type==='pico_set_bits');
-    assert.equal(edits.length,2);assert(ws.getAllBlocks(false).some(b=>b.type==='pico_new_bits'));
-    edits.find(b=>b.getInputTargetBlock('VALUE').getFieldValue('NUM')===42).getInputTargetBlock('VALUE').setFieldValue(66,'NUM');
-    assert.match(api.generate(ws,sample.parts),/ir_data\.set_bits\(信号, 9, 16, 66\)/);
+    const list=ws.getAllBlocks(false).find(b=>b.type==='lists_create_with');
+    assert.equal(list.itemCount_,16);
+    list.getInputTargetBlock('ADD0').setFieldValue(1,'NUM');
+    assert.match(api.generate(ws,sample.parts),/信号 = \[\s*1,/);
+    assert(!ws.getAllBlocks(false).some(b=>b.type==='pico_set_bits'));
+   }
+   if(name==='times'){
+    const send=ws.getAllBlocks(false).find(b=>b.type==='pico_send_times');assert(send);
+    const list=ws.getAllBlocks(false).find(b=>b.type==='lists_create_with');list.getInputTargetBlock('ADD3').setFieldValue(1120,'NUM');
+    assert.match(api.generate(ws,sample.parts),/1120/);
+   }
+   if(name==='rgb'){
+    const color=ws.getAllBlocks(false).find(b=>b.type==='pico_rgb');assert(color);
+    color.getInputTargetBlock('RED').setFieldValue(25,'NUM');assert.match(api.generate(ws,sample.parts),/color_led\.set\(25, 0, 0\)/);
+    assert(ws.getAllBlocks(false).some(b=>b.type==='pico_rgb_off'));
    }
    if(name==='send')assert(ws.getAllBlocks(false).some(b=>b.type==='pico_send_bits'));
    if(name==='receive')assert(ws.getAllBlocks(false).some(b=>b.type==='pico_receive_bits'));

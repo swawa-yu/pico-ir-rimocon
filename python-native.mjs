@@ -27,11 +27,11 @@ export function nativeStatement(node,source,parts,parseBody){
   const input=block=>({block});
   const number=n=>({type:'math_number',fields:{NUM:n}});
   const variable=name=>({type:'variables_get',fields:{VAR:{name}}});
-  const checks={math_arithmetic:'Number',pico_time_diff:'Number',pico_wait:'Number',pico_pwm:'Number',pico_send:'Number',pico_speaker_on:'Number',pico_receive:'Number',pico_receive_bits:'Number',pico_char:'Number',pico_ord:'String',pico_int_bits:'Number',pico_text_bits:'String',pico_bits_text:'Array',pico_bits_int:'Array',pico_decode_bits:null,lists_length:'Array',text_length:'String',logic_negate:'Boolean'};
+  const checks={math_arithmetic:'Number',pico_time_diff:'Number',pico_wait:'Number',pico_pwm:'Number',pico_send:'Number',pico_speaker_on:'Number',pico_receive:'Number',pico_receive_bits:'Number',pico_rgb:'Number',pico_char:'Number',pico_ord:'String',pico_int_bits:'Number',pico_text_bits:'String',pico_bits_text:'Array',pico_bits_int:'Array',pico_decode_bits:null,lists_length:'Array',text_length:'String',logic_negate:'Boolean'};
   function values(type,names,items,fields={}){
     if(!items.every(Boolean))return null;
     for(let i=0;i<items.length;i++){
-      const expected=type==='pico_set_bits'?(names[i]==='BITS'?'Array':'Number'):type==='pico_new_bits'?'Number':type==='pico_send_bits'?'Array':type==='pico_decode_bits'?(names[i]==='TIMES'?'Array':'Number'):checks[type],actual=outputType(items[i]);
+      const expected=type==='pico_set_bits'?(names[i]==='BITS'?'Array':'Number'):type==='pico_new_bits'?'Number':['pico_send_bits','pico_send_times'].includes(type)?'Array':type==='pico_decode_bits'?(names[i]==='TIMES'?'Array':'Number'):checks[type],actual=outputType(items[i]);
       if(expected&&actual&&expected!==actual)return null;
     }
     return {type,fields,inputs:Object.fromEntries(names.map((name,i)=>[name,input(items[i])]))};
@@ -100,6 +100,9 @@ export function nativeStatement(node,source,parts,parseBody){
     if(part){
       const fields={PART:id};
       if(part.kind==='pwm'&&action==='set'&&arguments_.length===1)return values('pico_pwm',['PERCENT'],converted,fields);
+      if(part.kind==='infrared'&&action==='send_times'&&arguments_.length===1)return values('pico_send_times',['TIMES'],converted,fields);
+      if(part.kind==='rgb'&&action==='set'&&arguments_.length===3)return values('pico_rgb',['RED','GREEN','BLUE'],converted,fields);
+      if(part.kind==='rgb'&&action==='off'&&!arguments_.length)return {type:'pico_rgb_off',fields};
       if(part.kind==='infrared'&&action==='send_bits'&&arguments_.length===1)return values('pico_send_bits',['BITS'],converted,fields);
       if(part.kind==='infrared'&&action==='send'&&arguments_.length===1)return values('pico_send',['VALUE'],converted,fields);
       if(['infrared','led'].includes(part.kind)&&['on','off'].includes(action)&&!arguments_.length)return {type:part.kind==='led'?'pico_led':'pico_carrier',fields:{...fields,ON:action==='on'?'1':'0'}};

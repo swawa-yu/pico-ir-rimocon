@@ -44,6 +44,40 @@ class PWMOutput:
         self.pwm.deinit()
 
 
+class RGBLED:
+    def __init__(self, red, green, blue, common_anode=False, frequency=1000):
+        self.common_anode = common_anode
+        self.pins = []
+        self.outputs = []
+        try:
+            for number in (red, green, blue):
+                pin = Pin(number)
+                self.pins.append(pin)
+                self.outputs.append(PWM(pin, freq=frequency, duty_u16=65535 if common_anode else 0))
+        except BaseException:
+            self.close()
+            raise
+        _outputs.append(self)
+
+    def set(self, red, green, blue):
+        values = (red, green, blue)
+        if any(not isinstance(value, (int, float)) or not 0 <= value <= 100 for value in values):
+            raise ValueError("RGB brightness must be from 0 to 100 percent")
+        for pwm, value in zip(self.outputs, values):
+            duty = int(value * 65535 / 100 + 0.5)
+            pwm.duty_u16(65535 - duty if self.common_anode else duty)
+
+    def off(self):
+        self.set(0, 0, 0)
+
+    def close(self):
+        for pwm, pin in zip(self.outputs, self.pins):
+            pwm.duty_u16(65535 if self.common_anode else 0)
+            pwm.deinit()
+            pin.init(Pin.OUT, value=1 if self.common_anode else 0)
+        self.outputs = []
+
+
 class InfraredReceiver:
     def __init__(self, pin):
         self.pin = Pin(pin, Pin.IN, Pin.PULL_UP)
@@ -100,13 +134,20 @@ class Infrared:
         for bit in bits:
             signal.extend([unit, (3 if bit else 1) * unit])
         signal.append(unit)
+        self.send_times(signal)
+        time.sleep_us(8 * unit)
+
+    def send_times(self, times):
+        if not isinstance(times, (list, tuple)) or not times or any(
+                not isinstance(duration, (int, float)) or not 0 < duration < float('inf') or duration != int(duration)
+                for duration in times):
+            raise ValueError("Durations must be positive whole microseconds, alternating ON and OFF")
         try:
-            for i, duration in enumerate(signal):
+            for i, duration in enumerate(times):
                 self.pwm.duty_u16(21845 if i % 2 == 0 else 0)
-                time.sleep_us(duration)
+                time.sleep_us(int(duration))
         finally:
             self.pwm.duty_u16(0)
-        time.sleep_us(8 * unit)
 
     def close(self):
         self.pwm.duty_u16(0)

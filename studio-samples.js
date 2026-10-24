@@ -90,15 +90,20 @@ finally:
     return {parts:[],files:{'ir_signal.py':setup+'def receive_times():\n'+capture+'    return times\n\ndef decode(times):\n'+decode+'    return bits, number\n','main.py':'from ir_signal import receive_times, decode\n\nwhile True:\n    times = receive_times()\n    if len(times) < 3:\n        continue\n    if not (7000 <= times[0] <= 11000 and 3000 <= times[1] <= 6000):\n        continue\n    bits, number = decode(times)\n    print("times us:", times)\n    print("bits (LSB first):", bits)\n    print("number:", number)\n'}};
   }
   function beginner(name){
-    const binary = '信号 = ir_data.new_bits(16)\nir_data.set_bits(信号, 1, 8, 65)\nir_data.set_bits(信号, 9, 16, 42)\n';
+    const binary = '信号 = [\n    0, 1, 0, 0, 0, 0, 0, 1,\n    0, 0, 1, 0, 1, 0, 1, 0,\n]\n';
     const sender = [{id:'infrared',name:'赤外線LED',kind:'infrared',pin:16,unit:560}];
     const receiver = [{id:'receiver',name:'赤外線受信',kind:'receiver',pin:15}];
     const examples = {
+      times: {parts:sender,code:'from parts import infrared\n\n時間 = [560, 560, 560, 1680, 560]\ninfrared.send_times(時間)\n'},
+      button_times: {parts:sender,code:'from parts import infrared\nimport rp2\nimport time\n\n時間 = [560, 560, 560, 1680, 560]\nwhile True:\n    if rp2.bootsel_button():\n        infrared.send_times(時間)\n    time.sleep(0.1)\n'},
+      receive_times: {parts:receiver,code:'from parts import receiver\n\nwhile True:\n    時間 = receiver.receive(1000)\n    if 時間:\n        print(時間)\n'},
+      number: {parts:[],code:'import ir_data\n\n信号 = [0, 1, 0, 0, 0, 0, 0, 1]\nprint(ir_data.bits_to_int(信号))\n'},
+      rgb: {parts:[{id:'color_led',name:'フルカラーLED',kind:'rgb',red:0,green:1,blue:2,common_anode:false,frequency:1000}],code:'from parts import color_led\nimport time\n\ncolor_led.set(100, 0, 0)\ntime.sleep(1)\ncolor_led.set(0, 100, 0)\ntime.sleep(1)\ncolor_led.set(0, 0, 100)\ntime.sleep(1)\ncolor_led.off()\n'},
       console: {parts:[],code:'値 = 65\nprint(値)\n'},
       binary: {parts:[],code:'import ir_data\n\n'+binary+'print(ir_data.bits_to_text(信号))\n'},
-      send: {parts:sender,code:'from parts import infrared\nimport ir_data\n\n'+binary+'infrared.send_bits(信号)\n'},
-      button_send: {parts:sender,code:'from parts import infrared\nimport ir_data\nimport rp2\nimport time\n\n'+binary+'while True:\n    if rp2.bootsel_button():\n        infrared.send_bits(信号)\n    time.sleep(0.1)\n'},
-      receive: {parts:receiver,code:'from parts import receiver\nimport ir_data\n\nwhile True:\n    信号 = receiver.receive_bits(1000)\n    if 信号:\n        print(ir_data.bits_to_text(信号))\n'},
+      send: {parts:sender,code:'from parts import infrared\n\n'+binary+'infrared.send_bits(信号)\n'},
+      button_send: {parts:sender,code:'from parts import infrared\nimport rp2\nimport time\n\n'+binary+'while True:\n    if rp2.bootsel_button():\n        infrared.send_bits(信号)\n    time.sleep(0.1)\n'},
+      receive: {parts:receiver,code:'from parts import receiver\n\nwhile True:\n    信号 = receiver.receive_bits(1000)\n    if 信号:\n        print(信号)\n'},
       carrier: {parts:sender,code:'from parts import infrared\nimport rp2\nimport time\n\nwhile True:\n    if rp2.bootsel_button():\n        infrared.on()\n    else:\n        infrared.off()\n    time.sleep(0.01)\n'},
       fan: {parts:[{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:25000}],code:'from parts import fan\nimport rp2\nimport time\n\n強さ = 60\nwhile True:\n    if rp2.bootsel_button():\n        fan.set(強さ)\n    else:\n        fan.set(0)\n    time.sleep(0.01)\n'}
     };

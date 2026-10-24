@@ -505,3 +505,88 @@ else:
 assert durations == before
 `,'');
 });
+
+test('time arrays transmit exactly the specified ON/OFF intervals, validate before output and stop on interruption',()=>{
+ const source=require('../studio-samples.js').beginner('times').files['main.py'];
+ python(`import sys, types
+intervals=[]
+class PWM:
+ def __init__(self,*args,**kwargs): self.duty=0
+ def duty_u16(self,value): self.duty=value
+ def deinit(self): pass
+sys.modules['machine']=types.SimpleNamespace(Pin=lambda n:n,PWM=PWM)
+clock=types.SimpleNamespace(sleep_us=lambda duration:intervals.append((output.pwm.duty,duration)))
+sys.modules['time']=clock
+hardware=types.ModuleType('pico_parts')
+exec(${JSON.stringify(runtime)},hardware.__dict__)
+output=hardware.Infrared(16)
+sys.modules['parts']=types.SimpleNamespace(infrared=output)
+exec(${JSON.stringify(source)},{})
+assert intervals == [(21845,560),(0,560),(21845,560),(0,1680),(21845,560)]
+assert output.pwm.duty == 0
+output.send_times([100,200])
+assert intervals[-2:] == [(21845,100),(0,200)] and output.pwm.duty == 0
+for invalid in [[],[560,0],[560,-1],[560,0.5],[float('inf')],[float('nan')],['560'],'560']:
+ before=intervals[:]
+ try: output.send_times(invalid)
+ except ValueError: pass
+ else: raise AssertionError(invalid)
+ assert intervals == before and output.pwm.duty == 0
+def interrupt(duration): raise KeyboardInterrupt()
+clock.sleep_us=interrupt
+try: output.send_times([560])
+except KeyboardInterrupt: pass
+else: raise AssertionError('Expected interrupt')
+assert output.pwm.duty == 0
+`,'');
+});
+
+test('RGB parts generate three PWM pins and reject pin, channel and frequency conflicts',()=>{
+ const rgb={id:'color_led',name:'フルカラーLED',kind:'rgb',red:0,green:1,blue:2,common_anode:false,frequency:1000};
+ parts=[rgb];const w=new B.Workspace();
+ try{
+  P.validateParts(parts);assert.deepEqual(P.pinsFor(rgb),[0,1,2]);
+  const root=w.newBlock('pico_start'),block=w.newBlock('pico_rgb');block.setFieldValue('color_led','PART');root.getInput('DO').connection.connect(block.previousConnection);
+  for(const [name,value] of [['RED',25],['GREEN',50],['BLUE',100]]){const n=w.newBlock('math_number');n.setFieldValue(value,'NUM');block.getInput(name).connection.connect(n.outputConnection);}
+  const files=generate(w);assert.match(files['main.py'],/color_led\.set\(25, 50, 100\)/);assert.match(files['parts.py'],/RGBLED\(0, 1, 2, common_anode=False, frequency=1000\)/);
+  assert.throws(()=>P.validateParts([{...rgb,blue:1}]),/GPIO/);
+  assert.throws(()=>P.validateParts([{...rgb,blue:16}]),/PWM/);
+  assert.throws(()=>P.validateParts([rgb,{id:'ir',name:'赤外線',kind:'infrared',pin:17,unit:560}]),/PWM/);
+  assert.throws(()=>P.validateParts([{...rgb,frequency:0}]),/周波数/);
+  assert.throws(()=>P.validateParts([{...rgb,common_anode:undefined}]),/共通端子/);
+ }finally{w.dispose();parts=P.defaults();}
+});
+
+test('RGB brightness supports both common terminals, rejects invalid values atomically and turns off at close',()=>{
+ python(`import sys,types
+pwms=[]
+class Pin:
+ OUT=1
+ def __init__(self,n): self.value=None
+ def init(self,mode,value): self.value=value
+class PWM:
+ def __init__(self,pin,**kwargs): self.pin=pin;self.duty=kwargs['duty_u16'];self.closed=False;pwms.append(self)
+ def duty_u16(self,value): self.duty=value
+ def deinit(self): self.closed=True
+sys.modules['machine']=types.SimpleNamespace(Pin=Pin,PWM=PWM)
+exec(sys.stdin.read())
+for anode in (False,True):
+ led=RGBLED(0,1,2,common_anode=anode)
+ outputs=led.outputs[:]
+ assert [p.duty for p in outputs] == [65535 if anode else 0]*3
+ led.set(25,50,100)
+ expected=[16384,32768,65535]
+ assert [p.duty for p in outputs] == [65535-v if anode else v for v in expected]
+ before=[p.duty for p in outputs]
+ for values in [(10,-1,20),(10,20,101),(10,float('nan'),20)]:
+  try: led.set(*values)
+  except ValueError: pass
+  else: raise AssertionError(values)
+  assert [p.duty for p in outputs] == before
+ led.off()
+ assert [p.duty for p in outputs] == [65535 if anode else 0]*3
+ led.close()
+ assert all(p.closed and p.pin.value == (1 if anode else 0) for p in outputs)
+close()
+`,runtime);
+});

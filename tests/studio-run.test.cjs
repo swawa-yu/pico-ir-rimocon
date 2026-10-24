@@ -314,7 +314,7 @@ test('a new named project keeps hardware configuration and a named saved copy re
   assert.equal(s.$('project-tabs').querySelectorAll('[role=tab]').length,2);
   s.$('project-tabs').querySelector('[role=tab]').click();
   assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],'value = 7\nprint(value)\n');
-  assert.equal(s.$('parts-empty').hidden,false);
+  assert.equal(s.$('parts-empty').hidden,true);assert.match(s.$('parts-rows').textContent,/赤外線送信/);
   s.$('project-tabs').querySelectorAll('[role=tab]')[1].click();
   assert.match(s.$('parts-rows').textContent,/PWM出力/);
   const stored=Object.fromEntries(['pico-studio-tabs-1','pico-blocks-project-2'].map(key=>[key,s.window.localStorage.getItem(key)]));
@@ -331,6 +331,7 @@ test('a new named project keeps hardware configuration and a named saved copy re
 test('parts settings show an empty state before a part is added and after the last part is removed',()=>{
  const s=studio(async()=>JSON.stringify({changed:0}));
  try{
+  s.$('example').value='beginner_console';s.$('example-load').click();
   assert.equal(s.$('parts-empty').hidden,false);assert.equal(s.$('parts-rows').closest('table').hidden,true);
   s.$('new-part-kind').value='receiver';s.$('part-add').click();assert.equal(s.$('parts-empty').hidden,true);
   s.$('parts-rows').querySelector('button').click();assert.equal(s.$('parts-empty').hidden,false);
@@ -398,8 +399,8 @@ test('save-and-close saves the targeted inactive project and leaves the other pr
  try{
   const downloaded=[];s.window.URL.createObjectURL=()=> 'blob:project';s.window.URL.revokeObjectURL=()=>{};s.window.HTMLAnchorElement.prototype.click=function(){downloaded.push(this.download);};
   s.$('example').value='basic_send';s.$('example-load').click();s.$('project-tabs').querySelector('.project-close').click();assert(s.$('project-close-dialog').open);
-  s.$('project-save-close').click();assert.deepEqual(downloaded,['変数の値を表示する.json']);
-  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects.length,1);assert.equal(tabs.projects[0].data.name,'ビット配列を送信する');assert.equal(tabs.closed.data.name,'変数の値を表示する');assert.equal(tabs.closed.dirty,false);
+  s.$('project-save-close').click();assert.deepEqual(downloaded,['時間配列を手打ちして送信する.json']);
+  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects.length,1);assert.equal(tabs.projects[0].data.name,'ビット配列を送信する');assert.equal(tabs.closed.data.name,'時間配列を手打ちして送信する');assert.equal(tabs.closed.dirty,false);
  }finally{s.close();}
 });
 
@@ -409,24 +410,41 @@ test('save-and-close waits if the targeted project Pico is busy without replacin
   s.window.PicoDevices.select('program','1');s.$('example').value='basic_send';s.$('example-load').click();s.window.PicoDevices.select('program','2');
   s.$('project-tabs').querySelector('.project-close').click();assert(s.$('project-close-dialog').open);s.links['1'].busy=true;
   s.$('project-save-close').click();assert.equal(s.$('project-tabs').querySelectorAll('[role=tab]').length,2);assert(s.$('project-close-dialog').open);
-  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects[0].data.name,'変数の値を表示する');assert.equal(tabs.projects[1].data.name,'ビット配列を送信する');
+  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects[0].data.name,'時間配列を手打ちして送信する');assert.equal(tabs.projects[1].data.name,'ビット配列を送信する');
  }finally{s.close();}
 });
 
 test('beginner projects include editable hardware and binary helpers for writing to a Pico',async()=>{
  const s=studio(async()=>JSON.stringify({changed:0}));
  try{
-  for(const name of ['binary','send','receive']){
+  for(const name of ['times','binary','send','receive','rgb']){
    s.$('example').value='beginner_'+name;s.$('example-load').click();
    s.$('write-only').click();await new Promise(resolve=>setImmediate(resolve));
    const files=s.calls.filter(c=>c[0]==='write').at(-1)[1];
    assert.equal(files['main.py'],s.window.StudioSamples.beginner(name).files['main.py']);
-   assert.equal(files['lib/ir_data.py'],s.window.PicoSources.irData);
+   if(['binary','receive'].includes(name))assert.equal(files['lib/ir_data.py'],s.window.PicoSources.irData);
+   else assert.equal(files['lib/ir_data.py'],undefined);
    if(name==='send')assert.match(files['parts.py'],/infrared = Infrared\(16, unit=560\)/);
    if(name==='receive'){
     assert.match(files['parts.py'],/receiver = InfraredReceiver\(15\)/);
     assert.equal(files['lib/live_receiver.py'],s.window.PicoSources.receiver);
    }
   }
+ }finally{s.close();}
+});
+
+test('RGB settings can be added beside infrared PWM, changed, saved and written to a Pico',async()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.$('new-part-kind').value='rgb';s.$('part-add').click();
+  const row=s.$('parts-rows').querySelector('[data-kind=rgb]');assert(row);
+  const set=(field,value)=>{row.querySelector('[data-field='+field+']').value=value;};
+  set('red','2');set('green','3');set('blue','4');set('common_anode','1');set('frequency','2000');
+  s.$('parts-apply').click();
+  const saved=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')),rgb=saved.parts.find(p=>p.kind==='rgb');
+  assert.deepEqual([rgb.red,rgb.green,rgb.blue,rgb.common_anode,rgb.frequency],[2,3,4,true,2000]);
+  s.$('write-only').click();await new Promise(resolve=>setImmediate(resolve));
+  const files=s.calls.filter(c=>c[0]==='write').at(-1)[1];assert.match(files['parts.py'],/RGBLED\(2, 3, 4, common_anode=True, frequency=2000\)/);
+  assert.equal(files['lib/pico_parts.py'],s.window.PicoSources.parts);
  }finally{s.close();}
 });

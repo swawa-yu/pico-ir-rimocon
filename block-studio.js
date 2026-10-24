@@ -28,7 +28,7 @@
       {kind:'block',type:'controls_whileUntil'},{kind:'block',type:'controls_for',inputs:{FROM:number(0),TO:number(63),BY:number(1)}},
       {kind:'block',type:'pico_wait',inputs:{SECONDS:number(.5)}},{kind:'block',type:'pico_time_us'},{kind:'block',type:'pico_time_diff'}]},
     {kind:'category',name:'入力',colour:200,contents:[{kind:'block',type:'pico_bootsel'},{kind:'block',type:'pico_button',fields:{PART:'send_button'}},{kind:'block',type:'pico_dip_on',inputs:{NUMBER:number(1)}},{kind:'block',type:'pico_dip_value'}]},
-    {kind:'category',name:'出力',colour:150,contents:[{kind:'block',type:'pico_pwm',inputs:{PERCENT:number(0)}},{kind:'block',type:'pico_led',fields:{PART:'status_led'}},{kind:'block',type:'pico_speaker_on',inputs:{HZ:number(880)}},{kind:'block',type:'pico_speaker_off'}]},
+    {kind:'category',name:'出力',colour:150,contents:[{kind:'block',type:'pico_rgb',inputs:{RED:number(100),GREEN:number(0),BLUE:number(0)}},{kind:'block',type:'pico_rgb_off'},{kind:'block',type:'pico_pwm',inputs:{PERCENT:number(0)}},{kind:'block',type:'pico_led',fields:{PART:'status_led'}},{kind:'block',type:'pico_speaker_on',inputs:{HZ:number(880)}},{kind:'block',type:'pico_speaker_off'}]},
     {kind:'category',name:'画面',colour:150,contents:[
       {kind:'block',type:'pico_display_pixel',inputs:{X:number(0),Y:number(0),COLOR:number(1)}},
       {kind:'block',type:'pico_display_get_pixel',inputs:{X:number(0),Y:number(0)}},
@@ -40,8 +40,16 @@
     {kind:'category',name:'コンソール',colour:160,contents:[
       {kind:'block',type:'text_print',inputs:{TEXT:{shadow:{type:'text',fields:{TEXT:'こんにちは'}}}}},
       {kind:'block',type:'text_prompt_ext',fields:{TYPE:'TEXT'},inputs:{TEXT:{shadow:{type:'text',fields:{TEXT:'名前は？ '}}}}}]},
-    {kind:'category',name:'赤外線',colour:285,contents:[{kind:'block',type:'pico_receive_bits',inputs:{TIMEOUT:number(1000)}},{kind:'block',type:'pico_send_bits'},{kind:'block',type:'pico_receive',inputs:{TIMEOUT:number(1000)}},{kind:'block',type:'pico_ir_level'},{kind:'block',type:'pico_decode_bits',inputs:{SKIP:number(2),THRESHOLD:number(2)}},{kind:'block',type:'pico_send',fields:{PART:'infrared'},inputs:{VALUE:number(65)}},{kind:'block',type:'pico_carrier',fields:{ON:'1'}},{kind:'block',type:'pico_carrier',fields:{ON:'0'}}]},
-    {kind:'category',name:'2進数・文字',colour:260,contents:[{kind:'block',type:'pico_new_bits',inputs:{WIDTH:number(8)}},{kind:'block',type:'pico_set_bits',inputs:{START:number(1),END:number(8),VALUE:number(65)}},{kind:'block',type:'text_join'},{kind:'block',type:'text_length'},{kind:'block',type:'text_getSubstring'},{kind:'block',type:'pico_to_text',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_to_int',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'65'}}}}},{kind:'block',type:'pico_to_float',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'3.5'}}}}},{kind:'block',type:'pico_parse_int',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'01000001'}}},BASE:number(2)}},{kind:'block',type:'pico_base_text',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_bits_text'},{kind:'block',type:'pico_text_bits',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'01000001'}}}}},{kind:'block',type:'pico_bits_int'},{kind:'block',type:'pico_int_bits',inputs:{VALUE:number(65),WIDTH:number(8)}},{kind:'block',type:'pico_bitwise',inputs:{A:number(65),B:number(1)}},{kind:'block',type:'pico_char',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_ord',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'A'}}}}}]},
+    {kind:'category',name:'赤外線',colour:285,contents:[
+      {kind:'label',text:'時間配列'},
+      {kind:'block',type:'pico_send_times',inputs:{TIMES:{block:{type:'lists_create_with',extraState:{itemCount:5},inputs:Object.fromEntries([560,560,560,1680,560].map((value,i)=>['ADD'+i,number(value)]))}}}},
+      {kind:'block',type:'pico_receive',inputs:{TIMEOUT:number(1000)}},{kind:'block',type:'pico_ir_level'},
+      {kind:'block',type:'pico_carrier',fields:{ON:'1'}},{kind:'block',type:'pico_carrier',fields:{ON:'0'}},
+      {kind:'sep'},{kind:'label',text:'0・1の配列'},
+      {kind:'block',type:'pico_send_bits'},{kind:'block',type:'pico_receive_bits',inputs:{TIMEOUT:number(1000)}},
+      {kind:'sep'},{kind:'label',text:'数値（8ビット）'},
+      {kind:'block',type:'pico_send',fields:{PART:'infrared'},inputs:{VALUE:number(65)}}]},
+    {kind:'category',name:'2進数・文字',colour:260,contents:[{kind:'block',type:'pico_decode_bits',inputs:{SKIP:number(2),THRESHOLD:number(2)}},{kind:'block',type:'text_join'},{kind:'block',type:'text_length'},{kind:'block',type:'text_getSubstring'},{kind:'block',type:'pico_to_text',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_to_int',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'65'}}}}},{kind:'block',type:'pico_to_float',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'3.5'}}}}},{kind:'block',type:'pico_parse_int',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'01000001'}}},BASE:number(2)}},{kind:'block',type:'pico_base_text',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_bits_text'},{kind:'block',type:'pico_text_bits',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'01000001'}}}}},{kind:'block',type:'pico_bits_int'},{kind:'block',type:'pico_int_bits',inputs:{VALUE:number(65),WIDTH:number(8)}},{kind:'block',type:'pico_bitwise',inputs:{A:number(65),B:number(1)}},{kind:'block',type:'pico_char',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_ord',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'A'}}}}}]},
     {kind:'category',name:'計算・条件',colour:210,contents:[{kind:'block',type:'text'},{kind:'block',type:'math_number'},{kind:'block',type:'math_arithmetic'},{kind:'block',type:'logic_compare'},{kind:'block',type:'logic_boolean'},{kind:'block',type:'logic_operation'},{kind:'block',type:'logic_negate'},{kind:'block',type:'logic_null'}]},
     {kind:'category',name:'変数',colour:330,custom:'VARIABLE'},
     {kind:'category',name:'関数',colour:290,custom:'STUDIO_FUNCTION'},
@@ -598,17 +606,22 @@
   function renderParts(){
     const body=$('parts-rows');body.replaceChildren();
     $('parts-empty').hidden=parts.length>0;body.closest('table').hidden=parts.length===0;
-    const names={button:'ボタン',led:'LED',infrared:'赤外線送信',speaker:'圧電スピーカー',ssd1306:'SSD1306',dip:'8連DIPスイッチ',pwm:'PWM出力',receiver:'赤外線受信'};
+    const names={button:'ボタン',led:'LED',infrared:'赤外線送信',speaker:'圧電スピーカー',ssd1306:'SSD1306',dip:'8連DIPスイッチ',pwm:'PWM出力',receiver:'赤外線受信',rgb:'フルカラーLED'};
     for(const part of parts){
       const row=document.createElement('tr');row.dataset.id=part.id;row.dataset.kind=part.kind;
       const name=document.createElement('input');name.value=part.name;name.maxLength=40;name.setAttribute('aria-label',part.name+' の名前');name.dataset.field='name';
       const connection=document.createElement('div');connection.className='part-connections';
       function number(parent,label,field,value,min,max){const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement('input');input.type='number';input.min=min;if(max!==undefined)input.max=max;input.value=value;input.dataset.field=field;input.setAttribute('aria-label',part.name+' '+label);wrap.append(input);parent.append(wrap);return input;}
       if(part.kind==='ssd1306'){number(connection,'SDA','sda',part.sda,0,22);number(connection,'SCL','scl',part.scl,0,22);}
+      else if(part.kind==='rgb')for(const [label,field] of [['R','red'],['G','green'],['B','blue']])number(connection,label,field,part[field],0,22);
       else if(part.kind==='dip')part.pins.forEach((pin,i)=>number(connection,String(i+1),'pin'+i,pin,0,22));
       else number(connection,'GP','pin',part.pin,0,22);
       const settings=document.createElement('div');settings.className='part-options';
-      if(part.kind==='pwm')number(settings,'Hz','frequency',part.frequency,1);
+      if(['pwm','rgb'].includes(part.kind))number(settings,'Hz','frequency',part.frequency,1);
+      if(part.kind==='rgb'){
+        const wrap=document.createElement('label');wrap.textContent='共通端子';const select=document.createElement('select');select.dataset.field='common_anode';select.setAttribute('aria-label',part.name+' 共通端子');
+        for(const [value,label] of [['0','GND（カソード）'],['1','3.3V（アノード）']]){const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option);}select.value=part.common_anode?'1':'0';wrap.append(select);settings.append(wrap);
+      }
       if(part.kind==='infrared')number(settings,'µs','unit',part.unit,100,100000);
       if(part.kind==='ssd1306'){
         for(const [field,label,options] of [['height','画面',[[32,'128 × 32'],[64,'128 × 64']]],['address','アドレス',[[60,'0x3C'],[61,'0x3D']]]]){const wrap=document.createElement('label');wrap.textContent=label;const select=document.createElement('select');select.dataset.field=field;select.setAttribute('aria-label',part.name+' '+label);for(const [value,text] of options){const option=document.createElement('option');option.value=value;option.textContent=text;select.append(option);}select.value=part[field];wrap.append(select);settings.append(wrap);}
@@ -625,19 +638,28 @@
     const value=field=>{const input=row.querySelector('[data-field='+field+']');return input.value===''?NaN:Number(input.value);};
     const part={id:row.dataset.id,kind:row.dataset.kind,name:row.querySelector('[data-field=name]').value.trim()};
     if(part.kind==='ssd1306')Object.assign(part,{sda:value('sda'),scl:value('scl'),width:128,height:value('height'),address:value('address')});
+    else if(part.kind==='rgb')Object.assign(part,{red:value('red'),green:value('green'),blue:value('blue'),common_anode:value('common_anode')===1,frequency:value('frequency')});
     else if(part.kind==='dip')part.pins=Array.from({length:8},(_,i)=>value('pin'+i));
     else{part.pin=value('pin');if(part.kind==='infrared')part.unit=value('unit');if(part.kind==='pwm')part.frequency=value('frequency');}
     return part;
   });}
   $('part-add').addEventListener('click',()=>{
     const draft=draftParts(),kind=$('new-part-kind').value,used=draft.flatMap(PicoBlocks.pinsFor);
-    const free=Array.from({length:23},(_,i)=>i).filter(pin=>!used.includes(pin)&&(!['speaker','infrared','pwm'].includes(kind)||!draft.some(p=>['speaker','infrared','pwm'].includes(p.kind)&&(kind==='speaker'||p.kind==='speaker'||kind==='pwm'||p.kind==='pwm')&&((p.pin>>1)%8===(pin>>1)%8))));
-    const count=kind==='dip'?8:kind==='ssd1306'?2:1;
+    const channels=draft.flatMap(p=>p.kind==='rgb'?PicoBlocks.pinsFor(p).map(pin=>({...p,pin})):['speaker','infrared','pwm'].includes(p.kind)?[p]:[]);
+    const free=[];
+    for(let pin=0;pin<=22;pin++){
+      if(used.includes(pin))continue;
+      if(['speaker','infrared','pwm','rgb'].includes(kind)&&channels.some(p=>(p.pin>>1)%8===(pin>>1)%8&&(kind==='speaker'||p.kind==='speaker'||p.pin%16===pin%16||(p.kind==='infrared'?38000:p.frequency)!==(kind==='infrared'?38000:1000))))continue;
+      if(kind==='rgb'&&free.some(other=>other%16===pin%16))continue;
+      free.push(pin);
+    }
+    const count=kind==='dip'?8:kind==='ssd1306'?2:kind==='rgb'?3:1;
     if(free.length<count){notify('必要なGPIOが足りません。部品設定を確認してください。');return;}
     let n=1;while(draft.some(p=>p.id===`${kind}_${n}`)||parts.some(p=>p.id===`${kind}_${n}`))n++;
-    const names={led:'LED',button:'ボタン',infrared:'赤外線LED',speaker:'スピーカー',ssd1306:'画面',dip:'DIPスイッチ',pwm:'PWM出力',receiver:'赤外線受信'};
+    const names={led:'LED',button:'ボタン',infrared:'赤外線LED',speaker:'スピーカー',ssd1306:'画面',dip:'DIPスイッチ',pwm:'PWM出力',receiver:'赤外線受信',rgb:'フルカラーLED'};
     const part={id:`${kind}_${n}`,name:`${names[kind]} ${n}`,kind};
     if(kind==='ssd1306')Object.assign(part,{sda:free[0],scl:free[1],width:128,height:64,address:60});
+    else if(kind==='rgb')Object.assign(part,{red:free[0],green:free[1],blue:free[2],common_anode:false,frequency:1000});
     else if(kind==='dip')part.pins=free.slice(0,8);
     else{part.pin=free[0];if(kind==='infrared')part.unit=560;if(kind==='pwm')part.frequency=1000;}
     const previous=parts;parts=[...draft,part];renderParts();parts=previous;markPartsDirty();
@@ -685,8 +707,8 @@
   try {
     const tabs=JSON.parse(localStorage.getItem('pico-studio-tabs-1')||'null');
     if(tabs&&Array.isArray(tabs.projects)&&tabs.projects.length&&Number.isInteger(tabs.active)&&tabs.projects[tabs.active]?.data){lastClosedProject=tabs.closed||null;openedProjects=tabs.projects.map(entry=>Object.hasOwn(entry,'savedSignature')?entry:{...entry,savedSignature:null,dirty:true});activeProject=tabs.active;restoreProject(openedProjects[activeProject].data,false);dirty=Boolean(openedProjects[activeProject].dirty);openFile(Object.hasOwn(files,openedProjects[activeProject].file)?openedProjects[activeProject].file:'main.py');}
-    else{const saved=localStorage.getItem('pico-blocks-project-2'),legacy=localStorage.getItem('pico-blocks-workspace-1');if(saved||legacy)restoreProject(saved?JSON.parse(saved):PicoBlocks.migrate(JSON.parse(legacy)),false);else{loadSample('beginner_console',false);dirty=true;}}
-  }catch(error){openedProjects=[];activeProject=0;loadSample('beginner_console',false);notify('保存されていた内容を読み込めませんでした。保存ファイルから開いてください。');}
+    else{const saved=localStorage.getItem('pico-blocks-project-2'),legacy=localStorage.getItem('pico-blocks-workspace-1');if(saved||legacy)restoreProject(saved?JSON.parse(saved):PicoBlocks.migrate(JSON.parse(legacy)),false);else{loadSample('beginner_times',false);dirty=true;}}
+  }catch(error){openedProjects=[];activeProject=0;loadSample('beginner_times',false);notify('保存されていた内容を読み込めませんでした。保存ファイルから開いてください。');}
   switchingProjects=false;saveProject();
   updateDevice();
   if(location.hash==='#analyzer')showPanel('analyzer');
