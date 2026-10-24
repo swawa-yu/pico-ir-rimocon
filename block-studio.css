@@ -65,7 +65,7 @@
 .studio-tabs{display:flex;gap:4px;margin:0 0 24px;border-bottom:1px solid #dbe4ed}
 .studio-tabs [role=tab]{background:transparent;color:#667d89;border:0;border-bottom:3px solid transparent;border-radius:0;padding:12px 22px;font-size:1rem}
 .studio-tabs [aria-selected=true]{border-bottom-color:#075b81;color:#075b81;font-weight:600}
-#observer-panel>.card:first-child{margin-top:0}
+#observer-panel>.card:first-child,#conversion-panel>.card:first-child{margin-top:0}
 .pico-files{margin-top:18px;padding:16px}
 .pico-files-bar{margin:18px 0 12px;font-size:12px}
 #pico-directory{display:flex;align-items:center;gap:4px;flex-wrap:wrap}

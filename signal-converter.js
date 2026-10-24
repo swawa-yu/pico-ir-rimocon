@@ -49,7 +49,7 @@
   $('conversion-apply').addEventListener('click',convert);
   $('conversion-kind').addEventListener('change',inputKind);
   $('conversion-capture').addEventListener('click',loadCapture);
-  $('capture-convert').addEventListener('click',loadCapture);
+  $('capture-convert').addEventListener('click',()=>{loadCapture();$('conversion-tab')?.click();});
   panel.addEventListener('toggle',()=>{if(panel.open){if(!current)convert();else draw();}});
   $('conversion-zoom').addEventListener('input',draw);
   $('conversion-leader').addEventListener('change',()=>{$('conversion-start').value=$('conversion-leader').value==='none'?0:2;convert();});
@@ -65,7 +65,7 @@
     catch(_){target.focus({preventScroll:true});target.select();$('conversion-copy-state').textContent='選択した値を Ctrl+C / ⌘C でコピーできます。';}
   });
   window.addEventListener('resize',draw);
-  window.SignalConverter={setCapture};
+  window.SignalConverter={setCapture,show(){panel.open=true;if(!current)convert();else draw();}};
   inputKind();
   const frame=window.LiveAnalyzer.currentCapture();if(frame)setCapture(frame.times,frame.start,frame.lsb);
 })();

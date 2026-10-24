@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Pico Studio</title>
   <link rel="stylesheet" href="style.css?v=e50109bd6cca">
-  <link rel="stylesheet" href="block-studio.css?v=b5a25a23c239">
+  <link rel="stylesheet" href="block-studio.css?v=fe8aa959fe28">
   <link rel="stylesheet" href="live-analyzer.css?v=20711674071d">
   <script src="vendor/blockly/blockly_compressed.js?v=cc761aa447e0" defer></script>
   <script src="vendor/blockly/blocks_compressed.js?v=4f0b3d4079fe" defer></script>
@@ -21,13 +21,13 @@
   <script src="studio-files.js?v=1ae19f45e0dd" defer></script>
   <script src="pico-sources.js?v=058031a59e9c" defer></script>
   <script src="live-core.js?v=d47659fb5907" defer></script>
-  <script src="live-view.js?v=9952c6dd9b68" defer></script>
+  <script src="live-view.js?v=301b075e40c9" defer></script>
   <script src="live-analyzer.js?v=d30740dcf758" defer></script>
   <script src="signal-conversion.js?v=baf41741ec41" defer></script>
-  <script src="signal-converter.js?v=ce3ad35c88b6" defer></script>
+  <script src="signal-converter.js?v=655f9a027ef8" defer></script>
   <script src="studio-samples.js?v=2cd08d2d8cda" defer></script>
   <script src="studio-layout.js?v=655fbdfc2fe8" defer></script>
-  <script src="block-studio.js?v=376c916d374f" defer></script>
+  <script src="block-studio.js?v=ab939dc63f6a" defer></script>
 </head>
 <body class="block-studio">
 <main>
@@ -35,7 +35,7 @@
   <section class="shared-connection" aria-label="USB接続">
     <div class="bar"><select id="program-device" aria-label="このタブで使うPico"></select><span id="program-state" role="status">USB未接続</span><button id="program-connect">USB接続する</button><button id="program-disconnect" class="secondary" disabled>USBを切断する</button></div>
   </section></header>
-  <div class="studio-tabs" role="tablist" aria-label="作業"><button id="program-tab" role="tab" aria-selected="true" aria-controls="program-panel">プログラム</button><button id="analyzer-tab" role="tab" aria-selected="false" aria-controls="observer-panel" tabindex="-1">ロジアナ</button></div>
+  <div class="studio-tabs" role="tablist" aria-label="作業"><button id="program-tab" role="tab" aria-selected="true" aria-controls="program-panel">プログラム</button><button id="analyzer-tab" role="tab" aria-selected="false" aria-controls="observer-panel" tabindex="-1">ロジアナ</button><button id="conversion-tab" role="tab" aria-selected="false" aria-controls="conversion-panel" tabindex="-1">データ変換</button></div>
   <div id="program-panel" role="tabpanel" aria-labelledby="program-tab">
   <section class="editor-section" aria-label="プログラム編集">
     <div class="bar project-bar"><button id="project-save" class="secondary">ローカルにプロジェクトを保存</button></div>
@@ -83,6 +83,7 @@
 
   </div>
   <section id="observer-panel" class="analyzer live-analyzer" role="tabpanel" aria-labelledby="analyzer-tab" hidden></section>
+  <section id="conversion-panel" class="analyzer live-analyzer" role="tabpanel" aria-labelledby="conversion-tab" hidden></section>
   <details class="libraries"><summary>ライブラリ</summary>
     <p class="hint"><a href="https://docs.blockly.com/">Blockly 13.4.0</a> / <a href="vendor/blockly/LICENSE">Apache-2.0</a> · <a href="programs/SSD1306-LICENSE.txt">SSD1306 driver / MIT</a> · <a href="https://codemirror.net/">CodeMirror</a> / <a href="vendor/codemirror/LICENSES.txt">MIT</a></p>
   </details>

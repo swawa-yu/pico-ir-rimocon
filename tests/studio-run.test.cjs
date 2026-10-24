@@ -7,8 +7,8 @@ require('../vendor/blockly/blocks_compressed.js');
 Object.assign(Blockly.Msg,require('../vendor/blockly/msg/ja.js'));
 const {pythonGenerator}=require('../vendor/blockly/python_compressed.js');
 
-function studio(exec,stored={}){
-  const dom=new JSDOM(fs.readFileSync('index.html','utf8'),{url:'http://localhost/',runScripts:'outside-only'});
+function studio(exec,stored={},hash=''){
+  const dom=new JSDOM(fs.readFileSync('index.html','utf8'),{url:'http://localhost/'+hash,runScripts:'outside-only'});
   const w=dom.window,calls=[];
   Blockly.utils.xml.injectDependencies({document:w.document,DOMParser:w.DOMParser,XMLSerializer:w.XMLSerializer});
   const workspace=new Blockly.Workspace();
@@ -37,7 +37,7 @@ function studio(exec,stored={}){
   w.eval(fs.readFileSync('vendor/codemirror/editor.js','utf8'));
   w.structuredClone=global.structuredClone;
   w.PicoEditor={blocks:w.PicoEditor.blocks,step:w.PicoEditor.step,create:(_element,callbacks)=>{w.editorCallbacks=callbacks;return {setFile(){},setReadOnly(value){calls.push(['readonly',value]);},highlightLines(range){calls.push(['highlight',range]);},goLine(line){calls.push(['line',line]);}};}};
-  w.LiveAnalyzer={show(){}};
+  w.LiveAnalyzer={show(){}};w.SignalConverter={show(){calls.push(['conversion-show']);}};
   w.ResizeObserver=class{observe(){}};
   w.HTMLElement.prototype.scrollIntoView=function(){calls.push(['scroll',this.id]);};
   for(const [key,value] of Object.entries(stored))w.localStorage.setItem(key,value);
@@ -447,4 +447,25 @@ test('RGB settings can be added beside infrared PWM, changed, saved and written 
   const files=s.calls.filter(c=>c[0]==='write').at(-1)[1];assert.match(files['parts.py'],/RGBLED\(2, 3, 4, common_anode=True, frequency=2000\)/);
   assert.equal(files['lib/pico_parts.py'],s.window.PicoSources.parts);
  }finally{s.close();}
+});
+
+test('three work tabs switch panels and keyboard focus while retaining independent Pico assignments and USB ports',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  const pool=s.window.PicoDevices,ports=pool.devices.map(item=>item.link.port);pool.select('observer','1');
+  s.$('conversion-tab').click();
+  assert.equal(s.window.location.hash,'#conversion');assert.equal(s.$('conversion-panel').hidden,false);assert.equal(s.$('observer-panel').hidden,true);assert.equal(s.$('program-panel').hidden,true);
+  assert.equal(s.$('conversion-tab').getAttribute('aria-selected'),'true');assert.equal(pool.roles.program,'2');assert.equal(pool.roles.observer,'1');assert(s.calls.some(call=>call[0]==='conversion-show'));
+  s.$('conversion-tab').dispatchEvent(new s.window.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+  assert.equal(s.window.location.hash,'#program');assert.equal(s.window.document.activeElement,s.$('program-tab'));assert.equal(s.$('program-panel').hidden,false);
+  s.$('program-tab').dispatchEvent(new s.window.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));assert.equal(s.window.location.hash,'#analyzer');
+  s.$('analyzer-tab').dispatchEvent(new s.window.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));assert.equal(s.window.location.hash,'#conversion');
+  assert.deepEqual(pool.devices.map(item=>item.link.port),ports);assert.equal(s.calls.filter(call=>['write','stop','run'].includes(call[0])).length,0);
+ }finally{s.close();}
+});
+
+test('conversion deep links open the conversion panel after restoring the program project',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}),{},'#conversion');
+ try{assert.equal(s.$('conversion-panel').hidden,false);assert.equal(s.$('conversion-tab').tabIndex,0);assert.equal(s.$('program-tab').tabIndex,-1);}
+ finally{s.close();}
 });

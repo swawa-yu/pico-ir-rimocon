@@ -44,9 +44,10 @@ test('malformed, overflowing and excessive inputs fail without guessing a conver
  ])assert.throws(()=>convert(kind,text,settings),kind+': '+text.slice(0,24));
 });
 
-function page(){
- const dom=new JSDOM(fs.readFileSync('live-analyzer.html','utf8'),{runScripts:'outside-only',url:'https://example.test/'}),w=dom.window,draws=[];
+function page(embedded=false){
+ const dom=new JSDOM(fs.readFileSync(embedded?'index.html':'live-analyzer.html','utf8'),{runScripts:'outside-only',url:'https://example.test/'}),w=dom.window,draws=[];
  w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;
+ if(embedded){w.PicoSources=require('../pico-sources.js');w.eval(fs.readFileSync('live-view.js','utf8'));}
  w.LiveAnalyzer={currentCapture:()=>null,drawSignal(canvas,width,times,result,focused){draws.push({times,result,focused});return times.map((d,i)=>({a:i*10,b:(i+1)*10,index:i}));}};
  w.eval(fs.readFileSync('signal-conversion.js','utf8'));w.eval(fs.readFileSync('signal-converter.js','utf8'));
  return {w,draws,$:id=>w.document.getElementById(id),close:async()=>{await new Promise(resolve=>setTimeout(resolve,0));w.close();}};
@@ -71,5 +72,18 @@ test('a fixed capture loads exact timings, bit order and data position without c
   assert.deepEqual(JSON.parse(p.$('conversion-times').value),times);assert.equal(p.$('conversion-number').value,'65');
   p.$('conversion-input').value='[100,100]';p.$('conversion-start').value=0;p.$('conversion-apply').click();
   p.$('conversion-capture').click();assert.deepEqual(JSON.parse(p.$('conversion-times').value),times);
+ }finally{await p.close();}
+});
+
+test('the embedded converter has its own panel and a selected signal transfers there without altering the original',async()=>{
+ const p=page(true);try{
+  assert(p.$('conversion-panel').contains(p.$('signal-converter')));assert.equal(p.$('observer-panel').querySelector('.conversion-card'),null);
+  assert.equal(p.$('signal-converter').querySelector('summary').hidden,true);
+  let switches=0;p.$('conversion-tab').addEventListener('click',()=>{switches++;p.$('conversion-panel').hidden=false;p.$('observer-panel').hidden=true;p.w.SignalConverter.show();});
+  const times=convert('text','A',{leader:'short'}).times,original=[...times];
+  p.w.SignalConverter.setCapture(times,2,false);p.$('capture-convert').click();
+  assert.equal(switches,1);assert.equal(p.$('conversion-panel').hidden,false);assert.equal(p.$('conversion-number').value,'65');assert.deepEqual(JSON.parse(p.$('conversion-times').value),original);
+  p.$('conversion-input').value='[560,1680,560]';p.$('conversion-start').value=0;p.$('conversion-apply').click();assert.deepEqual(times,original);
+  p.$('conversion-panel').hidden=true;p.$('conversion-panel').hidden=false;p.w.SignalConverter.show();assert.equal(p.$('conversion-input').value,'[560,1680,560]');assert.equal(p.$('conversion-number').value,'1');
  }finally{await p.close();}
 });
