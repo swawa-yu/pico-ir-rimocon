@@ -129,9 +129,9 @@ const rootTypes=['pico_module','pico_start'];
 export function configure(B,g,editRaw,options={}){
   B.defineBlocksWithJsonArray([
     {type:'pico_module',message0:'読み込まれたとき %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],colour:45},
-    {type:'pico_import',message0:'import %1',args0:[{type:'field_input',name:'MODULE',text:'time'}],previousStatement:null,nextStatement:null,colour:165},
-    {type:'pico_from_import',message0:'from %1 import %2',args0:[{type:'field_input',name:'MODULE',text:'my_tools'},{type:'field_input',name:'NAMES',text:'Counter, twice'}],previousStatement:null,nextStatement:null,colour:165},
-    {type:'pico_import_as',message0:'import %1 as %2',args0:[{type:'field_input',name:'MODULE',text:'time'},{type:'field_input',name:'ALIAS',text:'clock'}],previousStatement:null,nextStatement:null,colour:165},
+    {type:'pico_import',message0:'%1 を読み込む',args0:[{type:'field_input',name:'MODULE',text:'time'}],previousStatement:null,nextStatement:null,colour:165},
+    {type:'pico_from_import',message0:'%1 から %2 を読み込む',args0:[{type:'field_input',name:'MODULE',text:'my_tools'},{type:'field_input',name:'NAMES',text:'Counter, twice'}],previousStatement:null,nextStatement:null,colour:165},
+    {type:'pico_import_as',message0:'%1 を %2 という名前で読み込む',args0:[{type:'field_input',name:'MODULE',text:'time'},{type:'field_input',name:'ALIAS',text:'clock'}],previousStatement:null,nextStatement:null,colour:165},
     {type:'pico_class',message0:'クラス %1 を定義 %2 %3',args0:[{type:'field_input',name:'HEADER',text:'MyClass'},{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,colour:215},
     {type:'pico_def',message0:'関数 %1 を定義 %2 %3',args0:[{type:'field_input',name:'HEADER',text:'my_function()'},{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,colour:290}
   ]);

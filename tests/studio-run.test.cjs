@@ -25,7 +25,7 @@ function studio(exec){
   w.Blockly=Object.create(Blockly);w.Blockly.inject=id=>{if(id==='blockly')return workspace;const ws=new Blockly.Workspace();ws.registerToolboxCategoryCallback=()=>{};workspaces.push(ws);return ws;};w.Blockly.svgResize=()=>{};
   w.python={pythonGenerator};
   w.PicoBlocks=require('../pico-blocks.js');w.StudioFiles=require('../studio-files.js');
-  w.PicoSources=require('../pico-sources.js');w.PicoProject={...require('../pico-project.js'),async upload(device,files){calls.push(['write',files]);return JSON.parse(await exec(files));}};
+  w.StudioSamples=require('../studio-samples.js');w.PicoSources=require('../pico-sources.js');w.PicoProject={...require('../pico-project.js'),async upload(device,files){calls.push(['write',files]);return JSON.parse(await exec(files));}};
   w.PicoDevices={listeners:new Set(),forRole:(_role,watcher)=>{w.deviceWatcher=watcher;return device;},bindSelect(){},changed(){},entry:()=>({id:'2',state:'connected',link:device})};
   w.eval(fs.readFileSync('vendor/codemirror/editor.js','utf8'));
   w.structuredClone=global.structuredClone;
@@ -111,7 +111,7 @@ test('creating and renaming a folder keeps its custom blocks and writes the resu
   s.window.editorCallbacks.onChange('tools/calc.py','def twice(x):\n    return x*2\n');
   s.$('file-tree').querySelector('details[data-path="tools"] summary').click();
   s.$('file-rename').click();s.$('file-path-input').value='helpers';s.$('file-dialog-apply').click();
-  assert.equal(s.$('file-title').textContent,'helpers/calc.py');
+  assert.equal(s.$('file-tree').querySelector('[aria-current=true]').title,'helpers/calc.py');
   assert(s.workspaces[1].getAllBlocks(false).some(b=>b.type==='pico_def'));
   s.$('run').click();await new Promise(resolve=>setImmediate(resolve));
   const written=s.calls.find(c=>c[0]==='write')[1];
@@ -125,11 +125,11 @@ test('opening another project safely leaves a custom file that no longer exists'
   const original=s.window.localStorage.getItem('pico-blocks-project-2');
   s.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};s.window.HTMLDialogElement.prototype.close=function(){this.open=false;};
   s.$('file-create').click();s.$('file-path-input').value='scratch.py';s.$('file-dialog-apply').click();
-  assert.equal(s.$('file-title').textContent,'scratch.py');
+  assert.equal(s.$('file-tree').querySelector('[aria-current=true]').title,'scratch.py');
   s.window.confirm=()=>true;
   Object.defineProperty(s.$('project-file'),'files',{value:[{size:original.length,async text(){return original;}}]});
   s.$('project-file').dispatchEvent(new s.window.Event('change'));await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(s.$('file-title').textContent,'main.py');assert.doesNotMatch(s.$('file-tree').textContent,/scratch/);
+  assert.equal(s.$('file-tree').querySelector('[aria-current=true]').title,'main.py');assert.doesNotMatch(s.$('file-tree').textContent,/scratch/);
  }finally{s.close();}
 });
 
@@ -270,5 +270,18 @@ test('PC and Pico lists align missing files, mark differences and keep the share
   assert.equal(pc.parentElement.scrollTop,40);
   assert.equal(s.$('pico-file-status').textContent,'≠');assert.equal(s.$('pico-file-status').dataset.changed,'true');
   assert(s.$('pico-diff-rows').querySelector('tr.changed'));
+ }finally{s.close();}
+});
+
+test('a new named project keeps hardware configuration and a named saved copy restores as a file group',()=>{
+ const s=studio(async()=>'{"changed":0}');
+ try{
+  s.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};s.window.HTMLDialogElement.prototype.close=function(){this.open=false;};
+  s.$('project-new').click();s.$('project-name-input').value='赤外線の練習';s.$('project-apply').click();
+  const fresh=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
+  assert.equal(fresh.name,'赤外線の練習');assert.equal(fresh.files['main.py'],'');assert(fresh.parts.length>0);
+  const saved=[];s.window.URL.createObjectURL=blob=>{saved.push(blob);return 'blob:project';};s.window.URL.revokeObjectURL=()=>{};s.window.HTMLAnchorElement.prototype.click=function(){saved.push(this.download);};
+  s.$('project-save-as').click();s.$('project-name-input').value='別の練習';s.$('project-apply').click();
+  assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).name,'別の練習');assert.equal(saved[1],'別の練習.json');
  }finally{s.close();}
 });

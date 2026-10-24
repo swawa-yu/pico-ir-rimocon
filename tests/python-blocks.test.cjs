@@ -287,3 +287,16 @@ test('missing call targets and missing arguments produce block diagnostics witho
   call.updateArguments(2);api.diagnose(ws,source);assert.match(call.picoDiagnostic,/接続されていない/);
  }finally{ws.dispose();}
 });
+
+test('from-scratch infrared samples keep Japanese identifiers and decode the transmitted pulse durations',()=>{
+ const samples=require('../studio-samples.js');
+ for(const jp of [false,true]){
+  const sample=samples.infrared(jp),generated={};require('../pico-blocks.js').validateParts(sample.parts);
+  for(const [path,source] of Object.entries(sample.files)){
+   const ws=workspace(source);try{generated[path]=api.generate(ws);assert.equal(generated[path],source);}finally{ws.dispose();}
+  }
+  const names=jp?['時間配列にする','解読する','数値にする','送信する']:['to_times','decode','to_number','send'];
+  const py=`import sys, types\nmachine = types.ModuleType('machine')\nmachine.Pin = object\nmachine.PWM = object\nsys.modules['machine'] = machine\nimport time\ntime.ticks_us = lambda: 0\ntime.ticks_diff = lambda a,b: a-b\ntime.sleep_us = lambda n: None\nns = {}\nexec(${JSON.stringify(generated['ir_signal.py'])}, ns)\nbits = [1,0,0,0,0,0,1,0]\ntimes = ns[${JSON.stringify(names[0])}](bits)\nassert ns[${JSON.stringify(names[1])}](times) == bits\nassert ns[${JSON.stringify(names[2])}](bits) == 65\nassert ns[${JSON.stringify(names[1])}]([9000,2250,560]) == []\nclass Output:\n    def __init__(self): self.values = []\n    def duty_u16(self, value): self.values.append(value)\npwm = Output()\nns[${JSON.stringify(names[3])}](pwm, times)\nassert pwm.values[0] == 21845 and pwm.values[-1] == 0\nclock = [0]\nns['ticks_us'] = lambda: clock.__setitem__(0, clock[0] + 5) or clock[0]\nclass Input:\n    def value(self):\n        elapsed = clock[0] - 1000\n        if elapsed < 0: return 1\n        for index, duration in enumerate(times):\n            if elapsed < duration: return index % 2\n            elapsed -= duration\n        return 1\ncaptured = ns[${JSON.stringify(jp?'受信する':'receive')}](Input())\nassert len(captured) == len(times), captured\nassert ns[${JSON.stringify(names[1])}](captured) == bits, captured\nclass Idle:\n    def value(self): return 1\nassert ns[${JSON.stringify(jp?'受信する':'receive')}](Idle(), 1) == []\ncompile(${JSON.stringify(generated['main.py'])}, 'main.py', 'exec')\n`;
+  const result=spawnSync('python3',['-c',py],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);
+ }
+});
