@@ -31,8 +31,37 @@ test('UF2 parser reconstructs pages by address and rejects corrupt, duplicate, s
 
 test('firmware preparation rejects unapproved images before USB access', async () => {
   const { prepareFirmware } = await firmware;
-  await assert.rejects(prepareFirmware(uf2(), 'pico'), /公式|ダウンロード/);
+  await assert.rejects(prepareFirmware(uf2(), 'pico'), /公式/);
   await assert.rejects(prepareFirmware(uf2(), 'other'), /基板/);
+});
+
+test('bundled official firmware matches each board hash and rejects the other board', async () => {
+  const { firmwareModels, prepareFirmware } = await firmware;
+  for (const model of ['pico', 'picoW']) {
+    const bytes = new Uint8Array(fs.readFileSync(`firmware/${firmwareModels[model].file}`));
+    const image = await prepareFirmware(bytes, model);
+    assert.equal(image.address, 0x10000000);
+    assert.equal(image.data.length, bytes.length / 2);
+    await assert.rejects(prepareFirmware(bytes, model === 'pico' ? 'picoW' : 'pico'), /基板の選択/);
+  }
+});
+
+test('automatic loading fetches the selected same-origin image and rejects failed or corrupt downloads', async () => {
+  const { loadFirmware, firmwareModels } = await firmware;
+  const originalFetch = global.fetch;
+  const signal = new AbortController().signal;
+  try {
+    global.fetch = async (url, options) => {
+      assert.equal(url, `firmware/${firmwareModels.picoW.file}`);
+      assert.equal(options.signal, signal);
+      return { ok: true, arrayBuffer: async () => fs.readFileSync(url) };
+    };
+    assert.equal((await loadFirmware('picoW', { signal })).data.length, 905728);
+    global.fetch = async () => ({ ok: false });
+    await assert.rejects(loadFirmware('pico'), /取得/);
+    global.fetch = async () => ({ ok: true, arrayBuffer: async () => uf2() });
+    await assert.rejects(loadFirmware('pico'), /一致/);
+  } finally { global.fetch = originalFetch; }
 });
 
 function board({ corrupt = false, failWrite = false, failConnect = false, failReboot = false } = {}) {
@@ -91,35 +120,63 @@ test('non-BOOTSEL devices and invalid memory ranges cannot reach erase', async (
   assert.deepEqual(b.trace, []);
 });
 
-function ui(supported = true) {
+function ui(supported = true, load = async model => ({ board: model, data: new Uint8Array(256) })) {
   const dom = new JSDOM(fs.readFileSync('docs.html', 'utf8'), { url: 'http://localhost/docs.html', runScripts: 'outside-only' });
   const w = dom.window; const trace = [];
   if (supported) Object.defineProperty(w.navigator, 'usb', { value: {} });
   w.isSecureContext = true;
   Object.assign(w, {
+    AbortController,
     firmwareModels: { pico: { name: 'Pico' }, picoW: { name: 'Pico W' } },
-    downloadUrl: model => `https://example.org/${model}.uf2`,
-    prepareFirmware: async () => { trace.push('prepare'); return { data: new Uint8Array(256) }; },
+    loadFirmware: async (model, options) => { trace.push(`load:${model}`); return load(model, options); },
     requestBootDevice: async () => { trace.push('choose'); return {}; },
-    flashFirmware: async () => { trace.push('flash'); return { rebooted: true }; },
+    flashFirmware: async (device, image) => { trace.push(`flash:${image.board}`); return { rebooted: true }; },
   });
   vm.runInContext(fs.readFileSync('firmware-ui.mjs', 'utf8').replace(/^import[^\n]+\n/, ''), dom.getInternalVMContext());
   return { w, dom, trace, get: id => w.document.getElementById(`firmware-${id}`) };
 }
 
-test('installer only enables writing after validating a file and resets when the board changes', async () => {
+test('installer automatically prepares each board and opens USB only on a write click', async () => {
   const p = ui();
   try {
     assert(p.get('write').disabled);
-    Object.defineProperty(p.get('file'), 'files', { configurable: true, value: [{ size: 512, arrayBuffer: async () => new ArrayBuffer(512) }] });
-    p.get('file').dispatchEvent(new p.w.Event('change')); await new Promise(setImmediate);
+    await new Promise(setImmediate);
     assert.equal(p.get('write').disabled, false);
-    p.get('write').click(); await new Promise(setImmediate);
-    assert.deepEqual(p.trace, ['prepare', 'choose', 'flash']);
-    assert.match(p.get('status').textContent, /完了/);
+    assert.deepEqual(p.trace, ['load:pico']);
     p.get('model').value = 'picoW'; p.get('model').dispatchEvent(new p.w.Event('change'));
     assert(p.get('write').disabled);
-    assert.match(p.get('download').href, /picoW/);
+    await new Promise(setImmediate);
+    p.get('write').click(); await new Promise(setImmediate);
+    assert.deepEqual(p.trace, ['load:pico', 'load:picoW', 'choose', 'flash:picoW']);
+    assert.match(p.get('status').textContent, /完了/);
+    assert.equal(p.w.document.querySelector('input[type=file]'), null);
+  } finally { p.dom.window.close(); }
+});
+
+test('late downloads for the previous board cannot enable or replace the selected firmware', async () => {
+  const loads = [];
+  const p = ui(true, (model, { signal }) => new Promise(resolve => loads.push({ model, signal, resolve })));
+  try {
+    p.get('model').value = 'picoW'; p.get('model').dispatchEvent(new p.w.Event('change'));
+    assert(loads[0].signal.aborted);
+    loads[0].resolve({ board: 'pico' }); await new Promise(setImmediate);
+    assert(p.get('write').disabled);
+    loads[1].resolve({ board: 'picoW' }); await new Promise(setImmediate);
+    assert.equal(p.get('write').disabled, false);
+    p.get('write').click(); await new Promise(setImmediate);
+    assert.equal(p.trace.at(-1), 'flash:picoW');
+  } finally { p.dom.window.close(); }
+});
+
+test('failed automatic preparation offers retry and cannot write until recovery', async () => {
+  let fail = true;
+  const p = ui(true, async model => { if (fail) throw Error('offline'); return { board: model }; });
+  try {
+    await new Promise(setImmediate);
+    assert(p.get('write').disabled); assert.equal(p.get('retry').hidden, false);
+    assert.match(p.get('status').textContent, /offline/);
+    fail = false; p.get('retry').click(); await new Promise(setImmediate);
+    assert.equal(p.get('write').disabled, false); assert(p.get('retry').hidden);
   } finally { p.dom.window.close(); }
 });
 

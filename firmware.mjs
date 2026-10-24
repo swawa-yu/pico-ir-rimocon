@@ -12,8 +12,11 @@ export const firmwareModels = {
     sha256: 'f918c0a082c6daf53e27998b7f990ba5f065db2e298b21a34024532a20786794',
   },
 };
-export function downloadUrl(model) {
-  return `https://micropython.org/resources/firmware/${firmwareModels[model].file}`;
+export async function loadFirmware(model, { signal } = {}) {
+  if (!firmwareModels[model]) throw new Error('基板を選んでください。');
+  const response = await fetch(`firmware/${firmwareModels[model].file}`, { signal });
+  if (!response.ok) throw new Error('公式ファームウェアを取得できませんでした。');
+  return prepareFirmware(new Uint8Array(await response.arrayBuffer()), model);
 }
 
 const flashStart = 0x10000000;
@@ -59,7 +62,7 @@ export async function prepareFirmware(bytes, model) {
   const hash = Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, '0')).join('');
   if (hash !== firmwareModels[model].sha256) {
     const other = Object.values(firmwareModels).find(item => item.sha256 === hash);
-    throw new Error(other ? `${other.name}用のUF2です。基板の選択を確認してください。` : '上のリンクからMicroPython v1.29.0のUF2をダウンロードして選んでください。');
+    throw new Error(other ? `${other.name}用のUF2です。基板の選択を確認してください。` : '取得したファームウェアが公式ファイルと一致しません。もう一度取得してください。');
   }
   return parseUf2(bytes);
 }

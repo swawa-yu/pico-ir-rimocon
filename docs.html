@@ -23,15 +23,12 @@
       <label for="firmware-model">1. 基板の機種</label>
       <select id="firmware-model"><option value="pico">Pico / Pico H</option><option value="picoW">Pico W / Pico WH</option></select>
       <p class="hint">基板の表記を確認してください。PicoとPico WはUSBでは区別できません。Studioの「Pico 1」「Pico 2」は接続先の番号です。</p>
-      <label for="firmware-file">2. MicroPython v1.29.0</label>
-      <a id="firmware-download" href="https://micropython.org/resources/firmware/RPI_PICO-20260824-v1.29.0.uf2">Pico用UF2をダウンロード</a>
-      <input id="firmware-file" type="file" accept=".uf2" aria-describedby="firmware-file-hint">
-      <p id="firmware-file-hint" class="hint">ダウンロードしたUF2を選びます。公式ファイルと一致することを確認してから書き込みます。</p>
-      <p><strong>3. BOOTSELを押しながらUSB接続</strong></p>
+      <p><strong>2. BOOTSELを押しながらUSB接続</strong></p>
       <p>Studioや外部エディタのUSB接続を切断し、USBを抜きます。書き込む1台だけを、BOOTSELを押したままつなぎ直してください。<code>RPI-RP2</code>が表示されたらボタンを離します。</p>
       <button id="firmware-write" type="button" disabled>USBを選んで書き込む</button>
       <progress id="firmware-progress" max="1" value="0" aria-label="ファームウェアの書き込み" hidden></progress>
-      <p id="firmware-status" role="status" aria-live="polite">UF2ファイルを選んでください。</p>
+      <p id="firmware-status" role="status" aria-live="polite">公式ファームウェアを準備中…</p>
+      <button id="firmware-retry" type="button" hidden>もう一度取得する</button>
     </div>
     <p class="hint">PC版Chrome／Edgeで利用できます。WindowsではUSBドライバの状態によって接続できないことがあります。その場合は、下のコピー手順を使ってください。</p>
     <details>
@@ -137,6 +134,7 @@ Pico GND  ── ドライバGND ── 電源GND
       <li>PETME128フォント：SSD1306のブラウザプレビューで使用。<a href="vendor/petme128.js">MITライセンスを含むソース</a>。</li>
       <li>SSD1306ドライバ：<a href="programs/SSD1306-LICENSE.txt">MITライセンス</a>。</li>
       <li><a href="https://github.com/piersfinlayson/picoflash">picoflash</a>：ファームウェア書き込みのWebUSB通信。<a href="vendor/picoflash/LICENSE">MITライセンス</a>・<a href="vendor/picoflash/SOURCE.txt">取得元</a>。</li>
+      <li>MicroPython v1.29.0：公式UF2を変更せずに配信し、機種の選択後に自動で読み込みます。<a href="firmware/SOURCE.txt">配布元と照合値</a>・<a href="firmware/LICENSES.txt">ライセンスと著作権表示</a>。</li>
     </ul>
     <p>USB通信にはブラウザのWeb Serial APIを使います。
     PC版ChromeでStudioを開き、USBを使う外部エディタは切断してください。
@@ -144,6 +142,6 @@ Pico GND  ── ドライバGND ── 電源GND
   </section>
 </main>
 <footer><a href="./">Pico Studioへ戻る</a></footer>
-<script type="module" src="firmware-ui.mjs"></script>
+<script type="module" src="firmware-ui.mjs?v=auto-uf2"></script>
 </body>
 </html>
