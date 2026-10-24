@@ -202,7 +202,7 @@ export function configure(B,g,editRaw,options={}){
       if(missing.length&&path!=='parts.py')imports.push('from parts import '+missing.map(p=>p.id).join(', '));
       if(enabled.some(b=>['pico_wait','pico_time_us','pico_time_diff'].includes(b.type))&&!/^import time\s*$/m.test(code))imports.push('import time');
       if(enabled.some(b=>b.type==='pico_bootsel')&&!/^import rp2\s*$/m.test(code))imports.push('import rp2');
-      if(enabled.some(b=>['pico_decode_bits','pico_bits_text','pico_text_bits','pico_bits_int','pico_int_bits'].includes(b.type))&&!/^import ir_data\s*$/m.test(code))imports.push('import ir_data');
+      if(enabled.some(b=>['pico_new_bits','pico_set_bits','pico_decode_bits','pico_bits_text','pico_text_bits','pico_bits_int','pico_int_bits'].includes(b.type))&&!/^import ir_data\s*$/m.test(code))imports.push('import ir_data');
       const parsed=workspace.getTopBlocks(false).some(block=>block.data==='pico-source-root');
       const definitions=Object.entries(g.definitions_||{}).filter(([key,text])=>!(parsed&&key==='variables')&&!code.includes(text)).map(([,text])=>text);
       const root=roots.find(block=>rootTypes.includes(block.type)&&block.isEnabled());

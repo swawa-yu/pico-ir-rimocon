@@ -51,6 +51,22 @@ def int_to_bits(value, width=8):
     return [(value >> shift) & 1 for shift in range(width - 1, -1, -1)]
 
 
+def new_bits(width):
+    if not isinstance(width, int) or width < 1:
+        raise ValueError('Bit width must be a positive integer')
+    return [0] * width
+
+
+def set_bits(bits, start, end, value):
+    if not isinstance(bits, list):
+        raise ValueError('Expected a bit array')
+    if not isinstance(start, int) or not isinstance(end, int) or not 1 <= start <= end <= len(bits):
+        raise ValueError('Choose digits from 1 to the bit width, counted from the left')
+    replacement = int_to_bits(value, end - start + 1)
+    _bits(bits)
+    bits[start - 1:end] = replacement
+
+
 class Receiver:
     def __init__(self, pin=15):
         from live_receiver import Recorder

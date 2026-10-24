@@ -1,4 +1,4 @@
-const outputType=b=>!b?null:['variables_get','pico_expression','pico_call_value','pico_index','logic_null'].includes(b.type)?null:['text','pico_char','pico_bits_text','pico_to_text','pico_base_text'].includes(b.type)?'String':['lists_create_with','pico_receive','pico_int_bits','pico_text_bits','pico_decode_bits','pico_range'].includes(b.type)?'Array':b.type.startsWith('logic_')||['pico_bootsel','pico_ir_level','pico_button'].includes(b.type)?'Boolean':'Number';
+const outputType=b=>!b?null:['variables_get','pico_expression','pico_call_value','pico_index','logic_null'].includes(b.type)?null:['text','pico_char','pico_bits_text','pico_to_text','pico_base_text'].includes(b.type)?'String':['lists_create_with','pico_receive','pico_int_bits','pico_text_bits','pico_decode_bits','pico_new_bits','pico_receive_bits','pico_range'].includes(b.type)?'Array':b.type.startsWith('logic_')||['pico_bootsel','pico_ir_level','pico_button'].includes(b.type)?'Boolean':'Number';
 export function friendlyCall(target,items){
   if(items.some(item=>item?.type==='pico_expression'&&/^\s*\*/.test(item.fields?.CODE||'')))return null;
   const number=n=>({type:'math_number',fields:{NUM:n}});
@@ -27,11 +27,11 @@ export function nativeStatement(node,source,parts,parseBody){
   const input=block=>({block});
   const number=n=>({type:'math_number',fields:{NUM:n}});
   const variable=name=>({type:'variables_get',fields:{VAR:{name}}});
-  const checks={math_arithmetic:'Number',pico_time_diff:'Number',pico_wait:'Number',pico_pwm:'Number',pico_send:'Number',pico_speaker_on:'Number',pico_receive:'Number',pico_char:'Number',pico_ord:'String',pico_int_bits:'Number',pico_text_bits:'String',pico_bits_text:'Array',pico_bits_int:'Array',pico_decode_bits:null,lists_length:'Array',text_length:'String',logic_negate:'Boolean'};
+  const checks={math_arithmetic:'Number',pico_time_diff:'Number',pico_wait:'Number',pico_pwm:'Number',pico_send:'Number',pico_speaker_on:'Number',pico_receive:'Number',pico_receive_bits:'Number',pico_char:'Number',pico_ord:'String',pico_int_bits:'Number',pico_text_bits:'String',pico_bits_text:'Array',pico_bits_int:'Array',pico_decode_bits:null,lists_length:'Array',text_length:'String',logic_negate:'Boolean'};
   function values(type,names,items,fields={}){
     if(!items.every(Boolean))return null;
     for(let i=0;i<items.length;i++){
-      const expected=type==='pico_decode_bits'?(names[i]==='TIMES'?'Array':'Number'):checks[type],actual=outputType(items[i]);
+      const expected=type==='pico_set_bits'?(names[i]==='BITS'?'Array':'Number'):type==='pico_new_bits'?'Number':type==='pico_send_bits'?'Array':type==='pico_decode_bits'?(names[i]==='TIMES'?'Array':'Number'):checks[type],actual=outputType(items[i]);
       if(expected&&actual&&expected!==actual)return null;
     }
     return {type,fields,inputs:Object.fromEntries(names.map((name,i)=>[name,input(items[i])]))};
@@ -64,13 +64,14 @@ export function nativeStatement(node,source,parts,parseBody){
       if(target==='len'&&arguments_.length===1)return values(outputType(converted[0])==='String'?'text_length':'lists_length',['VALUE'],converted);
       if(target==='chr'&&arguments_.length===1)return values('pico_char',['VALUE'],converted);
       if(target==='ord'&&arguments_.length===1)return values('pico_ord',['VALUE'],converted);
-      const methods={bits_to_text:['pico_bits_text',['VALUE']],text_to_bits:['pico_text_bits',['VALUE']],bits_to_int:['pico_bits_int',['VALUE']],int_to_bits:['pico_int_bits',['VALUE','WIDTH']],durations_to_bits:['pico_decode_bits',['TIMES','SKIP','THRESHOLD']]};
+      const methods={new_bits:['pico_new_bits',['WIDTH']],bits_to_text:['pico_bits_text',['VALUE']],text_to_bits:['pico_text_bits',['VALUE']],bits_to_int:['pico_bits_int',['VALUE']],int_to_bits:['pico_int_bits',['VALUE','WIDTH']],durations_to_bits:['pico_decode_bits',['TIMES','SKIP','THRESHOLD']]};
       const method=methods[target.replace(/^ir_data\./,'')];
       if(target.startsWith('ir_data.')&&method){
         if(arguments_.length===method[1].length)return values(method[0],method[1],converted);
         if(target==='ir_data.int_to_bits'&&arguments_.length===1)return values('pico_int_bits',['VALUE','WIDTH'],[converted[0],number(8)]);
       }
       const [id,action]=target.split('.'),part=parts.find(p=>p.id===id);
+      if(part?.kind==='receiver'&&action==='receive_bits'&&arguments_.length<=1)return values('pico_receive_bits',['TIMEOUT'],arguments_.length?converted:[number(1000)],{PART:id});
       if(part?.kind==='receiver'&&action==='receive'&&arguments_.length<=1)return values('pico_receive',['TIMEOUT'],arguments_.length?converted:[number(1000)],{PART:id});
       if(part&&['button','receiver'].includes(part.kind)&&['is_pressed','is_on'].includes(action)&&!arguments_.length)return {type:part.kind==='receiver'?'pico_ir_level':'pico_button',fields:{PART:id}};
     }
@@ -88,6 +89,7 @@ export function nativeStatement(node,source,parts,parseBody){
   if(node.name==='AssignStatement'&&cs.length===3&&cs[0].name==='VariableName'&&text(cs[1])==='='&&text(cs[0])!=='None')return values('variables_set',['VALUE'],[expression(cs[2])],{VAR:{name:text(cs[0])}});
   if(node.name==='ExpressionStatement'&&cs[0]?.name==='CallExpression'){
     const call=cs[0],target=text(call.firstChild),arguments_=args(call),converted=arguments_.map(expression);
+    if(target==='ir_data.set_bits'&&arguments_.length===4)return values('pico_set_bits',['BITS','START','END','VALUE'],converted);
     if(target==='print'&&arguments_.length===1)return values('text_print',['TEXT'],converted);
     if(target==='time.sleep'&&arguments_.length===1){
       const value=arguments_[0];
@@ -98,6 +100,7 @@ export function nativeStatement(node,source,parts,parseBody){
     if(part){
       const fields={PART:id};
       if(part.kind==='pwm'&&action==='set'&&arguments_.length===1)return values('pico_pwm',['PERCENT'],converted,fields);
+      if(part.kind==='infrared'&&action==='send_bits'&&arguments_.length===1)return values('pico_send_bits',['BITS'],converted,fields);
       if(part.kind==='infrared'&&action==='send'&&arguments_.length===1)return values('pico_send',['VALUE'],converted,fields);
       if(['infrared','led'].includes(part.kind)&&['on','off'].includes(action)&&!arguments_.length)return {type:part.kind==='led'?'pico_led':'pico_carrier',fields:{...fields,ON:action==='on'?'1':'0'}};
       if(part.kind==='speaker'&&action==='on'&&arguments_.length===1)return values('pico_speaker_on',['HZ'],converted,fields);

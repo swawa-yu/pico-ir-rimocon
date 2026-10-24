@@ -398,8 +398,8 @@ test('save-and-close saves the targeted inactive project and leaves the other pr
  try{
   const downloaded=[];s.window.URL.createObjectURL=()=> 'blob:project';s.window.URL.revokeObjectURL=()=>{};s.window.HTMLAnchorElement.prototype.click=function(){downloaded.push(this.download);};
   s.$('example').value='basic_send';s.$('example-load').click();s.$('project-tabs').querySelector('.project-close').click();assert(s.$('project-close-dialog').open);
-  s.$('project-save-close').click();assert.deepEqual(downloaded,['変数の値を表示.json']);
-  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects.length,1);assert.equal(tabs.projects[0].data.name,'ビット配列を送信する');assert.equal(tabs.closed.data.name,'変数の値を表示');assert.equal(tabs.closed.dirty,false);
+  s.$('project-save-close').click();assert.deepEqual(downloaded,['変数の値を表示する.json']);
+  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects.length,1);assert.equal(tabs.projects[0].data.name,'ビット配列を送信する');assert.equal(tabs.closed.data.name,'変数の値を表示する');assert.equal(tabs.closed.dirty,false);
  }finally{s.close();}
 });
 
@@ -409,6 +409,24 @@ test('save-and-close waits if the targeted project Pico is busy without replacin
   s.window.PicoDevices.select('program','1');s.$('example').value='basic_send';s.$('example-load').click();s.window.PicoDevices.select('program','2');
   s.$('project-tabs').querySelector('.project-close').click();assert(s.$('project-close-dialog').open);s.links['1'].busy=true;
   s.$('project-save-close').click();assert.equal(s.$('project-tabs').querySelectorAll('[role=tab]').length,2);assert(s.$('project-close-dialog').open);
-  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects[0].data.name,'変数の値を表示');assert.equal(tabs.projects[1].data.name,'ビット配列を送信する');
+  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects[0].data.name,'変数の値を表示する');assert.equal(tabs.projects[1].data.name,'ビット配列を送信する');
+ }finally{s.close();}
+});
+
+test('beginner projects include editable hardware and binary helpers for writing to a Pico',async()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  for(const name of ['binary','send','receive']){
+   s.$('example').value='beginner_'+name;s.$('example-load').click();
+   s.$('write-only').click();await new Promise(resolve=>setImmediate(resolve));
+   const files=s.calls.filter(c=>c[0]==='write').at(-1)[1];
+   assert.equal(files['main.py'],s.window.StudioSamples.beginner(name).files['main.py']);
+   assert.equal(files['lib/ir_data.py'],s.window.PicoSources.irData);
+   if(name==='send')assert.match(files['parts.py'],/infrared = Infrared\(16, unit=560\)/);
+   if(name==='receive'){
+    assert.match(files['parts.py'],/receiver = InfraredReceiver\(15\)/);
+    assert.equal(files['lib/live_receiver.py'],s.window.PicoSources.receiver);
+   }
+  }
  }finally{s.close();}
 });

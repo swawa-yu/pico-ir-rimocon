@@ -442,3 +442,66 @@ exec(sys.stdin.read())
   assert.match(output,/00101010 → 42/);assert.match(output,/末尾を1に変更: 00101011/);
  }finally{w.dispose();}
 });
+
+test('binary digit ranges preserve leading zeroes, other digits and the original value on invalid edits',()=>{
+ python(`import sys
+exec(sys.stdin.read())
+bits = new_bits(16)
+set_bits(bits, 1, 8, 65)
+set_bits(bits, 9, 16, 42)
+assert bits_to_text(bits) == '0100000100101010'
+set_bits(bits, 1, 1, 1)
+assert bits_to_text(bits) == '1100000100101010'
+for start, end, value in [(0, 8, 0), (1, 17, 0), (8, 1, 0), (1, 8, 256), (1, 8, -1), (1, 8, 1.5)]:
+ before = bits[:]
+ try:
+  set_bits(bits, start, end, value)
+ except ValueError:
+  pass
+ else:
+  raise AssertionError((start, end, value))
+ assert bits == before
+for width in [0, -1, 1.5]:
+ try:
+  new_bits(width)
+ except ValueError:
+  pass
+ else:
+  raise AssertionError(width)
+`,require('../pico-sources.js').irData);
+});
+
+test('beginner sending keeps all digits and beginner reception decodes the same chronological binary',()=>{
+ const samples=require('../studio-samples.js'),sources=require('../pico-sources.js');
+ python(`import sys, types, time
+sys.modules['machine'] = types.SimpleNamespace(Pin=lambda n: n, PWM=lambda *a, **k: types.SimpleNamespace(duty_u16=lambda value: None, deinit=lambda: None))
+ir_data = types.ModuleType('ir_data')
+exec(${JSON.stringify(sources.irData)}, ir_data.__dict__)
+sys.modules['ir_data'] = ir_data
+hardware = types.ModuleType('pico_parts')
+exec(${JSON.stringify(runtime)}, hardware.__dict__)
+durations = []
+time.sleep_us = durations.append
+parts = types.ModuleType('parts')
+parts.infrared = hardware.Infrared(16)
+sys.modules['parts'] = parts
+exec(${JSON.stringify(samples.beginner('send').files['main.py'])}, {})
+assert ir_data.bits_to_text(ir_data.durations_to_bits(durations[:-1])) == '0100000100101010'
+packets = iter([[], durations[:-1]])
+receiver = object.__new__(hardware.InfraredReceiver)
+receiver.receive = lambda timeout: next(packets)
+parts.receiver = receiver
+try:
+ exec(${JSON.stringify(samples.beginner('receive').files['main.py'])}, {})
+except StopIteration:
+ pass
+before = durations[:]
+try:
+ parts.infrared.send_bits([0, 2])
+except ValueError:
+ pass
+else:
+ raise AssertionError('Invalid digits accepted')
+assert durations == before
+`,'');
+});

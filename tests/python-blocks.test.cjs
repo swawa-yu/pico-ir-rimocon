@@ -9,8 +9,8 @@ Object.assign(B.Msg,require('../vendor/blockly/msg/ja.js'));
 const {pythonGenerator:g}=require('../vendor/blockly/python_compressed.js');
 const dom=new JSDOM('');
 B.utils.xml.injectDependencies({document:dom.window.document,DOMParser:dom.window.DOMParser,XMLSerializer:dom.window.XMLSerializer});
-let api,fromSource,upgrade;
-before(async()=>{const module=await import('../python-blocks.mjs');fromSource=module.fromSource;upgrade=module.upgrade;require('../pico-blocks.js').configure(B,g,()=>[]);api=module.configure(B,g,()=>{});});
+let api,fromSource,upgrade,testParts=[];
+before(async()=>{const module=await import('../python-blocks.mjs');fromSource=module.fromSource;upgrade=module.upgrade;require('../pico-blocks.js').configure(B,g,()=>testParts);api=module.configure(B,g,()=>{});});
 function workspace(source){const ws=new B.Workspace();B.serialization.workspaces.load(fromSource(source),ws);return ws;}
 
 test('opening and saving Python preserves every byte, including unsupported syntax and incomplete edits',()=>{
@@ -395,4 +395,28 @@ exec(${JSON.stringify(receiver['ir_signal.py'])}, module.__dict__)
 assert module.decode([9000,4500,560,1680,560,560,560]) == ([1,0],1)
 `;
  const result=spawnSync('python3',['-c',py],{encoding:'utf8',timeout:5000});assert.equal(result.status,0,result.stderr);
+});
+
+test('beginner samples expose editable binary, receive and send blocks and regenerate changed digits',()=>{
+ const samples=require('../studio-samples.js');
+ for(const name of ['console','binary','send','receive','button_send','carrier','fan']){
+  const sample=samples.beginner(name),source=sample.files['main.py'],ws=new B.Workspace();testParts=sample.parts;
+  B.serialization.workspaces.load(fromSource(source,sample.parts),ws);
+  try{
+   const original=spawnSync('python3',['-c',`import ast,sys
+assert ast.dump(ast.parse(sys.stdin.read())) == ast.dump(ast.parse(${JSON.stringify(source)}))`],{input:api.generate(ws,sample.parts),encoding:'utf8'});
+   assert.equal(original.status,0,original.stderr);
+   if(['binary','send','button_send'].includes(name)){
+    const edits=ws.getAllBlocks(false).filter(b=>b.type==='pico_set_bits');
+    assert.equal(edits.length,2);assert(ws.getAllBlocks(false).some(b=>b.type==='pico_new_bits'));
+    edits.find(b=>b.getInputTargetBlock('VALUE').getFieldValue('NUM')===42).getInputTargetBlock('VALUE').setFieldValue(66,'NUM');
+    assert.match(api.generate(ws,sample.parts),/ir_data\.set_bits\(信号, 9, 16, 66\)/);
+   }
+   if(name==='send')assert(ws.getAllBlocks(false).some(b=>b.type==='pico_send_bits'));
+   if(name==='receive')assert(ws.getAllBlocks(false).some(b=>b.type==='pico_receive_bits'));
+   const code=api.generate(ws,sample.parts);
+   const result=spawnSync('python3',['-c','import ast,sys;ast.parse(sys.stdin.read())'],{input:code,encoding:'utf8'});
+   assert.equal(result.status,0,result.stderr);
+  }finally{ws.dispose();testParts=[];}
+ }
 });

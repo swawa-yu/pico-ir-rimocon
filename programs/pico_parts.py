@@ -64,6 +64,10 @@ class InfraredReceiver:
             self.close()
             raise
 
+    def receive_bits(self, timeout_ms=1000):
+        from ir_data import durations_to_bits
+        return durations_to_bits(self.receive(timeout_ms))
+
     def close(self):
         if self.receiver is not None:
             self.receiver.close()
@@ -86,10 +90,15 @@ class Infrared:
         if not isinstance(value, (int, float)) or not 0 <= value <= 255 or value != int(value):
             raise ValueError("IR value must be an integer from 0 to 255")
         value = int(value)
+        self.send_bits([(value >> shift) & 1 for shift in range(7, -1, -1)])
+
+    def send_bits(self, bits):
+        if not bits or any(bit not in (0, 1) for bit in bits):
+            raise ValueError("Expected a nonempty array of 0 and 1")
         unit = self.unit
         signal = [8 * unit, 4 * unit]
-        for shift in range(7, -1, -1):
-            signal.extend([unit, (3 if (value >> shift) & 1 else 1) * unit])
+        for bit in bits:
+            signal.extend([unit, (3 if bit else 1) * unit])
         signal.append(unit)
         try:
             for i, duration in enumerate(signal):

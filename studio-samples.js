@@ -89,5 +89,22 @@ finally:
     const decode=receive.slice(receive.indexOf('    bits = []'),receive.indexOf('    print("times us:"'));
     return {parts:[],files:{'ir_signal.py':setup+'def receive_times():\n'+capture+'    return times\n\ndef decode(times):\n'+decode+'    return bits, number\n','main.py':'from ir_signal import receive_times, decode\n\nwhile True:\n    times = receive_times()\n    if len(times) < 3:\n        continue\n    if not (7000 <= times[0] <= 11000 and 3000 <= times[1] <= 6000):\n        continue\n    bits, number = decode(times)\n    print("times us:", times)\n    print("bits (LSB first):", bits)\n    print("number:", number)\n'}};
   }
-  const api={infrared,basic,organized};if(typeof module!=='undefined')module.exports=api;if(typeof window!=='undefined')window.StudioSamples=api;
+  function beginner(name){
+    const binary = '信号 = ir_data.new_bits(16)\nir_data.set_bits(信号, 1, 8, 65)\nir_data.set_bits(信号, 9, 16, 42)\n';
+    const sender = [{id:'infrared',name:'赤外線LED',kind:'infrared',pin:16,unit:560}];
+    const receiver = [{id:'receiver',name:'赤外線受信',kind:'receiver',pin:15}];
+    const examples = {
+      console: {parts:[],code:'値 = 65\nprint(値)\n'},
+      binary: {parts:[],code:'import ir_data\n\n'+binary+'print(ir_data.bits_to_text(信号))\n'},
+      send: {parts:sender,code:'from parts import infrared\nimport ir_data\n\n'+binary+'infrared.send_bits(信号)\n'},
+      button_send: {parts:sender,code:'from parts import infrared\nimport ir_data\nimport rp2\nimport time\n\n'+binary+'while True:\n    if rp2.bootsel_button():\n        infrared.send_bits(信号)\n    time.sleep(0.1)\n'},
+      receive: {parts:receiver,code:'from parts import receiver\nimport ir_data\n\nwhile True:\n    信号 = receiver.receive_bits(1000)\n    if 信号:\n        print(ir_data.bits_to_text(信号))\n'},
+      carrier: {parts:sender,code:'from parts import infrared\nimport rp2\nimport time\n\nwhile True:\n    if rp2.bootsel_button():\n        infrared.on()\n    else:\n        infrared.off()\n    time.sleep(0.01)\n'},
+      fan: {parts:[{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:25000}],code:'from parts import fan\nimport rp2\nimport time\n\n強さ = 60\nwhile True:\n    if rp2.bootsel_button():\n        fan.set(強さ)\n    else:\n        fan.set(0)\n    time.sleep(0.01)\n'}
+    };
+    const sample=examples[name];
+    if(!sample)throw Error('サンプルがありません。');
+    return {parts:sample.parts,files:{'main.py':sample.code}};
+  }
+  const api={infrared,basic,organized,beginner};if(typeof module!=='undefined')module.exports=api;if(typeof window!=='undefined')window.StudioSamples=api;
 })();

@@ -5,7 +5,7 @@
     {id:'status_led',name:'お知らせLED',kind:'led',pin:13},
     {id:'infrared',name:'赤外線LED',kind:'infrared',pin:16,unit:560}
   ];
-  const kinds={pico_receive:'receiver',pico_ir_level:'receiver',pico_pwm:'pwm',pico_button:'button',pico_led:'led',pico_send:'infrared',pico_carrier:'infrared',pico_tone:'speaker',pico_speaker_on:'speaker',pico_speaker_off:'speaker',pico_display_text:'ssd1306',pico_display_clear:'ssd1306',pico_display_pixel:'ssd1306',pico_display_get_pixel:'ssd1306',pico_display_fill:'ssd1306',pico_display_text_at:'ssd1306',pico_display_show:'ssd1306',pico_dip_on:'dip',pico_dip_value:'dip'};
+  const kinds={pico_receive:'receiver',pico_receive_bits:'receiver',pico_send_bits:'infrared',pico_ir_level:'receiver',pico_pwm:'pwm',pico_button:'button',pico_led:'led',pico_send:'infrared',pico_carrier:'infrared',pico_tone:'speaker',pico_speaker_on:'speaker',pico_speaker_off:'speaker',pico_display_text:'ssd1306',pico_display_clear:'ssd1306',pico_display_pixel:'ssd1306',pico_display_get_pixel:'ssd1306',pico_display_fill:'ssd1306',pico_display_text_at:'ssd1306',pico_display_show:'ssd1306',pico_dip_on:'dip',pico_dip_value:'dip'};
   const pinsFor=p=>p.kind==='ssd1306'?[p.sda,p.scl]:p.kind==='dip'?p.pins:[p.pin];
   function validateParts(parts){
     if(!Array.isArray(parts)||parts.length>23)throw Error('部品は23個以内にしてください。');
@@ -55,6 +55,10 @@
       {type:'pico_receive',message0:'%1 で受信する（待ち時間 %2 ms）',args0:[{type:'field_dropdown',name:'PART',options:options('receiver')},{type:'input_value',name:'TIMEOUT',check:'Number'}],output:'Array',colour:285,tooltip:'ON/OFFの時間配列（µs）。開始待ちでタイムアウトすると空の配列。長いOFFで完了。'},
       {type:'pico_ir_level',message0:'%1 が受信中',args0:[{type:'field_dropdown',name:'PART',options:options('receiver')}],output:'Boolean',colour:200},
       {type:'pico_decode_bits',message0:'時間配列 %1 の先頭 %2 区間を除き OFF/ON比 %3 でビット化',args0:[{type:'input_value',name:'TIMES',check:'Array'},{type:'input_value',name:'SKIP',check:'Number'},{type:'input_value',name:'THRESHOLD',check:'Number'}],output:'Array',colour:285},
+      {type:'pico_new_bits',message0:'%1 桁の2進数（すべて0）',args0:[{type:'input_value',name:'WIDTH',check:'Number'}],output:'Array',colour:260,tooltip:'8桁なら [0, 0, 0, 0, 0, 0, 0, 0]。変数に入れて使います。先頭の0も残ります。'},
+      {type:'pico_set_bits',message0:'%1 の左から %2 〜 %3 桁目に %4 を入れる',args0:[{type:'input_value',name:'BITS',check:'Array'},{type:'input_value',name:'START',check:'Number'},{type:'input_value',name:'END',check:'Number'},{type:'input_value',name:'VALUE',check:'Number'}],previousStatement:null,nextStatement:null,colour:260,tooltip:'左端が1桁目です。8桁に65を入れると01000001。指定した桁だけを書き換えます。値は10進数で指定し、桁に収まらない値はエラーになります。'},
+      {type:'pico_receive_bits',message0:'%1 で2進数を受信する（待ち時間 %2 ms）',args0:[{type:'field_dropdown',name:'PART',options:options('receiver')},{type:'input_value',name:'TIMEOUT',check:'Number'}],output:'Array',colour:285,tooltip:'受信順の0・1の配列。先頭2区間を除き、OFFがONの2倍以上なら1。受信しなければ空の配列を返します。'},
+      {type:'pico_send_bits',message0:'%1 で2進数 %2 を送る',args0:[{type:'field_dropdown',name:'PART',options:options('infrared')},{type:'input_value',name:'BITS',check:'Array'}],previousStatement:null,nextStatement:null,colour:285,tooltip:'ビット配列を左から順に送ります。先頭の0も送信します。'},
       {type:'pico_bits_text',message0:'ビット配列 %1 を 0 と 1 の文字列に変換',args0:[{type:'input_value',name:'VALUE',check:'Array'}],output:'String',colour:260,tooltip:'例：[0, 1, 0, 0, 0, 0, 0, 1] → "01000001"。先頭の0も残します。'},
       {type:'pico_text_bits',message0:'0 と 1 の文字列 %1 をビット配列に変換',args0:[{type:'input_value',name:'VALUE',check:'String'}],output:'Array',colour:260,tooltip:'例："01000001" → [0, 1, 0, 0, 0, 0, 0, 1]。0と1の文字列を指定します。'},
       {type:'pico_bits_int',message0:'ビット配列 %1 を整数に変換',args0:[{type:'input_value',name:'VALUE',check:'Array'}],output:'Number',colour:260,tooltip:'先頭を上位ビットとして読みます。例：[1, 0, 1] → 5。空の配列は変換できません。'},
@@ -102,6 +106,10 @@
     generator.forBlock.pico_time_diff=(b,g)=>[`time.ticks_diff(${value(b,g,'END','0')}, ${value(b,g,'START','0')})`,g.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_receive=(b,g)=>[`${part(b)}.receive(${value(b,g,'TIMEOUT','1000')})`,g.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_ir_level=b=>[`${part(b)}.is_on()`,generator.ORDER_FUNCTION_CALL];
+    generator.forBlock.pico_new_bits=(b,g)=>[`ir_data.new_bits(${value(b,g,'WIDTH','8')})`,g.ORDER_FUNCTION_CALL];
+    generator.forBlock.pico_set_bits=(b,g)=>`ir_data.set_bits(${value(b,g,'BITS','[]')}, ${value(b,g,'START','1')}, ${value(b,g,'END','8')}, ${value(b,g,'VALUE','0')})\n`;
+    generator.forBlock.pico_receive_bits=(b,g)=>[`${part(b)}.receive_bits(${value(b,g,'TIMEOUT','1000')})`,g.ORDER_FUNCTION_CALL];
+    generator.forBlock.pico_send_bits=(b,g)=>`${part(b)}.send_bits(${value(b,g,'BITS','[]')})\n`;
     generator.forBlock.pico_decode_bits=(b,g)=>[`ir_data.durations_to_bits(${value(b,g,'TIMES','[]')}, ${value(b,g,'SKIP','2')}, ${value(b,g,'THRESHOLD','2')})`,g.ORDER_FUNCTION_CALL];
     for(const [type,method,fallback] of [['pico_bits_text','bits_to_text','[]'],['pico_text_bits','text_to_bits',"''"],['pico_bits_int','bits_to_int','[]']])generator.forBlock[type]=(b,g)=>[`ir_data.${method}(${value(b,g,'VALUE',fallback)})`,g.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_int_bits=(b,g)=>[`ir_data.int_to_bits(${value(b,g,'VALUE','0')}, ${value(b,g,'WIDTH','8')})`,g.ORDER_FUNCTION_CALL];
@@ -198,7 +206,7 @@
     if(used.length)imports.push('from parts import '+used.map(p=>p.id).join(', '));
     if(blocks.some(b=>['pico_wait','pico_time_us','pico_time_diff'].includes(b.type)))imports.push('import time');
     if(blocks.some(b=>b.type==='pico_bootsel'))imports.push('import rp2');
-    const dataBlocks=['pico_decode_bits','pico_bits_text','pico_text_bits','pico_bits_int','pico_int_bits'];
+    const dataBlocks=['pico_new_bits','pico_set_bits','pico_decode_bits','pico_bits_text','pico_text_bits','pico_bits_int','pico_int_bits'];
     const usesData=blocks.some(b=>dataBlocks.includes(b.type));
     if(usesData)imports.push('import ir_data');
     if(sourceMap){
