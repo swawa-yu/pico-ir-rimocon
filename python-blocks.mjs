@@ -105,7 +105,7 @@ export function upgrade(state,parts=null,path='main.py'){
   }
   const roots=[];
   for(const root of copy.blocks?.blocks||[]){
-    if(['pico_class','pico_def','pico_import','pico_import_as','pico_from_import','pico_python'].includes(root.type)&&root.disabledReasons?.includes('PICO_UNCONNECTED'))root.disabledReasons=[...new Set([...root.disabledReasons,'MANUALLY_DISABLED'])];
+    if(root.disabledReasons?.includes('PICO_UNCONNECTED'))root.disabledReasons=[...new Set([...root.disabledReasons,'MANUALLY_DISABLED'])];
     if(['pico_module','pico_start'].includes(root.type)){const body=clean(root.inputs?.DO?.block);for(const block of body){delete block.x;delete block.y;const reasons=(root.disabledReasons||[]).filter(reason=>reason!=='PICO_UNCONNECTED');if(reasons.length)block.disabledReasons=[...new Set([...(block.disabledReasons||[]),...reasons])];}roots.push(...body);}
     else{const list=clean(root);if(list.length)roots.push(chain(list));}
   }

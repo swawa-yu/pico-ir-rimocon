@@ -121,6 +121,8 @@ test('previously inactive detached Python remains disabled during migration',()=
  try{
   B.serialization.workspaces.load(upgrade({blocks:{languageVersion:0,blocks:[{type:'pico_python',extraState:{code:'print("detached")\n'},disabledReasons:['PICO_UNCONNECTED']}]}}),ws);
   assert.equal(api.generate(ws),'');
+  ws.clear();B.serialization.workspaces.load(upgrade({blocks:{languageVersion:0,blocks:[{type:'controls_whileUntil',fields:{MODE:'WHILE'},inputs:{BOOL:{block:{type:'logic_boolean',fields:{BOOL:'TRUE'}}},DO:{block:{type:'text_print',inputs:{TEXT:{block:{type:'text',fields:{TEXT:'detached'}}}}}}},disabledReasons:['PICO_UNCONNECTED']}]}}),ws);
+  assert.equal(api.generate(ws),'');
  }finally{ws.dispose();}
 });
 
