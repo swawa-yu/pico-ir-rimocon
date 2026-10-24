@@ -94,6 +94,7 @@ finally:
     const sender = [{id:'infrared',name:'赤外線LED',kind:'infrared',pin:16,unit:560}];
     const receiver = [{id:'receiver',name:'赤外線受信',kind:'receiver',pin:15}];
     const examples = {
+      continuous: {parts:sender,code:'from parts import infrared\nimport rp2\n\nwhile True:\n    if rp2.bootsel_button():\n        infrared.send_times([560, 1680])\n    else:\n        infrared.send_times([560, 560])\n'},
       times: {parts:sender,code:'from parts import infrared\n\n時間 = [560, 560, 560, 1680, 560]\ninfrared.send_times(時間)\n'},
       button_times: {parts:sender,code:'from parts import infrared\nimport rp2\nimport time\n\n時間 = [560, 560, 560, 1680, 560]\nwhile True:\n    if rp2.bootsel_button():\n        infrared.send_times(時間)\n    time.sleep(0.1)\n'},
       receive_times: {parts:receiver,code:'from parts import receiver\n\nwhile True:\n    時間 = receiver.receive(1000)\n    if 時間:\n        print(時間)\n'},

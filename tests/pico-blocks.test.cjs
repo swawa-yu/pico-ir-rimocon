@@ -590,3 +590,30 @@ for anode in (False,True):
 close()
 `,runtime);
 });
+
+test('BOOTSEL continuously sends zero when released and one when pressed without a leader or an extra interval',()=>{
+ const source=require('../studio-samples.js').beginner('continuous').files['main.py'];
+ python(`import sys,types
+intervals=[]
+class PWM:
+ def __init__(self,*args,**kwargs): self.duty=0;self.closed=False
+ def duty_u16(self,value): self.duty=value
+ def deinit(self): self.closed=True
+sys.modules['machine']=types.SimpleNamespace(Pin=lambda n:n,PWM=PWM)
+sys.modules['time']=types.SimpleNamespace(sleep_us=lambda duration:intervals.append((output.pwm.duty,duration)))
+hardware=types.ModuleType('pico_parts')
+exec(${JSON.stringify(runtime)},hardware.__dict__)
+output=hardware.Infrared(16)
+sys.modules['parts']=types.SimpleNamespace(infrared=output)
+levels=iter([False,False,True,True,False])
+sys.modules['rp2']=types.SimpleNamespace(bootsel_button=lambda:next(levels))
+try:
+ exec(${JSON.stringify(source)},{})
+except StopIteration:
+ pass
+finally:
+ hardware.close()
+assert intervals == [(21845,560),(0,560),(21845,560),(0,560),(21845,560),(0,1680),(21845,560),(0,1680),(21845,560),(0,560)]
+assert output.pwm.duty == 0 and output.pwm.closed
+`,'');
+});

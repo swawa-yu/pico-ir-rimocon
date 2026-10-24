@@ -399,7 +399,7 @@ assert module.decode([9000,4500,560,1680,560,560,560]) == ([1,0],1)
 
 test('beginner samples expose editable binary, receive and send blocks and regenerate changed digits',()=>{
  const samples=require('../studio-samples.js');
- for(const name of ['times','button_times','receive_times','console','binary','number','send','receive','button_send','carrier','fan','rgb']){
+ for(const name of ['continuous','times','button_times','receive_times','console','binary','number','send','receive','button_send','carrier','fan','rgb']){
   const sample=samples.beginner(name),source=sample.files['main.py'],ws=new B.Workspace();testParts=sample.parts;
   B.serialization.workspaces.load(fromSource(source,sample.parts),ws);
   try{

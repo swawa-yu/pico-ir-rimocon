@@ -399,8 +399,8 @@ test('save-and-close saves the targeted inactive project and leaves the other pr
  try{
   const downloaded=[];s.window.URL.createObjectURL=()=> 'blob:project';s.window.URL.revokeObjectURL=()=>{};s.window.HTMLAnchorElement.prototype.click=function(){downloaded.push(this.download);};
   s.$('example').value='basic_send';s.$('example-load').click();s.$('project-tabs').querySelector('.project-close').click();assert(s.$('project-close-dialog').open);
-  s.$('project-save-close').click();assert.deepEqual(downloaded,['時間配列を手打ちして送信する.json']);
-  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects.length,1);assert.equal(tabs.projects[0].data.name,'ビット配列を送信する');assert.equal(tabs.closed.data.name,'時間配列を手打ちして送信する');assert.equal(tabs.closed.dirty,false);
+  s.$('project-save-close').click();assert.deepEqual(downloaded,['BOOTSELで0・1を送り続ける.json']);
+  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects.length,1);assert.equal(tabs.projects[0].data.name,'ビット配列を送信する');assert.equal(tabs.closed.data.name,'BOOTSELで0・1を送り続ける');assert.equal(tabs.closed.dirty,false);
  }finally{s.close();}
 });
 
@@ -410,7 +410,7 @@ test('save-and-close waits if the targeted project Pico is busy without replacin
   s.window.PicoDevices.select('program','1');s.$('example').value='basic_send';s.$('example-load').click();s.window.PicoDevices.select('program','2');
   s.$('project-tabs').querySelector('.project-close').click();assert(s.$('project-close-dialog').open);s.links['1'].busy=true;
   s.$('project-save-close').click();assert.equal(s.$('project-tabs').querySelectorAll('[role=tab]').length,2);assert(s.$('project-close-dialog').open);
-  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects[0].data.name,'時間配列を手打ちして送信する');assert.equal(tabs.projects[1].data.name,'ビット配列を送信する');
+  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects[0].data.name,'BOOTSELで0・1を送り続ける');assert.equal(tabs.projects[1].data.name,'ビット配列を送信する');
  }finally{s.close();}
 });
 
@@ -468,4 +468,16 @@ test('conversion deep links open the conversion panel after restoring the progra
  const s=studio(async()=>JSON.stringify({changed:0}),{},'#conversion');
  try{assert.equal(s.$('conversion-panel').hidden,false);assert.equal(s.$('conversion-tab').tabIndex,0);assert.equal(s.$('program-tab').tabIndex,-1);}
  finally{s.close();}
+});
+
+test('fresh pages start with the continuous BOOTSEL sender and restoring a saved project preserves its code',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));let restored;
+ try{
+  const project=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
+  assert.equal(project.name,'BOOTSELで0・1を送り続ける');assert.equal(project.files['main.py'],s.window.StudioSamples.beginner('continuous').files['main.py']);
+  s.window.editorCallbacks.onChange('main.py','print("my saved program")\n');
+  const stored=Object.fromEntries(['pico-studio-tabs-1','pico-blocks-project-2'].map(key=>[key,s.window.localStorage.getItem(key)]));
+  restored=studio(async()=>JSON.stringify({changed:0}),stored);
+  assert.equal(JSON.parse(restored.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],'print("my saved program")\n');
+ }finally{restored?.close();s.close();}
 });
