@@ -18,7 +18,9 @@ test('the page loads the current editor bundle and its public highlight API work
     const parent=window.document.createElement('div');window.document.body.append(parent);
     const editor=window.PicoEditor.create(parent,{onChange(){},onDefinition(){},onSave(){}});
     editor.setFile('main.py','first = 1\nsecond = 2\n');
-    editor.highlightLines({from:2,to:2});
+    const scroller=parent.querySelector('.cm-scroller');scroller.scrollTop=70;
+    editor.setFile('main.py','first = 1\nsecond = 2\n');assert.equal(scroller.scrollTop,70);
+    editor.highlightLines({from:2,to:2});assert.equal(scroller.scrollTop,70);
     assert.equal(parent.querySelector('.cm-block-source').textContent,'second = 2');
     editor.setReadOnly(true);
     assert.equal(parent.querySelector('.cm-content').getAttribute('contenteditable'),'false');
@@ -26,7 +28,7 @@ test('the page loads the current editor bundle and its public highlight API work
     assert.equal(parent.querySelector('.cm-content').getAttribute('contenteditable'),'false');
     editor.setReadOnly(false);
     assert.equal(parent.querySelector('.cm-content').getAttribute('contenteditable'),'true');
-    editor.setFile('main.py','first = 1\nsecond = 2\n');
+    editor.setFile('main.py','first = 1\nsecond = 2\n');assert.equal(scroller.scrollTop,70);
     editor.highlightLines(null);
     assert.equal(parent.querySelector('.cm-block-source'),null);
   }finally{dom.window.close();}

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Pico Studio｜赤外線通信教材</title>
   <link rel="stylesheet" href="style.css?v=e50109bd6cca">
-  <link rel="stylesheet" href="block-studio.css?v=3150f1d55055">
+  <link rel="stylesheet" href="block-studio.css?v=e1cfc49f53a7">
   <link rel="stylesheet" href="live-analyzer.css?v=49cfe401eda8">
   <script src="vendor/blockly/blockly_compressed.js?v=cc761aa447e0" defer></script>
   <script src="vendor/blockly/blocks_compressed.js?v=4f0b3d4079fe" defer></script>
@@ -17,13 +17,13 @@
   <script src="pico-repl.js?v=24fce0bfb042" defer></script>
   <script src="pico-devices.js?v=a8577b05ef8e" defer></script>
   <script src="pico-project.js?v=2500a4b1d394" defer></script>
-  <script src="vendor/codemirror/editor.js?v=37286c1fc64b" defer></script>
+  <script src="vendor/codemirror/editor.js?v=bcae93190cb1" defer></script>
   <script src="studio-files.js?v=1ae19f45e0dd" defer></script>
   <script src="pico-sources.js?v=4d1530b25a2c" defer></script>
   <script src="live-core.js?v=d47659fb5907" defer></script>
   <script src="live-view.js?v=9952c6dd9b68" defer></script>
-  <script src="live-analyzer.js?v=595c632f4571" defer></script>
-  <script src="block-studio.js?v=651319934346" defer></script>
+  <script src="live-analyzer.js?v=496ac2810593" defer></script>
+  <script src="block-studio.js?v=020c7f61bca9" defer></script>
 </head>
 <body class="block-studio">
 <header><a href="index.html">← 教材へ</a><a href="analyzer.html">配列から解析</a></header>
@@ -64,10 +64,10 @@
     </section>
     <details class="card pico-files" id="pico-files-panel">
       <summary>Pico内のファイル・比較</summary>
-      <div class="bar pico-files-bar"><nav id="pico-directory" aria-label="Pico内のフォルダ"></nav><span id="pico-files-state" role="status">USB接続して取得してください。</span><button id="pico-files-refresh" class="secondary" disabled>一覧を取得</button></div>
+      <div class="bar pico-files-bar"><nav id="pico-directory" aria-label="Pico内のフォルダ"></nav><span id="pico-files-state" role="status">USB未接続</span><button id="pico-files-refresh" class="secondary" disabled>一覧を取得</button></div>
       <div class="pico-files-grid">
-        <div class="file-panes"><section><h3>PC（編集中）</h3><nav id="pc-file-tree" aria-label="PCのファイル一覧"></nav></section><section><h3>Pico内</h3><nav id="pico-file-tree" aria-label="Pico内のファイル一覧"></nav></section></div>
-        <section class="pico-comparison" aria-label="ファイルの比較"><div class="bar"><h2 id="pico-file-title">ファイルを選択</h2><span id="pico-file-status"></span></div><p id="pico-file-message" role="status"></p><div class="diff-scroll"><table id="pico-diff" hidden><thead><tr><th>編集中</th><th>Pico内</th></tr></thead><tbody id="pico-diff-rows"></tbody></table></div></section>
+        <div class="file-pane-headings"><h3>PC（編集中）</h3><h3>Pico内</h3></div><div class="file-panes"><nav id="pc-file-tree" aria-label="PCのファイル一覧"></nav><nav id="pico-file-tree" aria-label="Pico内のファイル一覧"></nav></div>
+        <section class="pico-comparison" aria-label="ファイルの比較"><div class="bar"><h2 id="pico-file-title"></h2><span id="pico-file-status"></span></div><p id="pico-file-message" role="status"></p><div class="diff-scroll"><table id="pico-diff" hidden><thead><tr><th>編集中</th><th>Pico内</th></tr></thead><tbody id="pico-diff-rows"></tbody></table></div></section>
       </div>
     </details>
 

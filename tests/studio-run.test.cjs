@@ -17,6 +17,7 @@ function studio(exec){
     async exec(code){calls.push(['write',code]);return exec(code);},
     async run(code){calls.push(['run',code]);this.running=true;},
     async stop(){calls.push(['stop']);this.running=false;},
+    async interrupt(){calls.push(['interrupt']);this.running=false;},
     async repl(source){calls.push(['repl',source]);},
     async sendInput(text){calls.push(['stdin',text]);}
   };
@@ -247,5 +248,27 @@ test('text imports include the built-in conversion library in the saved file gro
   const project=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
   assert.equal(project.files['lib/ir_data.py'],s.window.PicoSources.irData);
   assert.match(project.files['main.py'],/bits_to_int/);
+ }finally{s.close();}
+});
+
+
+test('PC and Pico lists align missing files, mark differences and keep the shared list position',async()=>{
+ let reads=0;
+ const s=studio(async()=>++reads===1?JSON.stringify([{name:'boot.py',dir:false,same:null,size:4},{name:'main.py',dir:false,same:false,size:9},{name:'parts.py',dir:false,same:true}]):JSON.stringify({data:Buffer.from('print(2)\n').toString('base64')}));
+ try{
+  s.$('pico-files-refresh').click();await new Promise(resolve=>setImmediate(resolve));
+  const pc=s.$('pc-file-tree'),pico=s.$('pico-file-tree');
+  assert.equal(pc.parentElement,pico.parentElement);
+  assert.deepEqual([...pc.children].map(row=>row.dataset.path),[...pico.children].map(row=>row.dataset.path));
+  assert.equal(pc.querySelector('[data-path="boot.py"]').className,'file-placeholder');
+  assert.equal(pico.querySelector('[data-path="lib"]').className,'file-placeholder');
+  for(const nav of [pc,pico]){
+   const changed=nav.querySelector('[data-path="main.py"]');assert.equal(changed.dataset.state,'changed');assert.equal(changed.lastChild.textContent,'≠');
+  }
+  pc.parentElement.scrollTop=40;
+  pc.querySelector('[data-path="main.py"]').click();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(pc.parentElement.scrollTop,40);
+  assert.equal(s.$('pico-file-status').textContent,'≠');assert.equal(s.$('pico-file-status').dataset.changed,'true');
+  assert(s.$('pico-diff-rows').querySelector('tr.changed'));
  }finally{s.close();}
 });

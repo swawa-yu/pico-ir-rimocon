@@ -212,7 +212,6 @@ function locateSelected(){
   const total=selected.durations.reduce((a,b)=>a+b,0),options=Array.from($('window').options).filter(o=>Number.isFinite(Number(o.value)));
   const span=Number((options.find(o=>Number(o.value)>=total*1.4)||options.at(-1)).value);
   $('window').value=String(span);moveLive(selected.start+total+(span-total)/2);
-  $('live-wave').scrollIntoView?.({behavior:'smooth',block:'center'});
 }
 function syncTimeline(){
   const records=capture.recordings,select=$('live-record');

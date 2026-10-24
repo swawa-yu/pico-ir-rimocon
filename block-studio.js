@@ -14,7 +14,7 @@
   PicoBlocks.configure(Blockly,generator,()=>parts);
   const pythonBlocks=PicoEditor.blocks.configure(Blockly,generator,block=>{
     editingPythonBlock=block;$('python-block-code').value=block.pythonCode;
-    $('python-block-dialog').showModal();$('python-block-code').focus();
+    $('python-block-dialog').showModal();$('python-block-code').focus({preventScroll:true});
   });
   const number=value=>({shadow:{type:'math_number',fields:{NUM:value}}});
   const toolbox={kind:'categoryToolbox',contents:[
@@ -130,7 +130,7 @@
     $('file-dialog-title').textContent=kind==='rename'?'名前を変更':kind==='folder'?'フォルダを作成':'ファイルを作成';
     $('file-path-input').value=kind==='rename'?treeSelection:(folder?folder+'/':'')+(kind==='folder'?'new_folder':'new_file.py');
     $('file-dialog-apply').textContent=kind==='rename'?'変更':'作成';$('file-dialog-message').textContent='';
-    $('file-dialog').showModal();$('file-path-input').focus();$('file-path-input').select();
+    $('file-dialog').showModal();$('file-path-input').focus({preventScroll:true});$('file-path-input').select();
   }
   $('file-create').addEventListener('click',()=>startFileOperation('file'));
   $('folder-create').addEventListener('click',()=>startFileOperation('folder'));
@@ -215,7 +215,7 @@
     const edited=Object.hasOwn(fileStore.edits,activeFile);
     $('file-origin').textContent=edited?'編集済み':activeFile==='lib/pico_parts.py'?'ライブラリ':'ブロックから生成';
     $('file-reset').disabled=!edited||!Object.hasOwn(fileStore.generated,activeFile)||Boolean(debugSession||debugStarting);
-    const tree=$('file-tree'),opened=new Map([...tree.querySelectorAll('details')].map(e=>[e.dataset.path,e.open]));tree.replaceChildren();
+    const tree=$('file-tree'),treeScroll=tree.scrollTop,opened=new Map([...tree.querySelectorAll('details')].map(e=>[e.dataset.path,e.open]));tree.replaceChildren();
     function branch(parent,prefix=''){
       const children=new Map();
       for(const path of Object.keys(files).filter(path=>path.startsWith(prefix))){const rest=path.slice(prefix.length),name=rest.split('/')[0];children.set(name,rest.includes('/'));}
@@ -225,7 +225,7 @@
         else{const button=document.createElement('button');button.textContent=name+(Object.hasOwn(fileStore.edits,path)?' •':'');button.title=path;button.setAttribute('aria-current',String(path===activeFile));button.addEventListener('click',()=>{treeSelection=path;openFile(path);});parent.append(button);}
       }
     }
-    branch(tree);updateFileActions();
+    branch(tree);tree.scrollTop=treeScroll;updateFileActions();
     const outline=$('file-outline');outline.replaceChildren();
     for(const def of StudioFiles.definitions(files[activeFile]||'')){const button=document.createElement('button');button.textContent=def.label;button.title=`${activeFile}:${def.line}`;button.addEventListener('click',()=>editor.goLine(def.line));outline.append(button);}
     outline.parentElement.hidden=!outline.childElementCount;
@@ -240,8 +240,8 @@
   function clearPicoFiles(){
     picoSnapshot=null;picoSelected=null;picoContents.clear();
     $('pico-file-tree').replaceChildren();$('pico-directory').replaceChildren();$('pico-diff').hidden=true;
-    $('pico-file-title').textContent='ファイルを選択';$('pico-file-status').textContent='';$('pico-file-message').textContent='';
-    $('pico-files-state').textContent='USB接続して取得してください。';renderPicoFiles();
+    $('pico-file-title').textContent='';$('pico-file-status').textContent='';$('pico-file-message').textContent='';
+    $('pico-files-state').textContent='USB未接続';renderPicoFiles();
   }
   function renderPicoFiles(){
     const {path,entries,local}=picoSnapshot||{path:'',entries:[],local:{}};
@@ -250,18 +250,23 @@
       const remote=picoContents.get(name);
       return {...e,same:remote!==undefined?remote===files[name]:files[name]!==local[name]?null:e.same};
     });
-    const tree=$('pico-file-tree'),pc=$('pc-file-tree');tree.replaceChildren();pc.replaceChildren();
+    const tree=$('pico-file-tree'),pc=$('pc-file-tree'),pane=pc.parentElement,paneScroll=pane.scrollTop;tree.replaceChildren();pc.replaceChildren();
     for(const entry of StudioFiles.compare(files,path,compared)){
       const inPC=entry.dir?Object.keys(files).some(p=>p.startsWith(entry.path+'/')):Object.hasOwn(files,entry.path);
       for(const [pane,present] of [[pc,inPC],[tree,picoSnapshot&&entry.exists!==false]]){
-        if(!present)continue;
+        if(!present){const empty=document.createElement('div');empty.className='file-placeholder';empty.dataset.path=entry.path;empty.setAttribute('aria-hidden','true');pane.append(empty);continue;}
         const button=document.createElement('button'),name=document.createElement('span'),state=document.createElement('span');
-        name.textContent=entry.dir?entry.name+'/':entry.name;state.className='file-status';state.textContent=picoSnapshot?entry.status:'';
+        name.textContent=entry.dir?entry.name+'/':entry.name;state.className='file-status';
+        const status=picoSnapshot?entry.status:'';
+        const style={'同じ':['same','='],'内容が異なる':['changed','≠'],'編集中のみ':['local-only','+'],'Pico内のみ':['remote-only','+'],'未比較':['unknown','?']}[status]||['',''];
+        button.dataset.state=style[0];button.dataset.path=entry.path;state.textContent=style[1];state.setAttribute('aria-hidden','true');
+        button.setAttribute('aria-label',entry.path+(status?' · '+status:''));
         button.append(name,state);button.setAttribute('aria-current',String(picoSelected?.path===entry.path));
-        button.title=entry.dir?entry.path:entry.path+(entry.size!==undefined?` · ${entry.size} bytes`:'');
+        button.title=entry.path+(status?' · '+status:'')+(entry.size!==undefined?` · ${entry.size} bytes`:'');
         button.addEventListener('click',()=>{if(entry.dir)loadPicoDirectory(entry.path,entry.exists!==false);else if(picoSnapshot)selectPicoFile(entry);else openFile(entry.path);});pane.append(button);
       }
     }
+    pane.scrollTop=paneScroll;
     const directory=$('pico-directory');directory.replaceChildren();
     for(const [label,target] of [['/', ''],...path.split('/').filter(Boolean).map((part,index,all)=>[part,all.slice(0,index+1).join('/')])]){
       const button=document.createElement('button');button.textContent=label;button.disabled=browsing;button.addEventListener('click',()=>loadPicoDirectory(target));directory.append(button);
@@ -271,7 +276,10 @@
   function renderPicoDiff(){
     const entry=picoSelected,remote=entry.exists===false?null:picoContents.get(entry.path),local=files[entry.path]??null;
     $('pico-file-title').textContent=entry.path;
-    $('pico-file-status').textContent=remote===undefined?'':local===null?'Pico内のみ':remote===null?'編集中のみ':local===remote?'同じ':'内容が異なる';
+    const status=remote===undefined?'未比較':local===null?'Pico内のみ':remote===null?'編集中のみ':local===remote?'同じ':'内容が異なる';
+    $('pico-file-status').textContent=remote===undefined?'?':local===null||remote===null?'+':local===remote?'=':'≠';
+    $('pico-file-status').title=status;$('pico-file-status').setAttribute('aria-label',status);
+    $('pico-file-status').dataset.changed=String(status==='内容が異なる');
     $('pico-diff').hidden=remote===undefined;
     const rows=$('pico-diff-rows');rows.replaceChildren();if(remote===undefined)return;
     for(const line of StudioFiles.diff(local,remote)){
@@ -294,7 +302,7 @@
       picoSnapshot={path,entries,local,id:device.id,port:device.port};
       for(const entry of entries)if(entry.same===true)picoContents.set((path?path+'/':'')+entry.name,local[(path?path+'/':'')+entry.name]);
       $('pico-files-state').textContent=`Pico ${device.id} · ${new Date().toLocaleTimeString('ja-JP',{hour12:false})} 取得`;
-      $('pico-file-title').textContent='ファイルを選択';$('pico-file-status').textContent='';$('pico-diff').hidden=true;renderPicoFiles();
+      $('pico-file-title').textContent='';$('pico-file-status').textContent='';$('pico-diff').hidden=true;renderPicoFiles();
     }catch(error){$('pico-file-message').textContent=error.message;}
     finally{browsing=false;renderPicoFiles();updateDevice();}
   }
@@ -499,7 +507,7 @@
     updateDevice();
   }
   for(const name of ['program','analyzer'])$(name+'-tab').addEventListener('click',()=>showPanel(name));
-  for(const name of ['program','analyzer'])$(name+'-tab').addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();const next=name==='program'?'analyzer':'program';showPanel(next);$(next+'-tab').focus();}});
+  for(const name of ['program','analyzer'])$(name+'-tab').addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();const next=name==='program'?'analyzer':'program';showPanel(next);$(next+'-tab').focus({preventScroll:true});}});
   new ResizeObserver(()=>Blockly.svgResize(workspace)).observe($('blockly'));
   function renderParts(){
     const body=$('parts-rows');body.replaceChildren();
@@ -586,7 +594,7 @@
     }
   });
   $('console-input').addEventListener('input',event=>{event.target.style.height='auto';event.target.style.height=Math.min(event.target.scrollHeight,100)+'px';});
-  $('terminal-surface').addEventListener('click',event=>{if(event.target.id!=='console-input'&&!window.getSelection()?.toString())$('console-input').focus();});
+  $('terminal-surface').addEventListener('click',event=>{if(event.target.id!=='console-input'&&!window.getSelection()?.toString())$('console-input').focus({preventScroll:true});});
   try {
     const saved=localStorage.getItem('pico-blocks-project-2'),legacy=localStorage.getItem('pico-blocks-workspace-1');
     if(saved||legacy)restoreProject(saved?JSON.parse(saved):PicoBlocks.migrate(JSON.parse(legacy)),false);

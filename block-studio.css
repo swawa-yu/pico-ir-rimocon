@@ -90,14 +90,27 @@
 .blocks-panel #blockly{margin-top:0}
 #observer-panel .connection-row,#observer-panel .connection>.hint{display:none}
 .pico-files-grid{display:block}
-.file-panes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border-bottom:1px solid #e1e8ed}
-.file-panes>section{min-width:0;background:#f5f7f9}
-.file-panes>section:first-child{border-right:1px solid #e1e8ed}
-.file-panes h3{font-size:12px;font-weight:600;margin:0;padding:10px;border-bottom:1px solid #e1e8ed}
-#pc-file-tree,#pico-file-tree{height:210px;max-height:210px;overflow:auto;border:0}
-#pc-file-tree button,#pico-file-tree button{display:flex;flex-direction:column;gap:0;align-items:flex-start;width:100%;background:transparent;color:#445e6c;border-radius:0;text-align:left;font:12px/1.6 ui-monospace,monospace;padding:6px 10px}
-#pc-file-tree button[aria-current=true]{background:#e0eaf1;color:#075b81}
-#pc-file-tree .file-status{font:11px/1.6 system-ui;color:#667d89}
+.file-pane-headings,.file-panes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.file-pane-headings{background:#f5f7f9;border-bottom:1px solid #e1e8ed}
+.file-pane-headings h3{font-size:12px;font-weight:600;margin:0;padding:10px}
+.file-pane-headings h3:first-child,#pc-file-tree{border-right:1px solid #e1e8ed}
+.file-panes{height:210px;overflow:auto;overscroll-behavior:contain;border-bottom:1px solid #e1e8ed;background:#f5f7f9}
+#pc-file-tree,#pico-file-tree{height:auto;max-height:none;overflow:visible;min-width:0}
+#pc-file-tree button,#pico-file-tree button,.file-placeholder{height:34px;box-sizing:border-box;border-bottom:1px solid #e5ebef}
+#pc-file-tree button,#pico-file-tree button{display:flex;flex-direction:row;gap:8px;align-items:center;justify-content:space-between;width:100%;background:transparent;color:#445e6c;border-radius:0;text-align:left;font:12px/1.6 ui-monospace,monospace;padding:6px 10px}
+.file-panes button>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.file-panes .file-status{font:600 16px/1 ui-monospace,monospace;flex-shrink:0}
+.file-panes button[data-state=changed]{background:#fff0c2!important;box-shadow:inset 3px 0 #c98b13}
+.file-panes button[data-state=local-only]{background:#e5f3ec!important}
+.file-panes button[data-state=remote-only]{background:#e6eefb!important}
+#pc-file-tree button[aria-current=true],#pico-file-tree button[aria-current=true]{outline:2px solid #26789a;outline-offset:-2px;color:#075b81}
+.file-placeholder{background:repeating-linear-gradient(135deg,transparent,transparent 5px,#dde5eb66 5px,#dde5eb66 6px)}
+.pico-comparison>.bar{min-height:28px;flex-wrap:nowrap}
+#pico-file-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pico-file-status{font:600 20px ui-monospace,monospace}
+#pico-file-status[data-changed=true]{color:#996200;background:#fff0c2;padding:0 6px;border-radius:4px}
+.pico-comparison .diff-scroll{height:300px;overscroll-behavior:contain}
+.block-studio{overflow-anchor:none}
 .part-connections,.part-options{display:flex;flex-wrap:wrap;gap:6px}
 .part-connections label,.part-options label{display:flex;flex-direction:column;gap:2px;font-size:11px;font-weight:400;color:#667d89}
 .part-connections input[type=number]{min-width:50px;width:58px}

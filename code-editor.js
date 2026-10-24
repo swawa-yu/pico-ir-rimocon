@@ -8,7 +8,7 @@ import {indentUnit} from '@codemirror/language';
 import {python} from '@codemirror/lang-python';
 
 export function create(parent,{onChange,onDefinition,onSave}){
-  const documents=new Map();
+  const documents=new Map(),scrollPositions=new Map();
   let active=null,changing=false;
   const access=new Compartment();
   const setHighlight=StateEffect.define();
@@ -29,10 +29,11 @@ export function create(parent,{onChange,onDefinition,onSave}){
   function setFile(path,text){
     changing=true;
     try{
-      if(active)documents.set(active,view.state);
+      if(active){documents.set(active,view.state);scrollPositions.set(active,{top:view.scrollDOM.scrollTop,left:view.scrollDOM.scrollLeft});}
+      if(active===path){if(view.state.doc.toString()!==text)view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});return;}
       let state=documents.get(path)||EditorState.create({doc:text,extensions});
       if(state.doc.toString()!==text)state=state.update({changes:{from:0,to:state.doc.length,insert:text}}).state;
-      active=path;documents.set(path,state);view.setState(state);
+      active=path;documents.set(path,state);view.setState(state);const scroll=scrollPositions.get(path);view.scrollDOM.scrollTop=scroll?.top||0;view.scrollDOM.scrollLeft=scroll?.left||0;
     }finally{changing=false;}
   }
   return {setFile,
@@ -40,10 +41,9 @@ export function create(parent,{onChange,onDefinition,onSave}){
     highlightLines(range){
       const lines=range?Array.from({length:range.to-range.from+1},(_,i)=>range.from+i).filter(n=>n>=1&&n<=view.state.doc.lines):[];
       const effects=[setHighlight.of(lines)];
-      if(lines.length)effects.push(EditorView.scrollIntoView(view.state.doc.line(lines[0]).from,{y:'nearest'}));
       view.dispatch({effects});
     },
-    goLine(number){const line=view.state.doc.line(Math.max(1,Math.min(number,view.state.doc.lines)));view.dispatch({selection:{anchor:line.from},effects:EditorView.scrollIntoView(line.from,{y:'center'})});view.focus();},
+    goLine(number){const line=view.state.doc.line(Math.max(1,Math.min(number,view.state.doc.lines)));view.dispatch({selection:{anchor:line.from}});view.scrollDOM.scrollTop=Math.max(0,view.lineBlockAt(line.from).top-view.scrollDOM.clientHeight/2);view.focus();},
     word(){const {from,to}=view.state.selection.main;if(from!==to)return view.state.sliceDoc(from,to);const line=view.state.doc.lineAt(from),offset=from-line.from;const before=line.text.slice(0,offset).match(/[\p{L}\p{N}_]+$/u)?.[0]||'';const after=line.text.slice(offset).match(/^[\p{L}\p{N}_]+/u)?.[0]||'';return before+after;}
   };
 }
