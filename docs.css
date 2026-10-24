@@ -13,4 +13,12 @@
 .docs .table-wrap{max-height:none}
 .docs p{max-width:76ch}
 .docs-link{font-size:.85rem;font-weight:400;white-space:nowrap}
+.firmware-installer{display:grid;gap:12px;padding:20px;background:#f2f6f8;border:1px solid #dce6ec;border-radius:12px;margin:16px 0}
+.firmware-installer label{font-weight:650}
+.firmware-installer p{margin:0}
+.firmware-installer select,.firmware-installer input,.firmware-installer button{max-width:100%;justify-self:start}
+.firmware-installer input{font-size:.9rem}
+.firmware-installer progress{width:100%}
+.firmware-installer .error{color:#b42318}
+.docs details>summary{cursor:pointer;margin:20px 0;font-weight:650}
 @media(max-width:600px){.docs nav{gap:10px}.docs .card{padding:16px}.docs table{font-size:.85rem}}
