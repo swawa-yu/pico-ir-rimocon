@@ -100,3 +100,4 @@ button:disabled{opacity:.45;cursor:default}
 .conversion-results>label:first-child{grid-column:1/4}
 .conversion-results>label:first-child+button{grid-column:4}
 @media(max-width:700px){.conversion-results{grid-template-columns:minmax(0,1fr) auto}.conversion-results>label:first-child,.conversion-results>label:first-child+button{grid-column:auto}}
+.conversion-card textarea{min-height:0}
