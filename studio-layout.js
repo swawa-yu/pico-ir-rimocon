@@ -7,6 +7,7 @@
     const consoleRestore=doc.createElement('button');consoleRestore.type='button';consoleRestore.textContent='↕';consoleRestore.title='コンソールを開閉';consoleRestore.setAttribute('aria-label',consoleRestore.title);consoleDivider.append(consoleRestore);consolePanel.prepend(consoleDivider);
     let ratio=.6,height=Math.min(win.innerHeight*.3,260),lastRatio=ratio,lastHeight=height;
     try{const saved=JSON.parse(win.localStorage.getItem('pico-studio-layout'));if(saved){ratio=Number.isFinite(saved.ratio)?Math.max(0,Math.min(1,saved.ratio)):ratio;height=Number.isFinite(saved.height)?Math.max(12,Math.min(win.innerHeight,saved.height)):height;}}catch(_){}
+    if(ratio>0&&ratio<1)lastRatio=ratio;if(height>12)lastHeight=height;
     function paint(){
       grid.style.setProperty('--code-share',ratio+'fr');grid.style.setProperty('--block-share',(1-ratio)+'fr');code.hidden=ratio===0;blocks.hidden=ratio===1;
       divider.setAttribute('aria-valuenow',Math.round(ratio*100));restore.hidden=ratio>0&&ratio<1;
