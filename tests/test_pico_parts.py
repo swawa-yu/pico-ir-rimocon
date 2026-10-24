@@ -93,6 +93,20 @@ class PartsTests(unittest.TestCase):
     def tearDown(self):
         self.modules.stop()
 
+    def test_pwm_percent_and_cleanup(self):
+        output = self.parts.PWMOutput(20, frequency=2000)
+        self.assertEqual(output.pwm.frequency, 2000)
+        self.assertEqual(output.pwm.duty, 0)
+        for percent, duty in [(0, 0), (25, 16384), (50, 32768), (100, 65535)]:
+            output.set(percent)
+            self.assertEqual(output.pwm.duty, duty)
+        for invalid in [-1, 101, float('nan'), float('inf'), '50']:
+            with self.assertRaises(ValueError):
+                output.set(invalid)
+        self.parts.close()
+        self.assertEqual(output.pwm.duty, 0)
+        self.assertTrue(output.pwm.closed)
+
     def test_dip_reads_active_low_and_switch_one_is_the_lowest_bit(self):
         switch = self.parts.DIPSwitch(list(range(8)))
         self.assertEqual(switch.value(), 0)

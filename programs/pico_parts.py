@@ -27,6 +27,23 @@ class LED:
         self.off()
 
 
+class PWMOutput:
+    def __init__(self, pin, frequency=1000):
+        if not isinstance(frequency, (int, float)) or not frequency > 0 or frequency != int(frequency):
+            raise ValueError("Frequency must be a positive integer")
+        self.pwm = PWM(Pin(pin), freq=int(frequency), duty_u16=0)
+        _outputs.append(self)
+
+    def set(self, percent):
+        if not isinstance(percent, (int, float)) or not 0 <= percent <= 100:
+            raise ValueError("PWM output must be from 0 to 100 percent")
+        self.pwm.duty_u16(int(percent * 65535 / 100 + 0.5))
+
+    def close(self):
+        self.pwm.duty_u16(0)
+        self.pwm.deinit()
+
+
 class Infrared:
     def __init__(self, pin, unit=560):
         self.pwm = PWM(Pin(pin), freq=38000, duty_u16=0)

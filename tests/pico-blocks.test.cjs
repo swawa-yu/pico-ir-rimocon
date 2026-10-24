@@ -355,3 +355,21 @@ print(json.dumps(events))
   assert.deepEqual(JSON.parse(output),['off','on','on','off']);
  }finally{w.dispose();}
 });
+
+test('PWM output generates its configured pin and frequency, percent expression, and rejects conflicting PWM circuits',()=>{
+ parts=[{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:1000}];
+ const w=new B.Workspace();
+ try{
+  const start=w.newBlock('pico_start'),output=w.newBlock('pico_pwm'),percent=w.newBlock('math_number');
+  output.setFieldValue('fan','PART');percent.setFieldValue(25,'NUM');
+  start.getInput('DO').connection.connect(output.previousConnection);
+  output.getInput('PERCENT').connection.connect(percent.outputConnection);
+  const files=generate(w);
+  assert.match(files['main.py'],/from parts import fan[\s\S]*fan\.set\(25\)/);
+  assert.match(files['parts.py'],/fan = PWMOutput\(20, frequency=1000\)/);
+  P.validateParts([...parts,{id:'other',name:'別のPWM',kind:'pwm',pin:21,frequency:1000}]);
+  assert.throws(()=>P.validateParts([...parts,{id:'other',name:'別のPWM',kind:'pwm',pin:21,frequency:2000}]),/PWM/);
+  assert.throws(()=>P.validateParts([...parts,{id:'other',name:'別のPWM',kind:'pwm',pin:4,frequency:1000}]),/PWM/);
+  assert.throws(()=>P.validateParts([{...parts[0],frequency:0}]),/周波数/);
+ }finally{w.dispose();parts=P.defaults();}
+});

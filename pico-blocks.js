@@ -5,7 +5,7 @@
     {id:'status_led',name:'お知らせLED',kind:'led',pin:13},
     {id:'infrared',name:'赤外線LED',kind:'infrared',pin:16,unit:560}
   ];
-  const kinds={pico_button:'button',pico_led:'led',pico_send:'infrared',pico_carrier:'infrared',pico_tone:'speaker',pico_speaker_on:'speaker',pico_speaker_off:'speaker',pico_display_text:'ssd1306',pico_display_clear:'ssd1306',pico_display_pixel:'ssd1306',pico_display_get_pixel:'ssd1306',pico_display_fill:'ssd1306',pico_display_text_at:'ssd1306',pico_display_show:'ssd1306',pico_dip_on:'dip',pico_dip_value:'dip'};
+  const kinds={pico_pwm:'pwm',pico_button:'button',pico_led:'led',pico_send:'infrared',pico_carrier:'infrared',pico_tone:'speaker',pico_speaker_on:'speaker',pico_speaker_off:'speaker',pico_display_text:'ssd1306',pico_display_clear:'ssd1306',pico_display_pixel:'ssd1306',pico_display_get_pixel:'ssd1306',pico_display_fill:'ssd1306',pico_display_text_at:'ssd1306',pico_display_show:'ssd1306',pico_dip_on:'dip',pico_dip_value:'dip'};
   const pinsFor=p=>p.kind==='ssd1306'?[p.sda,p.scl]:p.kind==='dip'?p.pins:[p.pin];
   function validateParts(parts){
     if(!Array.isArray(parts)||parts.length>23)throw Error('部品は23個以内にしてください。');
@@ -13,16 +13,21 @@
     for(const p of parts){
       if(typeof p.id!=='string'||p.id.length>64||!/^[a-z][a-z0-9_]*$/.test(p.id)||('False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield time close').split(' ').includes(p.id)||ids.has(p.id))throw Error('部品の識別子が不正です。');
       if(typeof p.name!=='string'||!p.name.trim()||p.name.length>40||names.has(p.name.trim()))throw Error('部品名は重複しない1〜40文字にしてください。');
-      if(!['button','led','infrared','speaker','ssd1306','dip'].includes(p.kind))throw Error('部品の種類が不正です。');
+      if(!['button','led','infrared','speaker','ssd1306','dip','pwm'].includes(p.kind))throw Error('部品の種類が不正です。');
       const assigned=pinsFor(p);
       if(!Array.isArray(assigned)||p.kind==='dip'&&assigned.length!==8)throw Error('DIPスイッチは8個のGPIOを設定してください。');
       for(const pin of assigned){if(!Number.isInteger(pin)||pin<0||pin>22||pins.has(pin))throw Error('GPIOはGP0〜GP22で、重複しない番号を指定してください。');pins.add(pin);}
       if(p.kind==='ssd1306'&&(p.width!==128||![32,64].includes(p.height)||![60,61].includes(p.address)))throw Error('SSD1306は128×32 / 128×64、アドレス0x3C / 0x3Dを指定してください。');
       if(p.kind==='infrared'&&(!Number.isInteger(p.unit)||p.unit<100||p.unit>100000))throw Error('赤外線の基準時間は100〜100,000µsにしてください。');
+      if(p.kind==='pwm'&&(!Number.isInteger(p.frequency)||p.frequency<1))throw Error('PWMの周波数は1Hz以上の整数にしてください。');
       ids.add(p.id);names.add(p.name.trim());
     }
-    const pwm=parts.filter(p=>['speaker','infrared'].includes(p.kind));
-    for(let i=0;i<pwm.length;i++)for(let j=i+1;j<pwm.length;j++)if((pwm[i].kind==='speaker'||pwm[j].kind==='speaker')&&((pwm[i].pin>>1)%8===(pwm[j].pin>>1)%8))throw Error(`${pwm[i].name}と${pwm[j].name}はPWM回路を共有します。別のGPIOの組に変更してください。`);
+    const pwm=parts.filter(p=>['speaker','infrared','pwm'].includes(p.kind));
+    const frequency=p=>p.kind==='infrared'?38000:p.frequency;
+    for(let i=0;i<pwm.length;i++)for(let j=i+1;j<pwm.length;j++){
+      const a=pwm[i],b=pwm[j];
+      if((a.pin>>1)%8===(b.pin>>1)%8&&(a.kind==='speaker'||b.kind==='speaker'||a.pin%16===b.pin%16||frequency(a)!==frequency(b)))throw Error(`${a.name}と${b.name}はPWM回路を共有します。別のGPIOの組に変更してください。`);
+    }
   }
   function validateWorkspace(state,parts){
     function visit(value){
@@ -41,6 +46,7 @@
       {type:'pico_wait',message0:'%1 秒待つ',args0:[{type:'input_value',name:'SECONDS',check:'Number'}],previousStatement:null,nextStatement:null,colour:45},
       {type:'pico_bootsel',message0:'BOOTSEL が押されている',output:'Boolean',colour:200},
       {type:'pico_button',message0:'%1 が押されている',args0:[{type:'field_dropdown',name:'PART',options:options('button')}],output:'Boolean',colour:200},
+      {type:'pico_pwm',message0:'%1 のPWM出力を %2 % にする',args0:[{type:'field_dropdown',name:'PART',options:options('pwm')},{type:'input_value',name:'PERCENT',check:'Number'}],previousStatement:null,nextStatement:null,colour:150},
       {type:'pico_led',message0:'%1 を %2',args0:[{type:'field_dropdown',name:'PART',options:options('led')},{type:'field_dropdown',name:'ON',options:[['点灯','1'],['消灯','0']]}],previousStatement:null,nextStatement:null,colour:150},
       {type:'pico_send',message0:'%1 で %2 を送る',args0:[{type:'field_dropdown',name:'PART',options:options('infrared')},{type:'input_value',name:'VALUE',check:'Number'}],previousStatement:null,nextStatement:null,colour:285},
       {type:'pico_carrier',message0:'%1 を %2',args0:[{type:'field_dropdown',name:'PART',options:options('infrared')},{type:'field_dropdown',name:'ON',options:[['38 kHzでON','1'],['OFF','0']]}],previousStatement:null,nextStatement:null,colour:285},
@@ -67,6 +73,7 @@
     generator.forBlock.pico_wait=(b,g)=>`time.sleep(max(0, ${g.valueToCode(b,'SECONDS',g.ORDER_NONE)||'0'}))\n`;
     generator.forBlock.pico_bootsel=()=>['rp2.bootsel_button()',generator.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_button=(b,g)=>[`${part(b)}.is_pressed()`,g.ORDER_FUNCTION_CALL];
+    generator.forBlock.pico_pwm=(b,g)=>`${part(b)}.set(${g.valueToCode(b,'PERCENT',g.ORDER_NONE)||'0'})\n`;
     generator.forBlock.pico_led=b=>`${part(b)}.${b.getFieldValue('ON')==='1'?'on':'off'}()\n`;
     generator.forBlock.pico_send=(b,g)=>`${part(b)}.send(${g.valueToCode(b,'VALUE',g.ORDER_NONE)||'0'})\n`;
     generator.forBlock.pico_carrier=b=>`${part(b)}.${b.getFieldValue('ON')==='1'?'on':'off'}()\n`;
@@ -153,8 +160,8 @@
       }
     }
     main=(imports.length?imports.join('\n')+'\n\n':'')+main+'\n';
-    const classes={button:'Button',led:'LED',infrared:'Infrared',speaker:'Speaker',ssd1306:'Display',dip:'DIPSwitch'};
-    const config=(parts.length?'from pico_parts import '+[...new Set(parts.map(p=>classes[p.kind]))].join(', ')+'\n\n':'')+parts.map(p=>`${p.id} = ${classes[p.kind]}(${p.kind==='ssd1306'?`${p.sda}, ${p.scl}, width=${p.width}, height=${p.height}, address=${p.address}`:p.kind==='dip'?`[${p.pins.join(', ')}]`:`${p.pin}${p.kind==='infrared'?`, unit=${p.unit}`:''}`})`).join('\n')+'\n';
+    const classes={button:'Button',led:'LED',infrared:'Infrared',speaker:'Speaker',ssd1306:'Display',dip:'DIPSwitch',pwm:'PWMOutput'};
+    const config=(parts.length?'from pico_parts import '+[...new Set(parts.map(p=>classes[p.kind]))].join(', ')+'\n\n':'')+parts.map(p=>`${p.id} = ${classes[p.kind]}(${p.kind==='ssd1306'?`${p.sda}, ${p.scl}, width=${p.width}, height=${p.height}, address=${p.address}`:p.kind==='dip'?`[${p.pins.join(', ')}]`:`${p.pin}${p.kind==='infrared'?`, unit=${p.unit}`:p.kind==='pwm'?`, frequency=${p.frequency}`:''}`})`).join('\n')+'\n';
     const files={'main.py':main,'parts.py':config,'lib/pico_parts.py':runtime};
     if(parts.some(p=>p.kind==='ssd1306')){if(!displayDriver)throw Error('SSD1306ドライバがありません。');files['lib/ssd1306.py']=displayDriver;}
     return files;

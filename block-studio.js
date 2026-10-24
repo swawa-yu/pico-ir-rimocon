@@ -25,7 +25,7 @@
       {kind:'block',type:'controls_whileUntil'},{kind:'block',type:'controls_for',inputs:{FROM:number(0),TO:number(63),BY:number(1)}},
       {kind:'block',type:'pico_wait',inputs:{SECONDS:number(.5)}}]},
     {kind:'category',name:'入力',colour:200,contents:[{kind:'block',type:'pico_bootsel'},{kind:'block',type:'pico_button',fields:{PART:'send_button'}},{kind:'block',type:'pico_dip_on',inputs:{NUMBER:number(1)}},{kind:'block',type:'pico_dip_value'}]},
-    {kind:'category',name:'出力',colour:150,contents:[{kind:'block',type:'pico_led',fields:{PART:'status_led'}},{kind:'block',type:'pico_speaker_on',inputs:{HZ:number(880)}},{kind:'block',type:'pico_speaker_off'}]},
+    {kind:'category',name:'出力',colour:150,contents:[{kind:'block',type:'pico_pwm',inputs:{PERCENT:number(0)}},{kind:'block',type:'pico_led',fields:{PART:'status_led'}},{kind:'block',type:'pico_speaker_on',inputs:{HZ:number(880)}},{kind:'block',type:'pico_speaker_off'}]},
     {kind:'category',name:'画面',colour:150,contents:[
       {kind:'block',type:'pico_display_pixel',inputs:{X:number(0),Y:number(0),COLOR:number(1)}},
       {kind:'block',type:'pico_display_get_pixel',inputs:{X:number(0),Y:number(0)}},
@@ -476,16 +476,17 @@
   new ResizeObserver(()=>Blockly.svgResize(workspace)).observe($('blockly'));
   function renderParts(){
     const body=$('parts-rows');body.replaceChildren();
-    const names={button:'ボタン',led:'LED',infrared:'赤外線送信',speaker:'圧電スピーカー',ssd1306:'SSD1306',dip:'8連DIPスイッチ'};
+    const names={button:'ボタン',led:'LED',infrared:'赤外線送信',speaker:'圧電スピーカー',ssd1306:'SSD1306',dip:'8連DIPスイッチ',pwm:'PWM出力'};
     for(const part of parts){
       const row=document.createElement('tr');row.dataset.id=part.id;row.dataset.kind=part.kind;
       const name=document.createElement('input');name.value=part.name;name.maxLength=40;name.setAttribute('aria-label',part.name+' の名前');name.dataset.field='name';
       const connection=document.createElement('div');connection.className='part-connections';
-      function number(parent,label,field,value,min,max){const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement('input');input.type='number';input.min=min;input.max=max;input.value=value;input.dataset.field=field;input.setAttribute('aria-label',part.name+' '+label);wrap.append(input);parent.append(wrap);return input;}
+      function number(parent,label,field,value,min,max){const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement('input');input.type='number';input.min=min;if(max!==undefined)input.max=max;input.value=value;input.dataset.field=field;input.setAttribute('aria-label',part.name+' '+label);wrap.append(input);parent.append(wrap);return input;}
       if(part.kind==='ssd1306'){number(connection,'SDA','sda',part.sda,0,22);number(connection,'SCL','scl',part.scl,0,22);}
       else if(part.kind==='dip')part.pins.forEach((pin,i)=>number(connection,String(i+1),'pin'+i,pin,0,22));
       else number(connection,'GP','pin',part.pin,0,22);
       const settings=document.createElement('div');settings.className='part-options';
+      if(part.kind==='pwm')number(settings,'Hz','frequency',part.frequency,1);
       if(part.kind==='infrared')number(settings,'µs','unit',part.unit,100,100000);
       if(part.kind==='ssd1306'){
         for(const [field,label,options] of [['height','画面',[[32,'128 × 32'],[64,'128 × 64']]],['address','アドレス',[[60,'0x3C'],[61,'0x3D']]]]){const wrap=document.createElement('label');wrap.textContent=label;const select=document.createElement('select');select.dataset.field=field;select.setAttribute('aria-label',part.name+' '+label);for(const [value,text] of options){const option=document.createElement('option');option.value=value;option.textContent=text;select.append(option);}select.value=part[field];wrap.append(select);settings.append(wrap);}
@@ -503,20 +504,20 @@
     const part={id:row.dataset.id,kind:row.dataset.kind,name:row.querySelector('[data-field=name]').value.trim()};
     if(part.kind==='ssd1306')Object.assign(part,{sda:value('sda'),scl:value('scl'),width:128,height:value('height'),address:value('address')});
     else if(part.kind==='dip')part.pins=Array.from({length:8},(_,i)=>value('pin'+i));
-    else{part.pin=value('pin');if(part.kind==='infrared')part.unit=value('unit');}
+    else{part.pin=value('pin');if(part.kind==='infrared')part.unit=value('unit');if(part.kind==='pwm')part.frequency=value('frequency');}
     return part;
   });}
   $('part-add').addEventListener('click',()=>{
     const draft=draftParts(),kind=$('new-part-kind').value,used=draft.flatMap(PicoBlocks.pinsFor);
-    const free=Array.from({length:23},(_,i)=>i).filter(pin=>!used.includes(pin)&&(!['speaker','infrared'].includes(kind)||!draft.some(p=>['speaker','infrared'].includes(p.kind)&&(kind==='speaker'||p.kind==='speaker')&&((p.pin>>1)%8===(pin>>1)%8))));
+    const free=Array.from({length:23},(_,i)=>i).filter(pin=>!used.includes(pin)&&(!['speaker','infrared','pwm'].includes(kind)||!draft.some(p=>['speaker','infrared','pwm'].includes(p.kind)&&(kind==='speaker'||p.kind==='speaker'||kind==='pwm'||p.kind==='pwm')&&((p.pin>>1)%8===(pin>>1)%8))));
     const count=kind==='dip'?8:kind==='ssd1306'?2:1;
     if(free.length<count){notify('必要なGPIOが足りません。部品設定を確認してください。');return;}
     let n=1;while(draft.some(p=>p.id===`${kind}_${n}`)||parts.some(p=>p.id===`${kind}_${n}`))n++;
-    const names={led:'LED',button:'ボタン',infrared:'赤外線LED',speaker:'スピーカー',ssd1306:'画面',dip:'DIPスイッチ'};
+    const names={led:'LED',button:'ボタン',infrared:'赤外線LED',speaker:'スピーカー',ssd1306:'画面',dip:'DIPスイッチ',pwm:'PWM出力'};
     const part={id:`${kind}_${n}`,name:`${names[kind]} ${n}`,kind};
     if(kind==='ssd1306')Object.assign(part,{sda:free[0],scl:free[1],width:128,height:64,address:60});
     else if(kind==='dip')part.pins=free.slice(0,8);
-    else{part.pin=free[0];if(kind==='infrared')part.unit=560;}
+    else{part.pin=free[0];if(kind==='infrared')part.unit=560;if(kind==='pwm')part.frequency=1000;}
     const previous=parts;parts=[...draft,part];renderParts();parts=previous;markPartsDirty();
   });
   $('parts-apply').addEventListener('click',()=>{
