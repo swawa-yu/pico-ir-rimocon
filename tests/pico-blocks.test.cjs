@@ -607,16 +607,16 @@ close()
 `,runtime);
 });
 
-test('BOOTSEL continuously sends zero when released and one when pressed without a leader or an extra interval',()=>{
+test('BOOTSEL sends 32 data bits without a leader and waits half a second after each frame',()=>{
  const source=require('../studio-samples.js').beginner('continuous').files['main.py'];
  python(`import sys,types
-intervals=[]
+intervals=[];pauses=[]
 class PWM:
  def __init__(self,*args,**kwargs): self.duty=0;self.closed=False
  def duty_u16(self,value): self.duty=value
  def deinit(self): self.closed=True
 sys.modules['machine']=types.SimpleNamespace(Pin=lambda n:n,PWM=PWM)
-sys.modules['time']=types.SimpleNamespace(sleep_us=lambda duration:intervals.append((output.pwm.duty,duration)))
+sys.modules['time']=types.SimpleNamespace(sleep_us=lambda duration:intervals.append((output.pwm.duty,duration)),sleep=lambda seconds:pauses.append(seconds))
 hardware=types.ModuleType('pico_parts')
 exec(${JSON.stringify(runtime)},hardware.__dict__)
 output=hardware.Infrared(16)
@@ -629,7 +629,11 @@ except StopIteration:
  pass
 finally:
  hardware.close()
-assert intervals == [(21845,560),(0,560),(21845,560),(0,560),(21845,560),(0,1680),(21845,560),(0,1680),(21845,560),(0,560)]
+expected=[]
+for pressed in [False,False,True,True,False]:
+ expected.extend([(21845,560),(0,1680 if pressed else 560)]*32+[(21845,560),(0,4480)])
+assert intervals == expected
+assert pauses == [0.5]*5
 assert output.pwm.duty == 0 and output.pwm.closed
 `,'');
 });

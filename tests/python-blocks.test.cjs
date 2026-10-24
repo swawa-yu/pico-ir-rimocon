@@ -424,6 +424,11 @@ assert ast.dump(ast.parse(sys.stdin.read())) == ast.dump(ast.parse(${JSON.string
     assert(ws.getAllBlocks(false).some(b=>b.type==='pico_rgb_off'));
    }
    if(['byte','long'].includes(name))assert.equal(ws.getAllBlocks(false).find(b=>b.type==='pico_send_bits').getFieldValue('LEADER'),'0');
+   if(name==='continuous'){
+    assert.equal(ws.getAllBlocks(false).filter(b=>b.type==='lists_repeat').length,2);
+    assert(ws.getAllBlocks(false).find(b=>b.type==='controls_if').getInput('ELSE'));
+    assert.equal(ws.getAllBlocks(false).find(b=>b.type==='pico_send_bits').getFieldValue('LEADER'),'0');
+   }
    if(name==='send')assert(ws.getAllBlocks(false).some(b=>b.type==='pico_send_bits'));
    if(name==='receive')assert(ws.getAllBlocks(false).some(b=>b.type==='pico_receive_bits'));
    const code=api.generate(ws,sample.parts);

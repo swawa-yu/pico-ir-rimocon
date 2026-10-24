@@ -15,7 +15,7 @@
   <script src="pico-repl.js?v=24fce0bfb042" defer></script>
   <script src="pico-devices.js?v=8ba4281b6af8" defer></script>
   <script src="pico-project.js?v=2500a4b1d394" defer></script>
-  <script src="vendor/codemirror/editor.js?v=5ab4666a22f5" defer></script>
+  <script src="vendor/codemirror/editor.js?v=c2af0b84e48f" defer></script>
   <script src="studio-files.js?v=1ae19f45e0dd" defer></script>
   <script src="pico-sources.js?v=fa657b873719" defer></script>
   <script src="live-core.js?v=d47659fb5907" defer></script>
@@ -23,7 +23,7 @@
   <script src="live-analyzer.js?v=d30740dcf758" defer></script>
   <script src="signal-conversion.js?v=dcb5b429ce1d" defer></script>
   <script src="signal-converter.js?v=655f9a027ef8" defer></script>
-  <script src="studio-samples.js?v=d15a5701478e" defer></script>
+  <script src="studio-samples.js?v=1275fa6d1f18" defer></script>
   <script src="studio-layout.js?v=655fbdfc2fe8" defer></script>
   <script src="block-studio.js?v=52b3da21c823" defer></script>
 </head>
@@ -86,7 +86,7 @@
 </section>
 <dialog id="project-add-dialog" aria-labelledby="project-add-title"><form method="dialog"><h2 id="project-add-title">プロジェクトを追加</h2><div class="bar"><button id="project-new" type="button">新規プロジェクト</button><button id="project-load" type="button" class="secondary">ローカルファイルを開く</button><button id="project-reopen" type="button" class="secondary" hidden>閉じたプロジェクトを戻す</button></div><div class="sample-picker"><label for="sample-topic">課題</label><select id="sample-topic"><option value="send">赤外線を送る</option><option value="receive">赤外線を受ける</option><option value="message">メッセージをやり取りする</option><option value="parts">部品を動かす</option><option value="advanced">発展・仕組みを読む</option></select><label for="example">サンプルプロジェクト</label><select id="example">
   <optgroup label="赤外線を送る" data-topic="send">
-    <option value="beginner_continuous">BOOTSELで0・1を送り続ける</option>
+    <option value="beginner_continuous">BOOTSELで0・1を32ビットずつ送る</option>
     <option value="beginner_times">時間配列を手打ちして送信する</option>
     <option value="beginner_button_times">BOOTSELで時間配列を送信する</option>
     <option value="beginner_one_bit">1ビットを送る（リーダ部なし）</option>

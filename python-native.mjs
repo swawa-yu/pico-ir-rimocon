@@ -1,4 +1,4 @@
-const outputType=b=>!b?null:['variables_get','pico_expression','pico_call_value','pico_index','logic_null'].includes(b.type)?null:['text','pico_char','pico_bits_text','pico_to_text','pico_base_text'].includes(b.type)?'String':['lists_create_with','pico_receive','pico_int_bits','pico_text_bits','pico_decode_bits','pico_new_bits','pico_receive_bits','pico_range'].includes(b.type)?'Array':b.type.startsWith('logic_')||['pico_bootsel','pico_ir_level','pico_button'].includes(b.type)?'Boolean':'Number';
+const outputType=b=>!b?null:['variables_get','pico_expression','pico_call_value','pico_index','logic_null'].includes(b.type)?null:['text','pico_char','pico_bits_text','pico_to_text','pico_base_text'].includes(b.type)?'String':['lists_create_with','lists_repeat','pico_receive','pico_int_bits','pico_text_bits','pico_decode_bits','pico_new_bits','pico_receive_bits','pico_range'].includes(b.type)?'Array':b.type.startsWith('logic_')||['pico_bootsel','pico_ir_level','pico_button'].includes(b.type)?'Boolean':'Number';
 export function friendlyCall(target,items){
   if(items.some(item=>item?.type==='pico_expression'&&/^\s*\*/.test(item.fields?.CODE||'')))return null;
   const number=n=>({type:'math_number',fields:{NUM:n}});
@@ -31,7 +31,7 @@ export function nativeStatement(node,source,parts,parseBody){
   function values(type,names,items,fields={}){
     if(!items.every(Boolean))return null;
     for(let i=0;i<items.length;i++){
-      const expected=type==='pico_set_bits'?(names[i]==='BITS'?'Array':'Number'):type==='pico_new_bits'?'Number':['pico_send_bits','pico_send_times'].includes(type)?'Array':type==='pico_decode_bits'?(names[i]==='TIMES'?'Array':'Number'):checks[type],actual=outputType(items[i]);
+      const expected=type==='lists_repeat'?(names[i]==='NUM'?'Number':null):type==='pico_set_bits'?(names[i]==='BITS'?'Array':'Number'):type==='pico_new_bits'?'Number':['pico_send_bits','pico_send_times'].includes(type)?'Array':type==='pico_decode_bits'?(names[i]==='TIMES'?'Array':'Number'):checks[type],actual=outputType(items[i]);
       if(expected&&actual&&expected!==actual)return null;
     }
     return {type,fields,inputs:Object.fromEntries(names.map((name,i)=>[name,input(items[i])]))};
@@ -52,6 +52,10 @@ export function nativeStatement(node,source,parts,parseBody){
     if(n.name==='UnaryExpression'&&text(cs[0])==='not')return values('logic_negate',['BOOL'],[expression(cs[1])]);
     if(n.name==='BinaryExpression'&&cs.length===3){
       const op=text(cs[1]),arithmetic={'+':'ADD','-':'MINUS','*':'MULTIPLY','/':'DIVIDE','**':'POWER'},compare={'==':'EQ','!=':'NEQ','<':'LT','<=':'LTE','>':'GT','>=':'GTE'};
+      if(op==='*'&&cs[0].name==='ArrayExpression'){
+        const items=children(cs[0]).filter(child=>!['[',']',','].includes(child.name));
+        if(items.length===1)return values('lists_repeat',['ITEM','NUM'],[expression(items[0]),expression(cs[2])]);
+      }
       if(arithmetic[op])return values('math_arithmetic',['A','B'],[expression(cs[0]),expression(cs[2])],{OP:arithmetic[op]});
       if(compare[op])return values('logic_compare',['A','B'],[expression(cs[0]),expression(cs[2])],{OP:compare[op]});
     }

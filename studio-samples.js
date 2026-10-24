@@ -101,7 +101,7 @@ finally:
       receive_one: {parts:receiver,code:'from parts import receiver\n\nwhile True:\n    時間 = receiver.receive(1000)\n    if 時間:\n        print(時間)\n'},
       receive_byte: {parts:receiver,code:receiveBits},
       receive_long: {parts:receiver,code:receiveBits+'        print(len(信号))\n'},
-      continuous: {parts:sender,code:'from parts import infrared\nimport rp2\n\nwhile True:\n    if rp2.bootsel_button():\n        infrared.send_times([560, 1680])\n    else:\n        infrared.send_times([560, 560])\n'},
+      continuous: {parts:sender,code:'from parts import infrared\nimport rp2\nimport time\n\nwhile True:\n    if rp2.bootsel_button():\n        信号 = [1] * 32\n    else:\n        信号 = [0] * 32\n    infrared.send_bits(信号, leader=False)\n    time.sleep(0.5)\n'},
       times: {parts:sender,code:'from parts import infrared\n\n時間 = [560, 560, 560, 1680, 560]\ninfrared.send_times(時間)\n'},
       button_times: {parts:sender,code:'from parts import infrared\nimport rp2\nimport time\n\n時間 = [560, 560, 560, 1680, 560]\nwhile True:\n    if rp2.bootsel_button():\n        infrared.send_times(時間)\n    time.sleep(0.1)\n'},
       receive_times: {parts:receiver,code:'from parts import receiver\n\nwhile True:\n    時間 = receiver.receive(1000)\n    if 時間:\n        print(時間)\n'},
