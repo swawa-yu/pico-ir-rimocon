@@ -11,6 +11,8 @@
   <script src="pico-devices.js" defer></script>
   <script src="pico-sources.js" defer></script>
   <script src="live-analyzer.js" defer></script>
+  <script src="signal-conversion.js" defer></script>
+  <script src="signal-converter.js" defer></script>
 </head>
 <body class="analyzer live-analyzer">
 <header><a href="./">Pico Studio</a></header>
@@ -36,7 +38,7 @@
     <div id="empty-capture">信号を受信すると、ここに固定します。</div>
     <div id="capture-content" hidden>
       <div class="capture-name-row"><label for="capture-name">名前</label><input id="capture-name" type="text" maxlength="80" placeholder="例：DAISO LEDライト「ON」" autocomplete="off"></div>
-      <div class="capture-toolbar"><p id="summary"></p><button id="capture-locate" class="secondary">ライブで見る</button><label for="zoom">拡大</label><input id="zoom" type="range" min="1" max="12" value="1"></div>
+      <div class="capture-toolbar"><p id="summary"></p><button id="capture-locate" class="secondary">ライブで見る</button><button id="capture-convert" class="secondary">変換で試す</button><label for="zoom">拡大</label><input id="zoom" type="range" min="1" max="12" value="1"></div>
       <div id="capture-wrap"><canvas id="capture-wave" height="210" aria-label="固定した信号の波形"></canvas></div>
       <p id="selection" aria-live="polite"></p>
       <div class="decoded"><div class="bits-result"><h2>ビット</h2><pre id="bits">—</pre></div><div><h2>HEX</h2><pre id="hex">—</pre></div><div><h2>ASCII</h2><pre id="ascii">—</pre></div></div>
@@ -46,6 +48,37 @@
       <div><label for="start">データ開始位置</label><input id="start" type="number" min="0" step="2" value="2"></div>
       <div><label for="order">ビット順</label><select id="order"><option value="msb">MSBから</option><option value="lsb">LSBから</option></select></div>
     </div></details>
+  </section>
+  <section class="card conversion-card" aria-label="データ変換">
+    <details id="signal-converter"><summary>データ変換</summary>
+      <div class="conversion-inputs">
+        <div><label for="conversion-kind">入力形式</label><select id="conversion-kind"><option value="times">時間配列（µs）</option><option value="bits">0・1の配列</option><option value="binary">2進数の文字列</option><option value="text">文字列（UTF-8）</option><option value="number">数値</option></select></div>
+        <div id="conversion-width-wrap" hidden><label for="conversion-width">ビット数</label><input id="conversion-width" type="number" min="1" max="2046" value="8"></div>
+        <button id="conversion-capture" class="secondary" disabled>固定波形から読み込む</button>
+      </div>
+      <label id="conversion-input-label" for="conversion-input">時間配列（µs）</label><textarea id="conversion-input" rows="3" maxlength="65536" spellcheck="false">[560, 560, 560, 1680, 560]</textarea>
+      <div class="conversion-actions"><button id="conversion-apply">変換する</button><span id="conversion-error" role="status" aria-live="polite"></span></div>
+      <details class="conversion-settings"><summary>変換のルール</summary><div class="conversion-inputs">
+        <div id="conversion-start-wrap"><label for="conversion-start">データ開始位置（0から）</label><input id="conversion-start" type="number" min="0" step="2" value="0"></div>
+        <div><label for="conversion-unit">ON時間（µs）</label><input id="conversion-unit" type="number" min="1" value="560"></div>
+        <div><label for="conversion-leader">開始信号</label><select id="conversion-leader"><option value="none">なし</option><option value="short">ON×8 / OFF×4</option><option value="long">ON×16 / OFF×8</option></select></div>
+        <div><label for="conversion-order">数値・文字のビット順（8ビットごと）</label><select id="conversion-order"><option value="msb">MSBから</option><option value="lsb">LSBから</option></select></div>
+      </div><p class="hint">時間→0・1：OFFがONの2倍以上なら1。それ以外は0。0・1→時間：0のOFFはONと同じ、1のOFFはONの3倍。末尾にONを1区間付けます。開始信号ありでは先頭2区間を除いて読みます。</p></details>
+      <div id="conversion-result" hidden>
+        <div class="conversion-zoom"><label for="conversion-zoom">拡大</label><input id="conversion-zoom" type="range" min="1" max="12" value="1"></div>
+        <div class="conversion-bits" id="conversion-bit-buttons" aria-label="波形と対応するビット"></div>
+        <div id="conversion-wave-wrap"><canvas id="conversion-wave" height="210" aria-label="変換した時間配列の波形"></canvas></div>
+        <p id="conversion-selection" class="hint" aria-live="polite"></p>
+        <div class="conversion-results">
+          <label>時間配列（µs）<textarea id="conversion-times" rows="2" readonly></textarea></label><button data-copy-conversion="times" class="secondary" aria-label="時間配列をコピー">コピー</button>
+          <label>0・1の配列<textarea id="conversion-bits" rows="2" readonly></textarea></label><button data-copy-conversion="bits" class="secondary" aria-label="0・1の配列をコピー">コピー</button>
+          <label>2進数の文字列<textarea id="conversion-binary" rows="2" readonly></textarea></label><button data-copy-conversion="binary" class="secondary" aria-label="2進数の文字列をコピー">コピー</button>
+          <label>数値（10進数）<input id="conversion-number" readonly></label><button data-copy-conversion="number" class="secondary" aria-label="数値をコピー">コピー</button>
+          <label>文字列（UTF-8）<textarea id="conversion-text" rows="2" readonly></textarea><span id="conversion-text-state" class="hint"></span></label><button data-copy-conversion="text" class="secondary" aria-label="文字列をコピー">コピー</button>
+        </div>
+        <p id="conversion-copy-state" class="hint" role="status"></p>
+      </div>
+    </details>
   </section>
   <section class="card history-card" aria-label="受信履歴">
     <div class="section-bar"><h2>履歴 <span id="history-count">0</span></h2><div class="actions"><button id="save" class="secondary" disabled>保存</button><button id="load" class="secondary">開く</button><input type="file" id="history-file" accept=".json,application/json" hidden></div></div>

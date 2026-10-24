@@ -318,7 +318,12 @@ function drawCapture() {
   $("hex").textContent = result.bytes.map(b => b === null ? "??" : b.toString(16).padStart(2,"0").toUpperCase()).join(" ") || "—";
   $("ascii").textContent = result.bytes.map(b => b !== null && b >=32 && b<=126 ? String.fromCharCode(b) : "·").join("") || "—";
   const width = Math.min(16000, Math.max(240,$("capture-wrap").clientWidth) * Number($("zoom").value));
-  const ctx = canvasContext($("capture-wave"),width,210), left=42, right=width-28;
+  ranges=drawSignal($("capture-wave"),width,signal,result);
+  window.SignalConverter?.setCapture(signal,result.start,$('order').value==='lsb');
+}
+function drawSignal(canvas,width,signal,result,focusedBit=-1){
+  const ctx = canvasContext(canvas,width,210), left=42, right=width-28;
+  const total=signal.reduce((a,b)=>a+b,0),ranges=[];
   const axis = timeAxis(total,right-left), x = t => left + t / axis.max * (right-left);
   const unit = total >= 1000000 ? 1000 : 1;
   const unitName = unit === 1000 ? "ms" : "µs";
@@ -327,6 +332,7 @@ function drawCapture() {
     const duration = signal[result.start+i*2]+signal[result.start+i*2+1], a=x(offset), b=x(offset+duration);
     ctx.fillStyle = bit === "0" ? "#dcebf9" : bit === "1" ? "#fce6d1" : "#edf0f2";
     ctx.fillRect(a,38,b-a,112);
+    if(i===focusedBit){ctx.strokeStyle="#075b81";ctx.lineWidth=2;ctx.strokeRect(a,38,b-a,112);}
     ctx.strokeStyle="#8799a677";ctx.lineWidth=.75;ctx.beginPath();ctx.moveTo(a,38);ctx.lineTo(a,150);ctx.moveTo(b,38);ctx.lineTo(b,150);ctx.stroke();
     if(b-a>14) {ctx.fillStyle="#334b5c";ctx.textAlign="center";ctx.fillText(bit,(a+b)/2,26);}
     offset+=duration;
@@ -336,13 +342,14 @@ function drawCapture() {
     ctx.fillStyle="#667d89";ctx.textAlign=i===0?"left":"center";ctx.fillText((i*axis.step/unit).toLocaleString("en-US"),px,178);
   }
   ctx.textAlign="right";ctx.fillText(unitName,right,202);ctx.textAlign="left";ctx.fillText("ON",0,66);ctx.fillText("OFF",0,136);
-  let t=0, previousY; ranges=[];
+  let t=0, previousY;
   signal.forEach((d,i)=>{
     const a=x(t),b=x(t+d),on=i%2===0,y=on?62:132;
-    ctx.strokeStyle="#334b5c";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(a,previousY===undefined?y:previousY);ctx.lineTo(a,y);ctx.lineTo(b,y);ctx.stroke();
+    ctx.strokeStyle="#334b5c";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(a,previousY===undefined?y:previousY);ctx.lineTo(a,y);ctx.lineTo(b,y);if(on&&i===signal.length-1)ctx.lineTo(b,132);ctx.stroke();
     ctx.save();ctx.font="9px sans-serif";ctx.fillStyle="#334b5c";ctx.textAlign="center";ctx.fillText((d/unit).toLocaleString("en-US", {maximumFractionDigits:3}),(a+b)/2,y+(on?-12:22));ctx.restore();
     ranges.push({a,b,on,d,time:t,index:i});t+=d;previousY=y;
   });
+  return ranges;
 }
 function renderHistory(){
   $('history-count').textContent=capture.frames.length;
@@ -470,7 +477,8 @@ window.addEventListener("resize",()=>{scheduleDraw();drawCapture();});
 controls();scheduleDraw();
 
 window.LiveAnalyzer={
-  connect,disconnect,
+  connect,disconnect,drawSignal,
+  currentCapture(){return selected?{times:[...selected.durations],start:Number($("start").value),lsb:$("order").value==='lsb'}:null;},
   preview(durations,scale){
     const ok=playSignal(durations,scale,'ブロックの波形（模擬）');
     if(ok){armed=true;updateArm();}return ok;
