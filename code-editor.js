@@ -1,4 +1,5 @@
 export * as blocks from './python-blocks.mjs';
+export * as symbols from './python-symbols.mjs';
 export * as step from './pico-step.mjs';
 import {basicSetup} from 'codemirror';
 import {EditorState, StateEffect, StateField, Compartment} from '@codemirror/state';
@@ -9,7 +10,7 @@ import {python} from '@codemirror/lang-python';
 
 export function create(parent,{onChange,onDefinition,onSave}){
   const documents=new Map(),scrollPositions=new Map();
-  let active=null,changing=false;
+  let active=null,changing=false,errorRequest=0;
   const access=new Compartment();
   const setHighlight=StateEffect.define();
   const highlights=StateField.define({create:()=>Decoration.none,update(value,transaction){
@@ -19,7 +20,9 @@ export function create(parent,{onChange,onDefinition,onSave}){
     }
     return value;
   },provide:field=>EditorView.decorations.from(field)});
-  const extensions=[basicSetup,python(),access.of([]),indentUnit.of('    '),highlights,
+  const setErrors=StateEffect.define();
+  const errors=StateField.define({create:()=>Decoration.none,update(value,tr){if(tr.docChanged)value=Decoration.none;for(const effect of tr.effects)if(effect.is(setErrors))value=Decoration.set(effect.value.filter(e=>e.from<tr.state.doc.length).map(e=>Decoration.mark({class:'cm-source-error',attributes:{title:e.message}}).range(Math.max(0,e.from),Math.min(tr.state.doc.length,Math.max(e.from+1,e.to)))),true);return value;},provide:field=>EditorView.decorations.from(field)});
+  const extensions=[basicSetup,python(),access.of([]),indentUnit.of('    '),highlights,errors,
     keymap.of([indentWithTab,{key:'F12',run:()=>{onDefinition();return true;}},{key:'Mod-s',run:()=>{onSave();return true;}}]),
     EditorView.contentAttributes.of({'aria-label':'MicroPythonエディタ'}),
     EditorView.updateListener.of(update=>{if(update.docChanged&&!changing&&active){documents.set(active,update.state);onChange(active,update.state.doc.toString());}}),
@@ -37,6 +40,7 @@ export function create(parent,{onChange,onDefinition,onSave}){
     }finally{changing=false;}
   }
   return {setFile,
+    setErrors(issues){const request=++errorRequest;queueMicrotask(()=>{if(request===errorRequest)view.dispatch({effects:setErrors.of(issues)});});},
     setReadOnly(value){view.dispatch({effects:access.reconfigure([EditorState.readOnly.of(value),EditorView.editable.of(!value)])});},
     highlightLines(range){
       const lines=range?Array.from({length:range.to-range.from+1},(_,i)=>range.from+i).filter(n=>n>=1&&n<=view.state.doc.lines):[];

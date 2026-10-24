@@ -166,7 +166,7 @@ test('unsupported statements remain separate and unknown expressions stay editab
   B.serialization.workspaces.load(fromSource('a, b = (1, 2)\nassert a < b\nvalue = {"a": a}["a"]\nprint(value)\n',[]),ws);
   const raw=ws.getAllBlocks(false).filter(b=>b.type==='pico_python');assert.equal(raw.length,2);
   assert(raw.every(b=>b.pythonCode.trim().split('\n').length===1));
-  const expression=ws.getAllBlocks(false).find(b=>b.type==='pico_expression');expression.setFieldValue('b + 5','CODE');
+  const expression=ws.getAllBlocks(false).find(b=>b.type==='pico_expression');expression.setFieldValue('{"a": b + 5}','CODE');
   const result=spawnSync('python3',['-c',api.generate(ws)],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'7\n');
  }finally{ws.dispose();}
 });
@@ -235,4 +235,55 @@ test('range and numeric conversions are editable blocks and retain Python values
   copy.clear();B.serialization.workspaces.load(upgrade(old,[],'tools.py'),copy);
   assert.equal(copy.getTopBlocks(false)[0].type,'pico_module');assert(copy.getAllBlocks(false).some(b=>b.type==='pico_range'));
  }finally{ws.dispose();copy.dispose();}
+});
+
+
+test('Python indexing edits the collection and zero-based index independently, including assignment and migration',()=>{
+ const source='times = [10, 20, 30]\ni = 1\nvalue = times[i + 1]\ntimes[i] = value + 5\nprint(times, times[-1])\n';
+ const ws=new B.Workspace(),copy=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource(source,[]),ws);
+  assert.equal(ws.getAllBlocks(false).filter(b=>b.type==='pico_index').length,2);assert(ws.getAllBlocks(false).some(b=>b.type==='pico_set_index'));
+  const code=api.generate(ws),result=spawnSync('python3',['-c',code],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'[10, 35, 30] 30\n');
+  const value={type:'pico_expression',fields:{CODE:'times[i]'}},assignment={type:'variables_set',fields:{VAR:{name:'x'}},inputs:{VALUE:{block:value}}};
+  const old={blocks:{languageVersion:0,blocks:[{type:'pico_start',inputs:{DO:{block:assignment}}}]}};
+  B.serialization.workspaces.load(upgrade(old,[]),copy);assert(copy.getAllBlocks(false).some(b=>b.type==='pico_index'));
+ }finally{ws.dispose();copy.dispose();}
+});
+
+test('plus buttons preserve connected arguments and list items through save and reload',()=>{
+ const ws=new B.Workspace(),copy=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource('values = [1, 2]\nprint(values, "done")\n',[]),ws);
+  const call=ws.getAllBlocks(false).find(b=>b.type==='pico_call');
+  const first=call.getInputTargetBlock('ARG0');call.getField('ADD').showEditor_();assert.equal(call.argumentCount,3);assert.equal(call.getInputTargetBlock('ARG0'),first);
+  call.getField('REMOVE').showEditor_();assert.equal(call.argumentCount,2);
+  const list=ws.getAllBlocks(false).find(b=>b.type==='lists_create_with'),item=list.getInputTargetBlock('ADD0');
+  list.getInput('PICO_ITEMS').fieldRow[0].showEditor_();assert.equal(list.itemCount_,3);assert.equal(list.getInputTargetBlock('ADD0'),item);
+  B.serialization.workspaces.load(B.serialization.workspaces.save(ws),copy);assert.equal(copy.getAllBlocks(false).find(b=>b.type==='lists_create_with').itemCount_,3);
+  assert.equal(copy.getAllBlocks(false).find(b=>b.type==='pico_call').argumentCount,2);
+ }finally{ws.dispose();copy.dispose();}
+});
+
+test('sentence-defined functions remain ordinary Python and selection retains the value-returning call shape',async()=>{
+ const {catalog}=await import('../python-symbols.mjs');
+ const source='# ブロック: {value} を2倍にする\ndef twice(value):\n    return value * 2\n\nprint(twice(21))\n',ws=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource(source,[]),ws);
+  const def=ws.getAllBlocks(false).find(b=>b.type==='pico_def');assert.equal(def.pythonSentence,'{value} を2倍にする');
+  def.setSentence('{value} の2倍');assert.throws(()=>def.setSentence('{missing} の2倍'));
+  const code=api.generate(ws),result=spawnSync('python3',['-c',code],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'42\n');assert.match(code,/# ブロック: \{value\} の2倍/);
+  const fn=catalog({'main.py':source},'main.py').find(fn=>fn.target==='twice');assert.equal(fn.returns,true);
+  const call=ws.getAllBlocks(false).find(b=>b.type==='pico_call_value');const value=call.getInputTargetBlock('ARG0');call.chooseFunction(fn);assert.equal(call.getInputTargetBlock('ARG0'),value);assert.equal(call.outputConnection!==null,true);assert.equal(call.callSentence,'{value} を2倍にする');
+ }finally{ws.dispose();}
+});
+
+
+test('missing call targets and missing arguments produce block diagnostics without executing code',()=>{
+ const ws=new B.Workspace();
+ try{
+  const source='value = unknown_function(1)\n';B.serialization.workspaces.load(fromSource(source,[]),ws);const call=ws.getAllBlocks(false).find(b=>b.type==='pico_call_value');
+  const issues=api.diagnose(ws,source);assert(issues.some(i=>i.message.includes('unknown_function')));assert.match(call.picoDiagnostic,/見つかりません/);
+  call.updateArguments(2);api.diagnose(ws,source);assert.match(call.picoDiagnostic,/接続されていない/);
+ }finally{ws.dispose();}
 });

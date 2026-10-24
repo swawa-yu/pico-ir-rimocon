@@ -10,12 +10,13 @@
   let debugSession=null,debugStarting=false,debugStopping=false,debugLocked=[];
   let treeSelection='main.py',fileOperation=null;
   const consoleHistory=[];let consoleHistoryIndex=0,consoleDraft='';
-  let fileWorkspace=null,fileWorkspacePath=null,fileWorkspaceDirty=false,fileRefreshTimer,fileModels={},editingPythonBlock=null;
+  let fileWorkspace=null,fileWorkspacePath=null,fileWorkspaceDirty=false,fileRefreshTimer,fileModels={},editingPythonBlock=null,editingFunctionBlock=null;
   PicoBlocks.configure(Blockly,generator,()=>parts);
   const pythonBlocks=PicoEditor.blocks.configure(Blockly,generator,block=>{
     editingPythonBlock=block;$('python-block-code').value=block.pythonCode;
     $('python-block-dialog').showModal();$('python-block-code').focus({preventScroll:true});
-  });
+  },{getFiles:()=>files,getPath:()=>activeFile,editFunction:block=>{editingFunctionBlock=block;const info=PicoEditor.symbols.headerInfo(block.getFieldValue('HEADER'));$('function-phrase').value=block.pythonSentence||'';$('function-parameters').textContent=info?.params.map(n=>'{'+n+'}').join(' · ')||'引数なし';$('function-message').textContent='';$('function-dialog').showModal();},showHelp:fn=>{$('function-help-title').textContent=fn.target||fn.name;$('function-help-text').textContent=fn.help+(fn.returns===undefined?'':fn.returns?'\n値を返します。':'\n値を返さない関数です。');$('function-help-dialog').showModal();}});
+  $('function-apply').addEventListener('click',()=>{try{editingFunctionBlock.setSentence($('function-phrase').value.trim());$('function-dialog').close();commitFileBlocks();}catch(error){$('function-message').textContent=error.message;}});
   const number=value=>({shadow:{type:'math_number',fields:{NUM:value}}});
   const toolbox={kind:'categoryToolbox',contents:[
     {kind:'category',name:'Python',colour:210,contents:['pico_import','pico_from_import','pico_import_as','pico_class','pico_def','pico_python'].map(type=>({kind:'block',type}))},
@@ -41,12 +42,14 @@
     {kind:'category',name:'2進数・文字',colour:260,contents:[{kind:'block',type:'text_join'},{kind:'block',type:'text_length'},{kind:'block',type:'text_getSubstring'},{kind:'block',type:'pico_to_text',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_to_int',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'65'}}}}},{kind:'block',type:'pico_to_float',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'3.5'}}}}},{kind:'block',type:'pico_parse_int',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'01000001'}}},BASE:number(2)}},{kind:'block',type:'pico_base_text',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_bits_text'},{kind:'block',type:'pico_text_bits',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'01000001'}}}}},{kind:'block',type:'pico_bits_int'},{kind:'block',type:'pico_int_bits',inputs:{VALUE:number(65),WIDTH:number(8)}},{kind:'block',type:'pico_bitwise',inputs:{A:number(65),B:number(1)}},{kind:'block',type:'pico_char',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_ord',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'A'}}}}}]},
     {kind:'category',name:'計算・条件',colour:210,contents:[{kind:'block',type:'text'},{kind:'block',type:'math_number'},{kind:'block',type:'math_arithmetic'},{kind:'block',type:'logic_compare'},{kind:'block',type:'logic_boolean'},{kind:'block',type:'logic_operation'},{kind:'block',type:'logic_negate'}]},
     {kind:'category',name:'変数',colour:330,custom:'VARIABLE'},
-    {kind:'category',name:'関数',colour:290,custom:'PROCEDURE'},
-    {kind:'category',name:'リスト',colour:260,contents:[{kind:'block',type:'pico_range',inputs:{START:number(0),STOP:number(10),STEP:number(1)}},{kind:'block',type:'lists_create_with'},{kind:'block',type:'lists_getIndex'},{kind:'block',type:'lists_setIndex'},{kind:'block',type:'lists_length'},{kind:'block',type:'lists_getSublist'},{kind:'block',type:'lists_reverse'},{kind:'block',type:'lists_split'},{kind:'block',type:'controls_forEach'}]}
+    {kind:'category',name:'関数',colour:290,custom:'STUDIO_FUNCTION'},
+    {kind:'category',name:'リスト',colour:260,contents:[{kind:'block',type:'pico_range',inputs:{START:number(0),STOP:number(10),STEP:number(1)}},{kind:'block',type:'lists_create_with'},{kind:'block',type:'pico_index',inputs:{INDEX:number(0)}},{kind:'block',type:'pico_set_index',inputs:{INDEX:number(0),ITEM:number(1)}},{kind:'block',type:'lists_getIndex'},{kind:'block',type:'lists_setIndex'},{kind:'block',type:'lists_length'},{kind:'block',type:'lists_getSublist'},{kind:'block',type:'lists_reverse'},{kind:'block',type:'lists_split'},{kind:'block',type:'controls_forEach'}]}
   ]};
   const theme=Blockly.Theme.defineTheme('pico',{base:Blockly.Themes.Classic,fontStyle:{family:'system-ui, sans-serif',weight:'normal',size:12},componentStyles:{workspaceBackgroundColour:'#f7fafc',toolboxBackgroundColour:'#edf2f7',flyoutBackgroundColour:'#e4edf4'}});
   const workspace=Blockly.inject('blockly',{toolbox,theme,renderer:'zelos',media:'vendor/blockly/media/',sounds:false,trashcan:true,grid:{spacing:20,length:2,colour:'#dbe4ed',snap:true},zoom:{controls:true,wheel:true,startScale:.95,maxScale:2,minScale:.4}});
+  workspace.registerToolboxCategoryCallback('STUDIO_FUNCTION',functionCategory);
   workspace.registerToolboxCategoryCallback('VARIABLE',ws=>Blockly.Variables.flyoutCategory(ws).filter(item=>item.type!=='math_change'));
+  if(window.StudioLayout)StudioLayout.attach(document.querySelector('.editor-grid'),$('console-panel'),()=>{Blockly.svgResize(workspace);if(fileWorkspace)Blockly.svgResize(fileWorkspace);});
   let dirty=false,codeValid=false,connecting=false,deviceState='disconnected',selectedId=null,refreshTimer;
 
   const notify=text=>{$('studio-status').textContent=text||'';};
@@ -148,6 +151,8 @@
       $('file-dialog').close();notify();
     }catch(error){$('file-dialog-message').textContent=error.message;}
   });
+  function functionCategory(){return ['pico_def','pico_call','pico_call_value','pico_return'].map(type=>({kind:'block',type}));}
+  function diagnoseProgram(){const ws=fileWorkspacePath===activeFile?fileWorkspace:workspace;editor.setErrors?.(pythonBlocks.diagnose(ws,files[activeFile]||''));}
   function highlightBlock(){
     if(debugSession)return;
     const range=codeValid&&!Object.hasOwn(fileStore.edits,'main.py')?sourceMap.get(selectedId):null;
@@ -163,6 +168,7 @@
   function ensureFileWorkspace(){
     if(fileWorkspace)return;
     fileWorkspace=Blockly.inject('file-blockly',{toolbox,theme,renderer:'zelos',media:'vendor/blockly/media/',sounds:false,trashcan:true,zoom:{controls:true,wheel:true,startScale:.8,maxScale:2,minScale:.3}});
+    fileWorkspace.registerToolboxCategoryCallback('STUDIO_FUNCTION',functionCategory);
     fileWorkspace.registerToolboxCategoryCallback('VARIABLE',ws=>Blockly.Variables.flyoutCategory(ws).filter(item=>item.type!=='math_change'));
     new ResizeObserver(()=>Blockly.svgResize(fileWorkspace)).observe($('file-blockly'));
     fileWorkspace.addChangeListener(event=>{
@@ -184,31 +190,31 @@
     if(!fileWorkspaceDirty&&JSON.stringify(fileModels[fileWorkspacePath]?.state)===JSON.stringify(state))return;
     try{
       const source=pythonBlocks.generate(fileWorkspace,parts,fileWorkspacePath);
-      fileModels[fileWorkspacePath]={source,version:4,state:Blockly.serialization.workspaces.save(fileWorkspace)};
+      fileModels[fileWorkspacePath]={source,version:5,state:Blockly.serialization.workspaces.save(fileWorkspace)};
       fileStore.edit(fileWorkspacePath,source);files=fileStore.regenerate(generatedProject());fileWorkspaceDirty=false;
       if(activeFile===fileWorkspacePath)editor.setFile(activeFile,source);
-      codeValid=true;renderFiles();renderPicoFiles();saveProject();notify();updateDevice();
+      codeValid=true;diagnoseProgram();renderFiles();renderPicoFiles();saveProject();notify();updateDevice();
     }catch(error){notify(error.message);codeValid=false;updateDevice();}
   }
   function renderFileBlocks(){
     const textual=activeFile!=='main.py'||Object.hasOwn(fileStore.edits,'main.py');
     $('blockly').hidden=textual;$('file-blockly').hidden=!textual;
-    if(!textual){fileWorkspacePath=null;Blockly.svgResize(workspace);return;}
+    if(!textual){fileWorkspacePath=null;Blockly.svgResize(workspace);diagnoseProgram();return;}
     ensureFileWorkspace();
     const source=files[activeFile]||'',model=fileModels[activeFile];
     if(fileWorkspacePath!==activeFile||!model||model.source!==source){
       Blockly.Events.disable();
       try{
         const cached=model?.source===source;
-        const state=cached?(model.version===4?model.state:PicoEditor.blocks.upgrade(model.state,parts,activeFile)):PicoEditor.blocks.fromSource(source,parts,activeFile);
+        const state=cached?(model.version===5?model.state:PicoEditor.blocks.upgrade(model.state,parts,activeFile)):PicoEditor.blocks.fromSource(source,parts,activeFile);
         Blockly.serialization.workspaces.load(state,fileWorkspace);
-        if(!cached||model.version!==4)PicoEditor.blocks.layout(fileWorkspace);
+        if(!cached||model.version!==5)PicoEditor.blocks.layout(fileWorkspace);
         fileWorkspace.clearUndo();
       }finally{Blockly.Events.enable();}
       fileWorkspacePath=activeFile;fileWorkspaceDirty=false;
-      fileModels[activeFile]={source,version:4,state:Blockly.serialization.workspaces.save(fileWorkspace)};
+      fileModels[activeFile]={source,version:5,state:Blockly.serialization.workspaces.save(fileWorkspace)};
     }
-    Blockly.svgResize(fileWorkspace);
+    Blockly.svgResize(fileWorkspace);diagnoseProgram();
   }
   function renderFiles(){
     $('file-title').textContent=activeFile;
@@ -377,7 +383,7 @@
     const snapshot=projectFiles===null?null:StudioFiles.validateEdits(projectFiles);
     if(snapshot&&['main.py','parts.py','lib/pico_parts.py'].some(path=>!Object.hasOwn(snapshot,path)))throw Error('プロジェクトのファイルが不足しています。');
     if(!nextModels||typeof nextModels!=='object'||Array.isArray(nextModels)||Object.entries(nextModels).some(([path,model])=>!StudioFiles.validPath(path)||typeof model?.source!=='string'||!model.state))throw Error('ファイルのブロック形式が不正です。');
-    for(const [path,model] of Object.entries(nextModels)){const check=new Blockly.Workspace();try{Blockly.serialization.workspaces.load(model.version===4?model.state:PicoEditor.blocks.upgrade(model.state,nextParts,path),check);}finally{check.dispose();}}
+    for(const [path,model] of Object.entries(nextModels)){const check=new Blockly.Workspace();try{Blockly.serialization.workspaces.load(model.version===5?model.state:PicoEditor.blocks.upgrade(model.state,nextParts,path),check);}finally{check.dispose();}}
     const previous=Blockly.serialization.workspaces.save(workspace),oldParts=parts;parts=nextParts;
     generator.addReservedWords(parts.map(p=>p.id).join(','));
     Blockly.Events.disable();
@@ -409,7 +415,7 @@
       }
     }else if(name==='modules'){
       state={blocks:{languageVersion:0,blocks:[]}};
-      edits={'my_tools.py':'def twice(value):\n    return value * 2\n\nclass Counter:\n    def __init__(self, value=0):\n        self.value = value\n\n    def add(self, amount):\n        self.value += amount\n        return self.value\n','main.py':'from my_tools import twice, Counter\n\nprint(twice(21))\ncounter = Counter(10)\nprint(counter.add(5))\n'};
+      edits={'my_tools.py':'# ブロック: {value} の2倍\ndef twice(value):\n    return value * 2\n\nclass Counter:\n    def __init__(self, value=0):\n        self.value = value\n\n    def add(self, amount):\n        self.value += amount\n        return self.value\n','main.py':'from my_tools import twice, Counter\n\nprint(twice(21))\ncounter = Counter(10)\nprint(counter.add(5))\n'};
     }else{
       state=PicoBlocks.examples[name]();
       if(['pixels','peripherals'].includes(name))nextParts=PicoBlocks.peripheralParts().filter(p=>name!=='pixels'||p.kind==='ssd1306');

@@ -5,25 +5,26 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Pico Studio</title>
   <link rel="stylesheet" href="style.css?v=e50109bd6cca">
-  <link rel="stylesheet" href="block-studio.css?v=e1cfc49f53a7">
+  <link rel="stylesheet" href="block-studio.css?v=03043c4d740e">
   <link rel="stylesheet" href="live-analyzer.css?v=49cfe401eda8">
   <script src="vendor/blockly/blockly_compressed.js?v=cc761aa447e0" defer></script>
   <script src="vendor/blockly/blocks_compressed.js?v=4f0b3d4079fe" defer></script>
   <script src="vendor/blockly/python_compressed.js?v=7d880e1763a1" defer></script>
   <script src="vendor/blockly/msg/ja.js?v=81647ef6b769" defer></script>
-  <script src="pico-blocks.js?v=668110d50e2d" defer></script>
+  <script src="pico-blocks.js?v=eb632938bfb5" defer></script>
   <script src="display-preview.js?v=58978d24e695" defer></script>
   <script src="vendor/petme128.js?v=12454bca4f13" defer></script>
   <script src="pico-repl.js?v=24fce0bfb042" defer></script>
   <script src="pico-devices.js?v=a8577b05ef8e" defer></script>
   <script src="pico-project.js?v=2500a4b1d394" defer></script>
-  <script src="vendor/codemirror/editor.js?v=2a40479a9f22" defer></script>
+  <script src="vendor/codemirror/editor.js?v=c4dcc360f2cb" defer></script>
   <script src="studio-files.js?v=1ae19f45e0dd" defer></script>
   <script src="pico-sources.js?v=4d1530b25a2c" defer></script>
   <script src="live-core.js?v=d47659fb5907" defer></script>
   <script src="live-view.js?v=9952c6dd9b68" defer></script>
   <script src="live-analyzer.js?v=496ac2810593" defer></script>
-  <script src="block-studio.js?v=e5019df33e01" defer></script>
+  <script src="studio-layout.js?v=f367c8b8b8fa" defer></script>
+  <script src="block-studio.js?v=4a1f934dfdbd" defer></script>
 </head>
 <body class="block-studio">
 <main>
@@ -92,5 +93,7 @@
 <dialog id="python-block-dialog" aria-labelledby="python-block-title">
   <form method="dialog"><h2 id="python-block-title">Python</h2><textarea id="python-block-code" spellcheck="false" aria-label="Pythonブロックのコード"></textarea><div class="bar"><button id="python-block-apply" value="apply">反映</button><button value="cancel" class="secondary">キャンセル</button></div></form>
 </dialog>
+<dialog id="function-dialog"><form method="dialog"><h2>ブロックの文章</h2><label for="function-phrase">文章</label><input id="function-phrase" placeholder="{value} を2倍にする"><p id="function-parameters"></p><p id="function-message" role="status"></p><div class="bar"><button id="function-apply" type="button">反映</button><button value="cancel" class="secondary">キャンセル</button></div></form></dialog>
+<dialog id="function-help-dialog"><form method="dialog"><h2 id="function-help-title"></h2><pre id="function-help-text"></pre><button>閉じる</button></form></dialog>
 </body>
 </html>

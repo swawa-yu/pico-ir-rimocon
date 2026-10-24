@@ -1,4 +1,5 @@
 import {nativeStatement,friendlyCall} from './python-native.mjs';
+import {installBlockUI} from './python-block-ui.mjs';
 import {parser} from '@lezer/python';
 
 function hasError(tree){let bad=false;tree.iterate({enter(node){if(node.type.isError)bad=true;}});return bad;}
@@ -57,7 +58,8 @@ function parse(source,parts=null){
       if(match&&newline){
         const indent=newline[2],bodySource=indentSource(content.slice(newline[1].length),indent,true);
         const children=chain(parse(bodySource,parts));
-        append({type:match[1]==='class'?'pico_class':'pico_def',fields:{HEADER:match[2]},extraState:{original:text,header:match[2],body:bodySource,indent},...(children?{inputs:{DO:{block:children}}}:{})});
+        let sentence='';const marker=blocks.at(-1);if(match[1]==='def'&&marker?.type==='pico_python'){const found=marker.extraState.code.trim().match(/^# ブロック:\s*(.+)$/);if(found){sentence=found[1];blocks.pop();pending=(marker.extraState.before||'')+pending;}}
+        append({type:match[1]==='class'?'pico_class':'pico_def',fields:{HEADER:match[2]},extraState:{original:text,header:match[2],body:bodySource,indent,sentence},...(children?{inputs:{DO:{block:children}}}:{})});
       }else appendRaw(text);
     }else appendRaw(text);
     end=node.to;
@@ -81,6 +83,10 @@ export function upgrade(state,parts=null,path='main.py'){
     for(let block=first;block;){
       const next=block.next?.block;delete block.next;if(block.data==='pico-source-root')delete block.data;
       for(const input of Object.values(block.inputs||{}))if(input.block)input.block=chain(clean(input.block));
+      if(parts&&block.type==='pico_expression'){
+        const source='__value = '+(block.fields?.CODE||''),tree=parser.parse(source);
+        if(!hasError(tree)){const statement=nativeStatement(tree.topNode.firstChild,source,parts,()=>null),value=statement?.inputs?.VALUE?.block;if(value&&value.type!=='pico_expression')block={...block,...value};}
+      }
       if(block.type==='pico_call_value'){
         const args=Array.from({length:block.extraState?.argumentCount||0},(_,i)=>block.inputs?.['ARG'+i]?.block);
         const friendly=args.every(Boolean)?friendlyCall(block.fields?.TARGET,args):null;
@@ -120,7 +126,7 @@ export function layout(workspace){
   }
 }
 const rootTypes=['pico_module','pico_start'];
-export function configure(B,g,editRaw){
+export function configure(B,g,editRaw,options={}){
   B.defineBlocksWithJsonArray([
     {type:'pico_module',message0:'読み込まれたとき %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],colour:45},
     {type:'pico_import',message0:'import %1',args0:[{type:'field_input',name:'MODULE',text:'time'}],previousStatement:null,nextStatement:null,colour:165},
@@ -169,6 +175,7 @@ export function configure(B,g,editRaw){
     else if(block.type==='pico_python')code+=block.pythonCode;
     else if(['pico_import','pico_import_as','pico_from_import'].includes(block.type)){const original=block.originalImport;const unchanged=original?.importFields&&Object.entries(original.importFields).every(([field,value])=>block.getFieldValue(field)===value);code+=(unchanged?original.importCode:importCode(block))+(original?.eol??'\n');}
     else if(['pico_class','pico_def'].includes(block.type)){
+      if(block.type==='pico_def'&&block.pythonSentence)code+='# ブロック: '+block.pythonSentence+'\n';
       let body=sequence(block.getInputTargetBlock('DO'),g),header=block.getFieldValue('HEADER');const original=block.originalPython;
       if(original&&body===original.body){const prefix=block.type==='pico_class'?'class ':'def ';code+=prefix+header+original.original.slice(prefix.length+original.header.length);}
       else{if(!body.trim())body='pass\n';const indent=original?.indent||'    ';code+=(block.type==='pico_class'?'class ':'def ')+header+':\n'+indentSource(body,indent);if(!code.endsWith('\n'))code+='\n';}
@@ -176,7 +183,8 @@ export function configure(B,g,editRaw){
   code+=block.pythonAfter||'';
   }if(one)break;const next=block.getNextBlock();if(next&&code&&!code.endsWith('\n')&&!(/^[\r\n]/.test(next.pythonBefore||'')||next.type==='pico_python'&&/^[\r\n]/.test(next.pythonCode)))code+='\n';block=next;}return code;}
   for(const type of ['pico_module','pico_class','pico_def','pico_import','pico_import_as','pico_from_import','pico_python'])g.forBlock[type]=(block,g)=>sequence(block,g,true);
-  return {generate(workspace,parts=[],path='main.py'){
+  const ui=installBlockUI(B,g,options);
+  return {diagnose:ui.diagnose,generate(workspace,parts=[],path='main.py'){
     const getVariableName=g.getVariableName;
     g.getVariableName=id=>workspace.getVariableMap().getVariableById(id)?.name||id;
     B.Events.disable();

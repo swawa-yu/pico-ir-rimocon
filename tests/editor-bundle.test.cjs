@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const {createHash}=require('node:crypto');
 const {JSDOM}=require('jsdom');
 
-test('the page loads the current editor bundle and its public highlight API works',()=>{
+test('the page loads the current editor bundle and its public highlight API works',async()=>{
   const bundle=fs.readFileSync('vendor/codemirror/editor.js','utf8');
   const dom=new JSDOM(fs.readFileSync('index.html','utf8'),{runScripts:'outside-only',pretendToBeVisual:true});
   try{
@@ -22,6 +22,8 @@ test('the page loads the current editor bundle and its public highlight API work
     editor.setFile('main.py','first = 1\nsecond = 2\n');assert.equal(scroller.scrollTop,70);
     editor.highlightLines({from:2,to:2});assert.equal(scroller.scrollTop,70);
     assert.equal(parent.querySelector('.cm-block-source').textContent,'second = 2');
+    editor.setErrors([{from:0,to:5,message:'定義を確認'}]);await Promise.resolve();
+    assert.equal(parent.querySelector('.cm-source-error').getAttribute('title'),'定義を確認');
     editor.setReadOnly(true);
     assert.equal(parent.querySelector('.cm-content').getAttribute('contenteditable'),'false');
     editor.setFile('other.py','pass\n');editor.setReadOnly(true);

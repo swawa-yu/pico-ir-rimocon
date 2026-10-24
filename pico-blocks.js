@@ -62,6 +62,8 @@
       {type:'pico_bitwise',message0:'%1 %2 %3',args0:[{type:'input_value',name:'A',check:'Number'},{type:'field_dropdown',name:'OP',options:[['AND','&'],['OR','|'],['XOR','^'],['左シフト','<<'],['右シフト','>>']]},{type:'input_value',name:'B',check:'Number'}],output:'Number',colour:210},
       {type:'pico_char',message0:'文字コード %1 を1文字に変換',args0:[{type:'input_value',name:'VALUE',check:'Number'}],output:'String',colour:260},
       {type:'pico_ord',message0:'1文字 %1 を文字コードに変換',args0:[{type:'input_value',name:'VALUE',check:'String'}],output:'Number',colour:260},
+      {type:'pico_index',message0:'%1 の %2 番目の値（0から）',args0:[{type:'input_value',name:'VALUE'},{type:'input_value',name:'INDEX'}],output:null,colour:260,tooltip:'Pythonの添字です。先頭は0、-1は末尾。配列・文字列・辞書のキーにも使えます。'},
+      {type:'pico_set_index',message0:'%1 の %2 番目（0から）を %3 にする',args0:[{type:'input_value',name:'VALUE'},{type:'input_value',name:'INDEX'},{type:'input_value',name:'ITEM'}],previousStatement:null,nextStatement:null,colour:260},
       {type:'pico_range',message0:'%1 から\n%2 の手前まで\n%3 ずつの整数',args0:[{type:'input_value',name:'START',check:'Number'},{type:'input_value',name:'STOP',check:'Number'},{type:'input_value',name:'STEP',check:'Number'}],output:'Array',inputsInline:true,colour:120,tooltip:'range(開始, 終了, 増分)。終了の値は含みません。例：0から5の手前まで2ずつ → 0, 2, 4。増分は0以外。'},
       {type:'pico_to_int',message0:'%1 を整数に変換',args0:[{type:'input_value',name:'VALUE'}],output:'Number',colour:260,tooltip:'int(値)。数値の小数部分を取り除くか、10進数の文字列を整数に変換します。'},
       {type:'pico_parse_int',message0:'文字列 %1 を %2 進数として整数に変換',args0:[{type:'input_value',name:'VALUE',check:'String'},{type:'input_value',name:'BASE',check:'Number'}],output:'Number',colour:260,tooltip:'int(文字列, 基数)。例："01000001" を2進数として読むと整数65。'},
@@ -106,6 +108,8 @@
     generator.forBlock.pico_bitwise=(b,g)=>[`(int(${value(b,g,'A','0')}) ${b.getFieldValue('OP')} int(${value(b,g,'B','0')}))`,g.ORDER_ATOMIC];
     generator.forBlock.pico_char=(b,g)=>[`chr(int(${value(b,g,'VALUE','0')}))`,g.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_ord=(b,g)=>[`ord(${value(b,g,'VALUE',"'A'")})`,g.ORDER_FUNCTION_CALL];
+    generator.forBlock.pico_index=(b,g)=>[`${g.valueToCode(b,'VALUE',g.ORDER_MEMBER)||'[]'}[${value(b,g,'INDEX','0')}]`,g.ORDER_MEMBER];
+    generator.forBlock.pico_set_index=(b,g)=>`${g.valueToCode(b,'VALUE',g.ORDER_MEMBER)||'[]'}[${value(b,g,'INDEX','0')}] = ${value(b,g,'ITEM','None')}\n`;
     generator.forBlock.pico_range=(b,g)=>[`range(${value(b,g,'START','0')}, ${value(b,g,'STOP','10')}, ${value(b,g,'STEP','1')})`,g.ORDER_FUNCTION_CALL];
     for(const [type,fn] of [['pico_to_int','int'],['pico_to_float','float'],['pico_to_text','str']])generator.forBlock[type]=(b,g)=>[`${fn}(${value(b,g,'VALUE',"''")})`,g.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_parse_int=(b,g)=>[`int(${value(b,g,'VALUE',"'0'")}, ${value(b,g,'BASE','10')})`,g.ORDER_FUNCTION_CALL];
