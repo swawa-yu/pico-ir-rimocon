@@ -13,9 +13,9 @@ const {decodeDurations}=require('../live-core.js');
 let parts=P.defaults();
 P.configure(B,g,()=>parts);
 const runtime=require('node:fs').readFileSync(require('node:path').join(__dirname,'../programs/pico_parts.py'),'utf8');
-function generate(w){return P.generateProject(B,g,w,parts,runtime,require('../pico-sources.js').ssd1306);}
+function generate(w){return P.generateProject(B,g,w,parts,runtime,require('../pico-sources.js').ssd1306,null,require('../pico-sources.js'));}
 function combined(w){const f=generate(w);return `import types,sys\n_driver=types.ModuleType('pico_parts')\nsys.modules['pico_parts']=_driver\nexec(${JSON.stringify(f['lib/pico_parts.py'])},_driver.__dict__)\n_parts=types.ModuleType('parts')\nsys.modules['parts']=_parts\nexec(${JSON.stringify(f['parts.py'])},_parts.__dict__)\ntry:\n exec(${JSON.stringify(f['main.py'])})\nfinally:\n _driver.close()\n`;} 
-function workspace(example){parts=example==='peripherals'?P.peripheralParts():example==='pixels'?P.peripheralParts().filter(p=>p.kind==='ssd1306'):example==='fan'?[...P.defaults(),{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:1000}]:P.defaults();const w=new B.Workspace();B.serialization.workspaces.load(P.examples[example](),w);return w;}
+function workspace(example){parts=example==='receive'?[...P.defaults(),{id:'receiver',name:'赤外線受信',kind:'receiver',pin:15}]:example==='peripherals'?P.peripheralParts():example==='pixels'?P.peripheralParts().filter(p=>p.kind==='ssd1306'):example==='fan'?[...P.defaults(),{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:1000}]:P.defaults();const w=new B.Workspace();B.serialization.workspaces.load(P.examples[example](),w);return w;}
 function python(script,source){const result=spawnSync('python3',['-c',script],{input:source,encoding:'utf8'});assert.equal(result.status,0,JSON.stringify({stderr:result.stderr,stdout:result.stdout,signal:result.signal,error:String(result.error)}));return result.stdout;}
 
 test('all examples generate valid Python and survive block save/load',()=>{
@@ -156,7 +156,7 @@ test('functions and lists generate executable MicroPython activity code',()=>{
   B.serialization.workspaces.load({blocks:{languageVersion:0,blocks:[def,start]}},w);
   const main=generate(w)['main.py'];
   assert.match(main,/def values/);assert.match(main,/\[65, 66\]/);
-  const map=new Map(),mapped=P.generateProject(B,g,w,parts,runtime,require('../pico-sources.js').ssd1306,map)['main.py'];
+  const map=new Map(),mapped=P.generateProject(B,g,w,parts,runtime,require('../pico-sources.js').ssd1306,map,require('../pico-sources.js'))['main.py'];
   assert.equal(mapped,main);
   const definition=w.getAllBlocks(false).find(b=>b.type==='procedures_defreturn');
   assert.match(main.split('\n')[map.get(definition.id).from-1],/^def values/);
@@ -250,7 +250,7 @@ test('display preview uses the selected display block, DIP values and screen bou
 test('source mapping preserves generated Python and associates selected blocks with their activity lines',()=>{
   for(const example of Object.keys(P.examples)){
     const w=workspace(example),plain=generate(w),map=new Map();
-    const mapped=P.generateProject(B,g,w,parts,runtime,require('../pico-sources.js').ssd1306,map);
+    const mapped=P.generateProject(B,g,w,parts,runtime,require('../pico-sources.js').ssd1306,map,require('../pico-sources.js'));
     assert.equal(mapped['main.py'],plain['main.py'],example);
     const lines=mapped['main.py'].split('\n');
     for(const block of w.getAllBlocks(false)){
@@ -400,4 +400,44 @@ print(json.dumps(events))
    assert.deepEqual(JSON.parse(output),[0,strength,strength,0]);
   }
  }finally{w.dispose();parts=P.defaults();}
+});
+
+test('receiver sample converts captured timing arrays to chronological bits, binary text and an integer',()=>{
+ const w=workspace('receive');
+ try{
+  const files=generate(w),times=P.signalForByte(65,560);
+  assert.equal(files['lib/ir_data.py'],require('../pico-sources.js').irData);
+  assert.equal(files['lib/live_receiver.py'],require('../pico-sources.js').receiver);
+  const output=python(`import sys,types
+source=sys.stdin.read()
+data=types.ModuleType('ir_data')
+exec(${JSON.stringify(files['lib/ir_data.py'])},data.__dict__)
+sys.modules['ir_data']=data
+packets=iter([[],${JSON.stringify(times)}])
+parts=types.ModuleType('parts')
+parts.receiver=types.SimpleNamespace(receive=lambda timeout: next(packets))
+sys.modules['parts']=parts
+try:
+ exec(source)
+except StopIteration:
+ pass
+`,files['main.py']);
+  assert.match(output,/ビット配列: \[0, 1, 0, 0, 0, 0, 0, 1\]/);
+  assert.match(output,/2進文字列: 01000001/);assert.match(output,/整数: 65/);
+ }finally{w.dispose();parts=P.defaults();}
+});
+
+test('binary practice preserves leading zeroes, converts character codes and edits the last array item',()=>{
+ const w=workspace('binary');
+ try{
+  const files=generate(w);
+  const output=python(`import types,sys
+m=types.ModuleType('ir_data')
+exec(${JSON.stringify(files['lib/ir_data.py'])},m.__dict__)
+sys.modules['ir_data']=m
+exec(sys.stdin.read())
+`,files['main.py']);
+  assert.match(output,/2進文字列: 01000001/);assert.match(output,/文字: A/);
+  assert.match(output,/00101010 → 42/);assert.match(output,/末尾を1に変更: 00101011/);
+ }finally{w.dispose();}
 });

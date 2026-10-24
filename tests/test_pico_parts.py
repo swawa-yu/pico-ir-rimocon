@@ -107,6 +107,39 @@ class PartsTests(unittest.TestCase):
         self.assertEqual(output.pwm.duty, 0)
         self.assertTrue(output.pwm.closed)
 
+    def test_receiver_starts_lazily_and_releases_irq_after_interruption(self):
+        instances = []
+
+        class Receiver:
+            def __init__(self, pin):
+                self.pin = pin
+                self.closed = False
+                self.interrupt = False
+                instances.append(self)
+
+            def receive(self, timeout):
+                if self.interrupt:
+                    raise KeyboardInterrupt()
+                return [560]
+
+            def close(self):
+                self.closed = True
+
+        with patch.dict(sys.modules, {'ir_data': types.SimpleNamespace(Receiver=Receiver)}):
+            receiver = self.parts.InfraredReceiver(15)
+            self.assertIsNone(receiver.receiver)
+            Pin.levels[15] = 0
+            self.assertTrue(receiver.is_on())
+            self.assertEqual(receiver.receive(100), [560])
+            instances[0].interrupt = True
+            with self.assertRaises(KeyboardInterrupt):
+                receiver.receive(100)
+            self.assertTrue(instances[0].closed)
+            self.assertIsNone(receiver.receiver)
+            self.assertEqual(receiver.receive(100), [560])
+            self.parts.close()
+            self.assertTrue(instances[1].closed)
+
     def test_dip_reads_active_low_and_switch_one_is_the_lowest_bit(self):
         switch = self.parts.DIPSwitch(list(range(8)))
         self.assertEqual(switch.value(), 0)

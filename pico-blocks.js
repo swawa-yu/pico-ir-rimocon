@@ -5,15 +5,15 @@
     {id:'status_led',name:'お知らせLED',kind:'led',pin:13},
     {id:'infrared',name:'赤外線LED',kind:'infrared',pin:16,unit:560}
   ];
-  const kinds={pico_pwm:'pwm',pico_button:'button',pico_led:'led',pico_send:'infrared',pico_carrier:'infrared',pico_tone:'speaker',pico_speaker_on:'speaker',pico_speaker_off:'speaker',pico_display_text:'ssd1306',pico_display_clear:'ssd1306',pico_display_pixel:'ssd1306',pico_display_get_pixel:'ssd1306',pico_display_fill:'ssd1306',pico_display_text_at:'ssd1306',pico_display_show:'ssd1306',pico_dip_on:'dip',pico_dip_value:'dip'};
+  const kinds={pico_receive:'receiver',pico_ir_level:'receiver',pico_pwm:'pwm',pico_button:'button',pico_led:'led',pico_send:'infrared',pico_carrier:'infrared',pico_tone:'speaker',pico_speaker_on:'speaker',pico_speaker_off:'speaker',pico_display_text:'ssd1306',pico_display_clear:'ssd1306',pico_display_pixel:'ssd1306',pico_display_get_pixel:'ssd1306',pico_display_fill:'ssd1306',pico_display_text_at:'ssd1306',pico_display_show:'ssd1306',pico_dip_on:'dip',pico_dip_value:'dip'};
   const pinsFor=p=>p.kind==='ssd1306'?[p.sda,p.scl]:p.kind==='dip'?p.pins:[p.pin];
   function validateParts(parts){
     if(!Array.isArray(parts)||parts.length>23)throw Error('部品は23個以内にしてください。');
     const ids=new Set(),names=new Set(),pins=new Set();
     for(const p of parts){
-      if(typeof p.id!=='string'||p.id.length>64||!/^[a-z][a-z0-9_]*$/.test(p.id)||('False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield time close').split(' ').includes(p.id)||ids.has(p.id))throw Error('部品の識別子が不正です。');
+      if(typeof p.id!=='string'||p.id.length>64||!/^[a-z][a-z0-9_]*$/.test(p.id)||('False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield time close ir_data rp2').split(' ').includes(p.id)||ids.has(p.id))throw Error('部品の識別子が不正です。');
       if(typeof p.name!=='string'||!p.name.trim()||p.name.length>40||names.has(p.name.trim()))throw Error('部品名は重複しない1〜40文字にしてください。');
-      if(!['button','led','infrared','speaker','ssd1306','dip','pwm'].includes(p.kind))throw Error('部品の種類が不正です。');
+      if(!['button','led','infrared','speaker','ssd1306','dip','pwm','receiver'].includes(p.kind))throw Error('部品の種類が不正です。');
       const assigned=pinsFor(p);
       if(!Array.isArray(assigned)||p.kind==='dip'&&assigned.length!==8)throw Error('DIPスイッチは8個のGPIOを設定してください。');
       for(const pin of assigned){if(!Number.isInteger(pin)||pin<0||pin>22||pins.has(pin))throw Error('GPIOはGP0〜GP22で、重複しない番号を指定してください。');pins.add(pin);}
@@ -44,6 +44,18 @@
       {type:'pico_start',message0:'実行したとき %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],colour:45},
       {type:'pico_forever',message0:'ずっと %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,colour:45},
       {type:'pico_wait',message0:'%1 秒待つ',args0:[{type:'input_value',name:'SECONDS',check:'Number'}],previousStatement:null,nextStatement:null,colour:45},
+      {type:'pico_time_us',message0:'現在の時刻（µs）',output:'Number',colour:45},
+      {type:'pico_time_diff',message0:'時刻 %1 から時刻 %2 まで（µs）',args0:[{type:'input_value',name:'START',check:'Number'},{type:'input_value',name:'END',check:'Number'}],output:'Number',colour:45},
+      {type:'pico_receive',message0:'%1 で受信する（待ち時間 %2 ms）',args0:[{type:'field_dropdown',name:'PART',options:options('receiver')},{type:'input_value',name:'TIMEOUT',check:'Number'}],output:'Array',colour:285,tooltip:'ON/OFFの時間配列（µs）。開始待ちでタイムアウトすると空の配列。長いOFFで完了。'},
+      {type:'pico_ir_level',message0:'%1 が受信中',args0:[{type:'field_dropdown',name:'PART',options:options('receiver')}],output:'Boolean',colour:200},
+      {type:'pico_decode_bits',message0:'時間配列 %1 の先頭 %2 区間を除き OFF/ON比 %3 でビット化',args0:[{type:'input_value',name:'TIMES',check:'Array'},{type:'input_value',name:'SKIP',check:'Number'},{type:'input_value',name:'THRESHOLD',check:'Number'}],output:'Array',colour:285},
+      {type:'pico_bits_text',message0:'ビット配列 %1 を2進文字列にする',args0:[{type:'input_value',name:'VALUE',check:'Array'}],output:'String',colour:260},
+      {type:'pico_text_bits',message0:'2進文字列 %1 をビット配列にする',args0:[{type:'input_value',name:'VALUE',check:'String'}],output:'Array',colour:260},
+      {type:'pico_bits_int',message0:'ビット配列 %1 を整数にする',args0:[{type:'input_value',name:'VALUE',check:'Array'}],output:'Number',colour:260},
+      {type:'pico_int_bits',message0:'整数 %1 を %2 桁のビット配列にする',args0:[{type:'input_value',name:'VALUE',check:'Number'},{type:'input_value',name:'WIDTH',check:'Number'}],output:'Array',colour:260},
+      {type:'pico_bitwise',message0:'%1 %2 %3',args0:[{type:'input_value',name:'A',check:'Number'},{type:'field_dropdown',name:'OP',options:[['AND','&'],['OR','|'],['XOR','^'],['左シフト','<<'],['右シフト','>>']]},{type:'input_value',name:'B',check:'Number'}],output:'Number',colour:210},
+      {type:'pico_char',message0:'文字コード %1 の文字',args0:[{type:'input_value',name:'VALUE',check:'Number'}],output:'String',colour:260},
+      {type:'pico_ord',message0:'文字 %1 の文字コード',args0:[{type:'input_value',name:'VALUE',check:'String'}],output:'Number',colour:260},
       {type:'pico_bootsel',message0:'BOOTSEL が押されている',output:'Boolean',colour:200},
       {type:'pico_button',message0:'%1 が押されている',args0:[{type:'field_dropdown',name:'PART',options:options('button')}],output:'Boolean',colour:200},
       {type:'pico_pwm',message0:'%1 のPWM出力を %2 % にする',args0:[{type:'field_dropdown',name:'PART',options:options('pwm')},{type:'input_value',name:'PERCENT',check:'Number'}],previousStatement:null,nextStatement:null,colour:150},
@@ -71,6 +83,17 @@
     generator.forBlock.pico_start=(b,g)=>g.statementToCode(b,'DO').replace(/^  /gm,'')||'pass\n';
     generator.forBlock.pico_forever=(b,g)=>'while True:\n'+(g.statementToCode(b,'DO')||'  pass\n');
     generator.forBlock.pico_wait=(b,g)=>`time.sleep(max(0, ${g.valueToCode(b,'SECONDS',g.ORDER_NONE)||'0'}))\n`;
+    const value=(b,g,key,fallback)=>g.valueToCode(b,key,g.ORDER_NONE)||fallback;
+    generator.forBlock.pico_time_us=()=>['time.ticks_us()',generator.ORDER_FUNCTION_CALL];
+    generator.forBlock.pico_time_diff=(b,g)=>[`time.ticks_diff(${value(b,g,'END','0')}, ${value(b,g,'START','0')})`,g.ORDER_FUNCTION_CALL];
+    generator.forBlock.pico_receive=(b,g)=>[`${part(b)}.receive(${value(b,g,'TIMEOUT','1000')})`,g.ORDER_FUNCTION_CALL];
+    generator.forBlock.pico_ir_level=b=>[`${part(b)}.is_on()`,generator.ORDER_FUNCTION_CALL];
+    generator.forBlock.pico_decode_bits=(b,g)=>[`ir_data.durations_to_bits(${value(b,g,'TIMES','[]')}, ${value(b,g,'SKIP','2')}, ${value(b,g,'THRESHOLD','2')})`,g.ORDER_FUNCTION_CALL];
+    for(const [type,method,fallback] of [['pico_bits_text','bits_to_text','[]'],['pico_text_bits','text_to_bits',"''"],['pico_bits_int','bits_to_int','[]']])generator.forBlock[type]=(b,g)=>[`ir_data.${method}(${value(b,g,'VALUE',fallback)})`,g.ORDER_FUNCTION_CALL];
+    generator.forBlock.pico_int_bits=(b,g)=>[`ir_data.int_to_bits(${value(b,g,'VALUE','0')}, ${value(b,g,'WIDTH','8')})`,g.ORDER_FUNCTION_CALL];
+    generator.forBlock.pico_bitwise=(b,g)=>[`(int(${value(b,g,'A','0')}) ${b.getFieldValue('OP')} int(${value(b,g,'B','0')}))`,g.ORDER_ATOMIC];
+    generator.forBlock.pico_char=(b,g)=>[`chr(int(${value(b,g,'VALUE','0')}))`,g.ORDER_FUNCTION_CALL];
+    generator.forBlock.pico_ord=(b,g)=>[`ord(${value(b,g,'VALUE',"'A'")})`,g.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_bootsel=()=>['rp2.bootsel_button()',generator.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_button=(b,g)=>[`${part(b)}.is_pressed()`,g.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_pwm=(b,g)=>`${part(b)}.set(${g.valueToCode(b,'PERCENT',g.ORDER_NONE)||'0'})\n`;
@@ -93,9 +116,9 @@
       const input=`input(${g.valueToCode(b,'TEXT',g.ORDER_NONE)||"''"})`;
       return [b.getFieldValue('TYPE')==='NUMBER'?`float(${input})`:input,g.ORDER_FUNCTION_CALL];
     };
-    generator.addReservedWords('time,'+getParts().map(p=>p.id).join(','));
+    generator.addReservedWords('time,ir_data,rp2,'+getParts().map(p=>p.id).join(','));
   }
-  function generateProject(Blockly,generator,workspace,parts,runtime,displayDriver='',sourceMap=null){
+  function generateProject(Blockly,generator,workspace,parts,runtime,displayDriver='',sourceMap=null,sources={}){
     validateParts(parts);
     syncEnabled(Blockly,workspace);
     generator.addReservedWords(parts.map(p=>p.id).join(','));
@@ -136,8 +159,11 @@
     }
     const imports=[];
     if(used.length)imports.push('from parts import '+used.map(p=>p.id).join(', '));
-    if(blocks.some(b=>b.type==='pico_wait'))imports.push('import time');
+    if(blocks.some(b=>['pico_wait','pico_time_us','pico_time_diff'].includes(b.type)))imports.push('import time');
     if(blocks.some(b=>b.type==='pico_bootsel'))imports.push('import rp2');
+    const dataBlocks=['pico_decode_bits','pico_bits_text','pico_text_bits','pico_bits_int','pico_int_bits'];
+    const usesData=blocks.some(b=>dataBlocks.includes(b.type));
+    if(usesData)imports.push('import ir_data');
     if(sourceMap){
       const offset=imports.length?imports.length+1:0;
       for(const range of sourceMap.values()){range.from+=offset;range.to+=offset;}
@@ -160,10 +186,18 @@
       }
     }
     main=(imports.length?imports.join('\n')+'\n\n':'')+main+'\n';
-    const classes={button:'Button',led:'LED',infrared:'Infrared',speaker:'Speaker',ssd1306:'Display',dip:'DIPSwitch',pwm:'PWMOutput'};
+    const classes={button:'Button',led:'LED',infrared:'Infrared',speaker:'Speaker',ssd1306:'Display',dip:'DIPSwitch',pwm:'PWMOutput',receiver:'InfraredReceiver'};
     const config=(parts.length?'from pico_parts import '+[...new Set(parts.map(p=>classes[p.kind]))].join(', ')+'\n\n':'')+parts.map(p=>`${p.id} = ${classes[p.kind]}(${p.kind==='ssd1306'?`${p.sda}, ${p.scl}, width=${p.width}, height=${p.height}, address=${p.address}`:p.kind==='dip'?`[${p.pins.join(', ')}]`:`${p.pin}${p.kind==='infrared'?`, unit=${p.unit}`:p.kind==='pwm'?`, frequency=${p.frequency}`:''}`})`).join('\n')+'\n';
     const files={'main.py':main,'parts.py':config,'lib/pico_parts.py':runtime};
     if(parts.some(p=>p.kind==='ssd1306')){if(!displayDriver)throw Error('SSD1306ドライバがありません。');files['lib/ssd1306.py']=displayDriver;}
+    if(usesData||parts.some(p=>p.kind==='receiver')){
+      if(!sources.irData)throw Error('受信・変換ライブラリがありません。');
+      files['lib/ir_data.py']=sources.irData;
+    }
+    if(parts.some(p=>p.kind==='receiver')){
+      if(!sources.receiver)throw Error('受信ライブラリがありません。');
+      files['lib/live_receiver.py']=sources.receiver;
+    }
     return files;
   }
   function syncEnabled(Blockly,workspace){
@@ -220,7 +254,33 @@
   const send=()=>({type:'pico_send',fields:{PART:'infrared'},inputs:{VALUE:number(65)}});
   function stack(...blocks) {for(let i=0;i<blocks.length-1;i++)blocks[i].next={block:blocks[i+1]};return blocks[0];}
   function root(body){return {blocks:{languageVersion:0,blocks:[{type:'pico_start',x:30,y:30,inputs:{DO:{block:body}}}]}};}
+  const variable=name=>({block:{type:'variables_get',fields:{VAR:{name}}}});
+  const assign=(name,input)=>({type:'variables_set',fields:{VAR:{name}},inputs:{VALUE:input}});
+  const print=(label,input)=>({type:'text_print',inputs:{TEXT:{block:{type:'text_join',extraState:{itemCount:2},inputs:{ADD0:{shadow:{type:'text',fields:{TEXT:label}}},ADD1:input}}}}});
+  const convert=(type,input,extra={})=>({block:{type,inputs:{VALUE:input,...extra}}});
   const examples={
+    binary:()=>root(stack(
+      assign('bits',convert('pico_int_bits',number(65),{WIDTH:number(8)})),
+      print('ビット配列: ',variable('bits')),
+      print('2進文字列: ',convert('pico_bits_text',variable('bits'))),
+      print('整数: ',convert('pico_bits_int',variable('bits'))),
+      print('文字: ',convert('pico_char',convert('pico_bits_int',variable('bits')))),
+      assign('bits',convert('pico_text_bits',{shadow:{type:'text',fields:{TEXT:'00101010'}}})),
+      print('00101010 → ',convert('pico_bits_int',variable('bits'))),
+      print('配列の長さ: ',{block:{type:'lists_length',inputs:{VALUE:variable('bits')}}}),
+      {type:'lists_setIndex',fields:{MODE:'SET',WHERE:'LAST'},inputs:{LIST:variable('bits'),TO:number(1)}},
+      print('末尾を1に変更: ',convert('pico_bits_text',variable('bits')))
+    )),
+    receive:()=>root({type:'pico_forever',inputs:{DO:{block:stack(
+      assign('times',{block:{type:'pico_receive',fields:{PART:'receiver'},inputs:{TIMEOUT:number(1000)}}}),
+      {type:'controls_if',inputs:{IF0:{block:{type:'logic_compare',fields:{OP:'GT'},inputs:{A:{block:{type:'lists_length',inputs:{VALUE:variable('times')}}},B:number(0)}}},DO0:{block:stack(
+        print('時間 µs: ',variable('times')),
+        assign('bits',{block:{type:'pico_decode_bits',inputs:{TIMES:variable('times'),SKIP:number(2),THRESHOLD:number(2)}}}),
+        print('ビット配列: ',variable('bits')),
+        print('2進文字列: ',convert('pico_bits_text',variable('bits'))),
+        {type:'controls_if',inputs:{IF0:{block:{type:'logic_compare',fields:{OP:'GT'},inputs:{A:{block:{type:'lists_length',inputs:{VALUE:variable('bits')}}},B:number(0)}}},DO0:{block:print('整数: ',convert('pico_bits_int',variable('bits')))}}}
+      )}}}
+    )}}}),
     console:()=>root({type:'text_print',inputs:{TEXT:{block:{type:'text_prompt_ext',fields:{TYPE:'TEXT'},inputs:{TEXT:{shadow:{type:'text',fields:{TEXT:'名前は？ '}}}}}}}}),
     pixels:()=>root(stack(
       {type:'pico_display_fill',fields:{PART:'screen'},inputs:{COLOR:number(0)}},

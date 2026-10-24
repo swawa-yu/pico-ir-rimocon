@@ -44,6 +44,32 @@ class PWMOutput:
         self.pwm.deinit()
 
 
+class InfraredReceiver:
+    def __init__(self, pin):
+        self.pin = Pin(pin, Pin.IN, Pin.PULL_UP)
+        self.pin_number = pin
+        self.receiver = None
+        _outputs.append(self)
+
+    def is_on(self):
+        return self.pin.value() == 0
+
+    def receive(self, timeout_ms=1000):
+        if self.receiver is None:
+            from ir_data import Receiver
+            self.receiver = Receiver(self.pin_number)
+        try:
+            return self.receiver.receive(timeout_ms)
+        except BaseException:
+            self.close()
+            raise
+
+    def close(self):
+        if self.receiver is not None:
+            self.receiver.close()
+            self.receiver = None
+
+
 class Infrared:
     def __init__(self, pin, unit=560):
         self.pwm = PWM(Pin(pin), freq=38000, duty_u16=0)

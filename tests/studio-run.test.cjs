@@ -189,3 +189,20 @@ test('fan sample adds a compatible PWM component and writes its BOOTSEL program 
   assert.match(files['parts.py'],/infrared = Infrared/);
  }finally{s.close();}
 });
+
+for(const sample of ['receive','receive_custom'])test(sample+' installs editable capture and conversion sources with the configured receiver',async()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.$('example').value=sample;s.$('example-load').click();
+  s.$('write-only').click();await new Promise(resolve=>setImmediate(resolve));
+  const files=s.calls.find(c=>c[0]==='write')[1];
+  assert.match(files['parts.py'],/receiver = InfraredReceiver\(15\)/);
+  assert.match(files['main.py'],/receiver\.receive\(1000\)/);
+  assert.match(files['lib/live_receiver.py'],/hard=True/);
+  assert.match(files['lib/ir_data.py'],/def durations_to_bits/);
+  if(sample==='receive_custom'){
+   assert.match(files['decode_signal.py'],/off >= on \* 2/);
+   assert.match(files['main.py'],/from decode_signal import decode_signal/);
+  }
+ }finally{s.close();}
+});
