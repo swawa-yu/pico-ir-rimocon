@@ -15,7 +15,7 @@
   function convert(kind,input,{unit=560,leader='none',lsb=false,width=8,start=null}={}){
     if(!Number.isSafeInteger(unit)||unit<1)throw Error('ON時間は1µs以上の整数にしてください。');
     const factors={none:[],short:[8,4],long:[16,8]}[leader];
-    if(!factors||!factors.every(n=>Number.isSafeInteger(n*unit))||!Number.isSafeInteger(3*unit))throw Error('開始信号またはON時間を確認してください。');
+    if(!factors||!factors.every(n=>Number.isSafeInteger(n*unit))||!Number.isSafeInteger(3*unit))throw Error('リーダ部またはON時間を確認してください。');
     let bits,times;
     if(kind==='times'){
       times=array(input);bits=[];

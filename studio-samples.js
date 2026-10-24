@@ -119,5 +119,36 @@ finally:
     if(!sample)throw Error('サンプルがありません。');
     return {parts:sample.parts,files:{'main.py':sample.code}};
   }
-  const api={infrared,basic,organized,beginner};if(typeof module!=='undefined')module.exports=api;if(typeof window!=='undefined')window.StudioSamples=api;
+  function message(mode){
+    const utf8=mode.startsWith('utf8_'),sending=mode.endsWith('send'),display=mode==='ascii_display';
+    if(!['ascii_send','ascii_receive','ascii_display','utf8_send','utf8_receive'].includes(mode))throw Error('メッセージのサンプルがありません。');
+    if(sending)return {parts:[{id:'transmitter',name:'送信機',variable:'送信機',kind:'infrared',pin:16,unit:560}],files:{'main.py':`from parts import 送信機
+import time
+
+while True:
+    メッセージ = input("送る文: ")
+${utf8?'    データ = メッセージ.encode()\n    for 文字コード in データ:\n        送信機.send(文字コード)':'    if any(not 32 <= ord(文字) <= 126 for 文字 in メッセージ):\n        print("ASCII文字で入力してください")\n        continue\n    for 文字 in メッセージ:\n        送信機.send(ord(文字))'}
+        time.sleep(0.02)
+    送信機.send(10)
+    print("送信:", メッセージ)
+`}};
+    const parts=[{id:'receiver',name:'受信機',variable:'受信機',kind:'receiver',pin:15}];
+    if(display)parts.push({id:'display_power',name:'画面の電源',variable:'画面の電源',kind:'led',pin:2},{id:'screen',name:'画面',variable:'画面',kind:'ssd1306',sda:4,scl:3,width:128,height:64,address:60});
+    return {parts,files:{'main.py':`from parts import 受信機${display?', 画面の電源, 画面':''}
+import ir_data
+${display?'import time\n\n画面の電源.on()\ntime.sleep(0.1)\n':''}
+メッセージ = ${utf8?'bytearray()':'""'}
+print("受信待ち")
+while True:
+    信号 = 受信機.receive_bits(1000)
+    if len(信号) != 8:
+        continue
+    文字コード = ir_data.bits_to_int(信号)
+    if 文字コード == 10:
+${utf8?'        try:\n            print(メッセージ.decode())\n        except UnicodeError:\n            print("UTF-8として読めないデータです")\n        メッセージ = bytearray()':`        print(メッセージ)\n${display?'        画面.text(メッセージ, 1)\n':''}        メッセージ = ""`}
+    else:
+${utf8?'        メッセージ.append(文字コード)':'        if not 32 <= 文字コード <= 126:\n            メッセージ = ""\n            continue\n        メッセージ += chr(文字コード)'}
+`}};
+  }
+  const api={infrared,basic,organized,beginner,message};if(typeof module!=='undefined')module.exports=api;if(typeof window!=='undefined')window.StudioSamples=api;
 })();

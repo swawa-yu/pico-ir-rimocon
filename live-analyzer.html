@@ -61,9 +61,9 @@
       <details class="conversion-settings"><summary>変換のルール</summary><div class="conversion-inputs">
         <div id="conversion-start-wrap"><label for="conversion-start">データ開始位置（0から）</label><input id="conversion-start" type="number" min="0" step="2" value="0"></div>
         <div><label for="conversion-unit">ON時間（µs）</label><input id="conversion-unit" type="number" min="1" value="560"></div>
-        <div><label for="conversion-leader">開始信号</label><select id="conversion-leader"><option value="none">なし</option><option value="short">ON×8 / OFF×4</option><option value="long">ON×16 / OFF×8</option></select></div>
+        <div><label for="conversion-leader">リーダ部</label><select id="conversion-leader"><option value="none">なし</option><option value="short">ON×8 / OFF×4</option><option value="long">ON×16 / OFF×8</option></select></div>
         <div><label for="conversion-order">数値・文字のビット順（8ビットごと）</label><select id="conversion-order"><option value="msb">MSBから</option><option value="lsb">LSBから</option></select></div>
-      </div><p class="hint">時間→0・1：OFFがONの2倍以上なら1。それ以外は0。0・1→時間：0のOFFはONと同じ、1のOFFはONの3倍。末尾にONを1区間付けます。開始信号ありでは先頭2区間を除いて読みます。</p></details>
+      </div><p class="hint">時間→0・1：OFFがONの2倍以上なら1。それ以外は0。0・1→時間：0のOFFはONと同じ、1のOFFはONの3倍。末尾にONを1区間付けます。リーダ部ありでは先頭2区間を除いて読みます。</p></details>
       <div id="conversion-result" hidden>
         <div class="conversion-zoom"><label for="conversion-zoom">拡大</label><input id="conversion-zoom" type="range" min="1" max="12" value="1"></div>
         <div class="conversion-bits" id="conversion-bit-buttons" aria-label="波形と対応するビット"></div>
