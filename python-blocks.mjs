@@ -137,7 +137,7 @@ export function configure(B,g,editRaw){
   for(const type of ['pico_call','pico_call_value'])B.Blocks[type]={
     init(){this.appendDummyInput('TARGET').appendField(new B.FieldTextInput('my_function'),'TARGET');this.argumentCount=0;this.setColour(290);if(type==='pico_call_value')this.setOutput(true);else{this.setPreviousStatement(true);this.setNextStatement(true);}this.setInputsInline(true);},
     saveExtraState(){return {argumentCount:this.argumentCount};},
-    loadExtraState(state){for(let i=0;i<this.argumentCount;i++)this.removeInput('ARG'+i);this.argumentCount=state.argumentCount||0;for(let i=0;i<this.argumentCount;i++)this.appendValueInput('ARG'+i).appendField(i?',':'(');if(this.getInput('END'))this.removeInput('END');this.appendDummyInput('END').appendField((this.argumentCount?')':'()')+' を呼び出す');}
+    loadExtraState(state){for(let i=0;i<this.argumentCount;i++)this.removeInput('ARG'+i);this.argumentCount=state.argumentCount||0;for(let i=0;i<this.argumentCount;i++)this.appendValueInput('ARG'+i).appendField(i?',':'(');if(this.getInput('END'))this.removeInput('END');this.appendDummyInput('END').appendField((this.argumentCount?')':'()')+(type==='pico_call_value'?' を呼び出した結果':' を呼び出す'));}
   };
   g.forBlock.pico_expression=block=>[block.getFieldValue('CODE'),g.ORDER_NONE];
   for(const type of ['pico_call','pico_call_value'])g.forBlock[type]=(block,g)=>{const args=Array.from({length:block.argumentCount},(_,i)=>g.valueToCode(block,'ARG'+i,g.ORDER_NONE)||'None');const code=block.getFieldValue('TARGET')+'('+args.join(', ')+')';return type==='pico_call_value'?[code,g.ORDER_FUNCTION_CALL]:code+'\n';};
