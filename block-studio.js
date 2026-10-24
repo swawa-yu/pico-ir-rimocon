@@ -405,7 +405,7 @@
     }else{
       state=PicoBlocks.examples[name]();
       if(['pixels','peripherals'].includes(name))nextParts=PicoBlocks.peripheralParts().filter(p=>name!=='pixels'||p.kind==='ssd1306');
-      else if(name==='fan')nextParts=[{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:1000}];
+      else if(name==='fan')nextParts=[{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:25000}];
       else if(['send','bootsel','blink','button','button_send'].includes(name))nextParts=PicoBlocks.defaults().filter(p=>name==='blink'?p.kind==='led':name==='button'?p.kind!=='infrared':['send','bootsel'].includes(name)?p.kind==='infrared':true);
     }
     if(loadWorkspace(state,ask,nextParts,edits,{}))openFile('main.py');

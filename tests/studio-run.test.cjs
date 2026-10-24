@@ -185,7 +185,7 @@ test('fan sample replaces the whole project with its own PWM files and configura
   s.$('write-only').click();await new Promise(resolve=>setImmediate(resolve));
   const files=s.calls.find(c=>c[0]==='write')[1];
   assert.match(files['main.py'],/rp2\.bootsel_button\(\)[\s\S]*fan\.set\(50\)[\s\S]*fan\.set\(0\)/);
-  assert.match(files['parts.py'],/fan = PWMOutput\(20, frequency=1000\)/);
+  assert.match(files['parts.py'],/fan = PWMOutput\(20, frequency=25000\)/);
   assert.doesNotMatch(files['parts.py'],/infrared = Infrared/);
  }finally{s.close();}
 });
