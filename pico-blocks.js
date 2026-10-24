@@ -236,6 +236,7 @@
     blink:()=>root({type:'pico_forever',inputs:{DO:{block:stack(led(1),wait(.5),led(0),wait(.5))}}}),
     button:()=>root({type:'pico_forever',inputs:{DO:{block:stack({type:'controls_if',extraState:{hasElse:true},inputs:{IF0:button(),DO0:{block:led(1)},ELSE:{block:led(0)}}},wait(.01))}}}),
     send:()=>root(send()),
+    fan:()=>root({type:'pico_forever',inputs:{DO:{block:stack({type:'controls_if',extraState:{hasElse:true},inputs:{IF0:{block:{type:'pico_bootsel'}},DO0:{block:{type:'pico_pwm',fields:{PART:'fan'},inputs:{PERCENT:number(50)}}},ELSE:{block:{type:'pico_pwm',fields:{PART:'fan'},inputs:{PERCENT:number(0)}}}}},wait(.01))}}}),
     bootsel:()=>root({type:'pico_forever',inputs:{DO:{block:stack({type:'controls_if',extraState:{hasElse:true},inputs:{IF0:{block:{type:'pico_bootsel'}},DO0:{block:{type:'pico_carrier',fields:{PART:'infrared',ON:'1'}}},ELSE:{block:{type:'pico_carrier',fields:{PART:'infrared',ON:'0'}}}}},wait(.01))}}}),
     button_send:()=>root({type:'pico_forever',inputs:{DO:{block:stack({type:'controls_if',inputs:{IF0:button(),DO0:{block:stack(led(1),send(),{type:'controls_whileUntil',fields:{MODE:'WHILE'},inputs:{BOOL:button(),DO:{block:wait(.01)}}},led(0))}}},wait(.01))}}})
   };

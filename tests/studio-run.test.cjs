@@ -176,3 +176,16 @@ test('write-only preserves console output, blocks terminal input throughout tran
   assert.equal(s.$('write-only').disabled,false);assert.equal(s.$('run').disabled,false);
  }finally{s.close();}
 });
+
+test('fan sample adds a compatible PWM component and writes its BOOTSEL program with existing parts preserved',async()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.$('example').value='fan';s.$('example-load').click();
+  assert.match(s.$('parts-rows').textContent,/PWM出力/);
+  s.$('write-only').click();await new Promise(resolve=>setImmediate(resolve));
+  const files=s.calls.find(c=>c[0]==='write')[1];
+  assert.match(files['main.py'],/rp2\.bootsel_button\(\)[\s\S]*fan\.set\(50\)[\s\S]*fan\.set\(0\)/);
+  assert.match(files['parts.py'],/fan = PWMOutput\(20, frequency=1000\)/);
+  assert.match(files['parts.py'],/infrared = Infrared/);
+ }finally{s.close();}
+});

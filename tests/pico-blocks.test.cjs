@@ -15,7 +15,7 @@ P.configure(B,g,()=>parts);
 const runtime=require('node:fs').readFileSync(require('node:path').join(__dirname,'../programs/pico_parts.py'),'utf8');
 function generate(w){return P.generateProject(B,g,w,parts,runtime,require('../pico-sources.js').ssd1306);}
 function combined(w){const f=generate(w);return `import types,sys\n_driver=types.ModuleType('pico_parts')\nsys.modules['pico_parts']=_driver\nexec(${JSON.stringify(f['lib/pico_parts.py'])},_driver.__dict__)\n_parts=types.ModuleType('parts')\nsys.modules['parts']=_parts\nexec(${JSON.stringify(f['parts.py'])},_parts.__dict__)\ntry:\n exec(${JSON.stringify(f['main.py'])})\nfinally:\n _driver.close()\n`;} 
-function workspace(example){parts=example==='peripherals'?P.peripheralParts():example==='pixels'?P.peripheralParts().filter(p=>p.kind==='ssd1306'):P.defaults();const w=new B.Workspace();B.serialization.workspaces.load(P.examples[example](),w);return w;}
+function workspace(example){parts=example==='peripherals'?P.peripheralParts():example==='pixels'?P.peripheralParts().filter(p=>p.kind==='ssd1306'):example==='fan'?[...P.defaults(),{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:1000}]:P.defaults();const w=new B.Workspace();B.serialization.workspaces.load(P.examples[example](),w);return w;}
 function python(script,source){const result=spawnSync('python3',['-c',script],{input:source,encoding:'utf8'});assert.equal(result.status,0,JSON.stringify({stderr:result.stderr,stdout:result.stdout,signal:result.signal,error:String(result.error)}));return result.stdout;}
 
 test('all examples generate valid Python and survive block save/load',()=>{
@@ -371,5 +371,33 @@ test('PWM output generates its configured pin and frequency, percent expression,
   assert.throws(()=>P.validateParts([...parts,{id:'other',name:'別のPWM',kind:'pwm',pin:21,frequency:2000}]),/PWM/);
   assert.throws(()=>P.validateParts([...parts,{id:'other',name:'別のPWM',kind:'pwm',pin:4,frequency:1000}]),/PWM/);
   assert.throws(()=>P.validateParts([{...parts[0],frequency:0}]),/周波数/);
+ }finally{w.dispose();parts=P.defaults();}
+});
+
+test('fan sample runs only while BOOTSEL is held and changing its percent block changes the output',()=>{
+ const w=workspace('fan');
+ try{
+  const percent=w.getAllBlocks(false).find(b=>b.type==='pico_pwm'&&b.getInputTargetBlock('PERCENT').getFieldValue('NUM')===50).getInputTargetBlock('PERCENT');
+  for(const strength of [50,75]){
+   percent.setFieldValue(strength,'NUM');
+   const output=python(`import sys,types,json,time
+source=sys.stdin.read()
+events=[]
+parts=types.ModuleType('parts')
+parts.fan=types.SimpleNamespace(set=lambda percent: events.append(percent))
+sys.modules['parts']=parts
+rp2=types.ModuleType('rp2')
+levels=iter([0,1,1,0])
+rp2.bootsel_button=lambda: next(levels)
+sys.modules['rp2']=rp2
+time.sleep=lambda seconds: None
+try:
+ exec(source)
+except StopIteration:
+ pass
+print(json.dumps(events))
+`,generate(w)['main.py']);
+   assert.deepEqual(JSON.parse(output),[0,strength,strength,0]);
+  }
  }finally{w.dispose();parts=P.defaults();}
 });
