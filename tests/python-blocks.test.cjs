@@ -288,15 +288,76 @@ test('missing call targets and missing arguments produce block diagnostics witho
  }finally{ws.dispose();}
 });
 
-test('from-scratch infrared samples keep Japanese identifiers and decode the transmitted pulse durations',()=>{
+test('minimal infrared samples use main.py and their transmitted timings decode to 65 with English or Japanese names',()=>{
  const samples=require('../studio-samples.js');
  for(const jp of [false,true]){
-  const sample=samples.infrared(jp),generated={};require('../pico-blocks.js').validateParts(sample.parts);
-  for(const [path,source] of Object.entries(sample.files)){
-   const ws=workspace(source);try{generated[path]=api.generate(ws);assert.equal(generated[path],source);}finally{ws.dispose();}
+  const generated={};
+  for(const mode of ['send','receive']){
+   const sample=samples.infrared(jp,mode);assert.deepEqual(Object.keys(sample.files),['main.py']);
+   const ws=new B.Workspace();B.serialization.workspaces.load(fromSource(sample.files['main.py'],[]),ws);try{generated[mode]=api.generate(ws);}finally{ws.dispose();}
   }
-  const names=jp?['時間配列にする','解読する','数値にする','送信する']:['to_times','decode','to_number','send'];
-  const py=`import sys, types\nmachine = types.ModuleType('machine')\nmachine.Pin = object\nmachine.PWM = object\nsys.modules['machine'] = machine\nimport time\ntime.ticks_us = lambda: 0\ntime.ticks_diff = lambda a,b: a-b\ntime.sleep_us = lambda n: None\nns = {}\nexec(${JSON.stringify(generated['ir_signal.py'])}, ns)\nbits = [1,0,0,0,0,0,1,0]\ntimes = ns[${JSON.stringify(names[0])}](bits)\nassert ns[${JSON.stringify(names[1])}](times) == bits\nassert ns[${JSON.stringify(names[2])}](bits) == 65\nassert ns[${JSON.stringify(names[1])}]([9000,2250,560]) == []\nclass Output:\n    def __init__(self): self.values = []\n    def duty_u16(self, value): self.values.append(value)\npwm = Output()\nns[${JSON.stringify(names[3])}](pwm, times)\nassert pwm.values[0] == 21845 and pwm.values[-1] == 0\nclock = [0]\nns['ticks_us'] = lambda: clock.__setitem__(0, clock[0] + 5) or clock[0]\nclass Input:\n    def value(self):\n        elapsed = clock[0] - 1000\n        if elapsed < 0: return 1\n        for index, duration in enumerate(times):\n            if elapsed < duration: return index % 2\n            elapsed -= duration\n        return 1\ncaptured = ns[${JSON.stringify(jp?'受信する':'receive')}](Input())\nassert len(captured) == len(times), captured\nassert ns[${JSON.stringify(names[1])}](captured) == bits, captured\nclass Idle:\n    def value(self): return 1\nassert ns[${JSON.stringify(jp?'受信する':'receive')}](Idle(), 1) == []\ncompile(${JSON.stringify(generated['main.py'])}, 'main.py', 'exec')\n`;
-  const result=spawnSync('python3',['-c',py],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);
+  const py=`import sys, types, time
+machine = types.ModuleType('machine')
+sys.modules['machine'] = machine
+class Output:
+    def __init__(self, *args, **kwargs): self.values = []; self.closed = False
+    def duty_u16(self, value): self.values.append(value)
+    def deinit(self): self.closed = True
+machine.PWM = Output
+machine.Pin = lambda n: n
+time.sleep_us = lambda n: None
+ns = {}
+exec(${JSON.stringify(generated.send)}, ns)
+times = ns[${JSON.stringify(jp?'時間配列':'times')}]
+pwm = ns[${JSON.stringify(jp?'出力':'output')}]
+assert pwm.values[0] == 21845 and pwm.closed
+clock = [0]
+time.ticks_us = lambda: clock.__setitem__(0, clock[0] + 5) or clock[0]
+time.ticks_diff = lambda a,b: a-b
+class Input:
+    IN = 0
+    def __init__(self, *args): pass
+    def value(self):
+        clock[0] += 5
+        elapsed = clock[0] - 1000
+        if elapsed < 0: return 1
+        for index, duration in enumerate(times):
+            if elapsed < duration: return index % 2
+            elapsed -= duration
+        return 1
+machine.Pin = Input
+messages = []
+def capture(*values):
+    messages.append(values)
+    if len(messages) == 3: raise StopIteration
+try:
+    exec(${JSON.stringify(generated.receive)}, {'print':capture})
+except StopIteration:
+    pass
+assert messages[-1][1] == 65, messages
+assert messages[-2][1] == [1,0,0,0,0,0,1,0], messages
+`;
+  const result=spawnSync('python3',['-c',py],{encoding:'utf8',timeout:5000});assert.equal(result.status,0,result.stderr);
  }
+});
+
+test('None stays a literal block, and bracketed list inputs preserve items when resized',()=>{
+ const ws=new B.Workspace();B.serialization.workspaces.load(fromSource('values = [None, 1]\n',[]),ws);
+ try{
+  const list=ws.getAllBlocks(false).find(b=>b.type==='lists_create_with');
+  assert.equal(list.getInputTargetBlock('ADD0').type,'logic_null');
+  assert.equal(list.getInput('OPEN').fieldRow[0].getText(),'[');assert.equal(list.getInput('CLOSE').fieldRow[0].getText(),']');
+  const none=list.getInputTargetBlock('ADD0');list.getInput('PICO_ITEMS').fieldRow[0].showEditor_();assert.equal(list.getInputTargetBlock('ADD0'),none);
+  assert.match(api.generate(ws),/\[None, 1, None\]/);
+ }finally{ws.dispose();}
+});
+
+test('imports required by a new wait block appear in main as connected import blocks',()=>{
+ const ws=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource('time.sleep(0.01)\n',[]),ws);
+  assert.equal(api.generate(ws),'import time\ntime.sleep(0.01)\n');
+  const root=ws.getTopBlocks(false)[0];assert.equal(root.getInputTargetBlock('DO').type,'pico_import');
+  assert.equal(api.generate(ws),'import time\ntime.sleep(0.01)\n');
+ }finally{ws.dispose();}
 });

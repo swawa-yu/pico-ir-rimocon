@@ -1,4 +1,4 @@
-const outputType=b=>!b?null:['variables_get','pico_expression','pico_call_value','pico_index'].includes(b.type)?null:['text','pico_char','pico_bits_text','pico_to_text','pico_base_text'].includes(b.type)?'String':['lists_create_with','pico_receive','pico_int_bits','pico_text_bits','pico_decode_bits','pico_range'].includes(b.type)?'Array':b.type.startsWith('logic_')||['pico_bootsel','pico_ir_level','pico_button'].includes(b.type)?'Boolean':'Number';
+const outputType=b=>!b?null:['variables_get','pico_expression','pico_call_value','pico_index','logic_null'].includes(b.type)?null:['text','pico_char','pico_bits_text','pico_to_text','pico_base_text'].includes(b.type)?'String':['lists_create_with','pico_receive','pico_int_bits','pico_text_bits','pico_decode_bits','pico_range'].includes(b.type)?'Array':b.type.startsWith('logic_')||['pico_bootsel','pico_ir_level','pico_button'].includes(b.type)?'Boolean':'Number';
 export function friendlyCall(target,items){
   if(items.some(item=>item?.type==='pico_expression'&&/^\s*\*/.test(item.fields?.CODE||'')))return null;
   const number=n=>({type:'math_number',fields:{NUM:n}});
@@ -42,6 +42,7 @@ export function nativeStatement(node,source,parts,parseBody){
     if(n.name==='Number'&&Number.isFinite(Number(value))&&(!Number.isInteger(Number(value))||Number.isSafeInteger(Number(value))))return number(Number(value));
     if(n.name==='String'&&/^(['"])[^\n]*\1$/.test(value)&&!value.includes('\\')&&!value.startsWith(value[0].repeat(3)))return {type:'text',fields:{TEXT:value.slice(1,-1)}};
     if(n.name==='Boolean')return {type:'logic_boolean',fields:{BOOL:value.toUpperCase()}};
+    if(value==='None')return {type:'logic_null'};
     if(n.name==='VariableName')return variable(value);
     if(n.name==='MemberExpression'&&cs.length===4&&cs[1].name==='['&&cs[3].name===']'&&cs[2].name!=='SliceExpression')return values('pico_index',['VALUE','INDEX'],[expression(cs[0]),expression(cs[2])]);
     if(n.name==='ArrayExpression'){

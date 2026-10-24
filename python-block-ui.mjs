@@ -35,7 +35,26 @@ export function installBlockUI(B,g,{getFiles=()=>({}),getPath=()=> 'main.py',edi
   const args=Array.from({length:block.argumentCount},(_,i)=>g.valueToCode(block,'ARG'+i,g.ORDER_NONE)||'None');const code=block.getFieldValue('TARGET')+'('+args.join(', ')+')';return type==='pico_call_value'?[code,g.ORDER_FUNCTION_CALL]:code+'\n';
  };
  const list=B.Blocks.lists_create_with;
- if(!list.picoListInit){list.picoListInit=list.init;list.init=function(){list.picoListInit.call(this);const input=this.appendDummyInput('PICO_ITEMS');input.appendField(button('+','リストの項目を追加',()=>mutate(this,()=>{this.itemCount_++;this.updateShape_();})));input.appendField(button('−','最後の項目を外す',()=>{if(this.itemCount_)mutate(this,()=>{this.itemCount_--;this.updateShape_();});}));};}
+ if(!list.picoListInit){
+  list.updateShape_=function(){
+   if(this.getInput('EMPTY'))this.removeInput('EMPTY');
+   if(!this.getInput('OPEN'))this.appendDummyInput('OPEN').appendField('[');
+   if(!this.getInput('OPEN_ROW'))this.appendEndRowInput('OPEN_ROW');
+   for(let i=0;i<this.itemCount_;i++){
+    if(!this.getInput('ADD'+i))this.appendValueInput('ADD'+i);
+    if(!this.getInput('COMMA'+i))this.appendDummyInput('COMMA'+i).appendField('', 'SEPARATOR'+i);
+    this.setFieldValue(i<this.itemCount_-1?',':'','SEPARATOR'+i);
+    if(!this.getInput('ROW'+i))this.appendEndRowInput('ROW'+i);
+   }
+   for(let i=this.itemCount_;this.getInput('ADD'+i);i++)for(const prefix of ['ADD','COMMA','ROW'])this.removeInput(prefix+i);
+   if(!this.getInput('CLOSE'))this.appendDummyInput('CLOSE').appendField(']');
+   const order=['OPEN','OPEN_ROW',...Array.from({length:this.itemCount_},(_,i)=>['ADD'+i,'COMMA'+i,'ROW'+i]).flat(),'CLOSE'];
+   if(this.getInput('PICO_ITEMS'))order.push('PICO_ITEMS');
+   for(const name of order)this.moveInputBefore(name,null);
+   this.getInput('OPEN_ROW').setVisible(this.itemCount_>0);
+   this.setInputsInline(true);
+  };
+  list.picoListInit=list.init;list.init=function(){list.picoListInit.call(this);this.setMutator(null);const input=this.appendDummyInput('PICO_ITEMS');input.appendField(button('+','リストの項目を追加',()=>mutate(this,()=>{this.itemCount_++;this.updateShape_();})));input.appendField(button('−','最後の項目を外す',()=>{if(this.itemCount_)mutate(this,()=>{this.itemCount_--;this.updateShape_();});}));};}
  const def=B.Blocks.pico_def,init=def.init,save=def.saveExtraState,load=def.loadExtraState;
  def.init=function(){init.call(this);this.pythonSentence='';this.inputList[0].appendField(button('+','関数の引数を追加',()=>{const header=this.getFieldValue('HEADER'),info=headerInfo(header);if(!info)return;let i=1;while(info.params.includes('arg'+i))i++;const inside=header.slice(info.from+1,info.to-1);if(inside.includes('**')){this.setWarningText('**引数のある定義は、関数名の欄で編集してください。','signature');return;}this.setFieldValue(header.slice(0,info.to-1)+(info.params.length?', ':'')+'arg'+i+(inside.includes('=')?'=None':'')+header.slice(info.to-1),'HEADER');}));};
  def.saveExtraState=function(){return {...save.call(this),sentence:this.pythonSentence||''};};

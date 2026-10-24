@@ -127,6 +127,7 @@ export function layout(workspace){
 }
 const rootTypes=['pico_module','pico_start'];
 export function configure(B,g,editRaw,options={}){
+  B.Blocks.logic_null={init(){this.jsonInit({message0:'None',output:null,colour:210,tooltip:'値がないことを表します。'});}};
   B.defineBlocksWithJsonArray([
     {type:'pico_module',message0:'読み込まれたとき %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],colour:45},
     {type:'pico_import',message0:'%1 を読み込む',args0:[{type:'field_input',name:'MODULE',text:'time'}],previousStatement:null,nextStatement:null,colour:165},
@@ -204,6 +205,13 @@ export function configure(B,g,editRaw,options={}){
       if(enabled.some(b=>['pico_decode_bits','pico_bits_text','pico_text_bits','pico_bits_int','pico_int_bits'].includes(b.type))&&!/^import ir_data\s*$/m.test(code))imports.push('import ir_data');
       const parsed=workspace.getTopBlocks(false).some(block=>block.data==='pico-source-root');
       const definitions=Object.entries(g.definitions_||{}).filter(([key,text])=>!(parsed&&key==='variables')&&!code.includes(text)).map(([,text])=>text);
+      const root=roots.find(block=>rootTypes.includes(block.type)&&block.isEnabled());
+      if(root)for(const text of [...imports,...definitions.filter(text=>/^(?:import |from )[^\n]+$/.test(text))].reverse()){
+        const state=importState(text);if(!state)continue;
+        const imported=B.serialization.blocks.append({...state,extraState:{eol:'\n'}},workspace),body=root.getInputTargetBlock('DO');
+        if(body){body.previousConnection.disconnect();imported.nextConnection.connect(body.previousConnection);}
+        root.getInput('DO').connection.connect(imported.previousConnection);
+      }
       return [...imports,...definitions].map(text=>text+'\n').join('')+code;
     }finally{g.getVariableName=getVariableName;B.Events.enable();}
   }};

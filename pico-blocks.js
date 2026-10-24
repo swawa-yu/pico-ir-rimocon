@@ -96,7 +96,7 @@
     }
     generator.forBlock.pico_start=(b,g)=>g.statementToCode(b,'DO').replace(/^  /gm,'')||'pass\n';
     generator.forBlock.pico_forever=(b,g)=>'while True:\n'+(g.statementToCode(b,'DO')||'  pass\n');
-    generator.forBlock.pico_wait=(b,g)=>`time.sleep(max(0, ${g.valueToCode(b,'SECONDS',g.ORDER_NONE)||'0'}))\n`;
+    generator.forBlock.pico_wait=(b,g)=>`time.sleep(${g.valueToCode(b,'SECONDS',g.ORDER_NONE)||'0'})\n`;
     const value=(b,g,key,fallback)=>g.valueToCode(b,key,g.ORDER_NONE)||fallback;
     generator.forBlock.pico_time_us=()=>['time.ticks_us()',generator.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_time_diff=(b,g)=>[`time.ticks_diff(${value(b,g,'END','0')}, ${value(b,g,'START','0')})`,g.ORDER_FUNCTION_CALL];

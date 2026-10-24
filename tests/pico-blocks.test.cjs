@@ -223,7 +223,7 @@ test('speaker ON and OFF are separate operations, and old timed blocks preserve 
   const state={blocks:{languageVersion:0,blocks:[{type:'pico_start',inputs:{DO:{block:tone}}}]}};
   const w=new B.Workspace();B.serialization.workspaces.load(P.migrateSpeaker(state),w);
   const code=generate(w)['main.py'];
-  assert.match(code,/speaker\.on\(880\)\ntime.sleep\(max\(0, 2\)\)\nspeaker.off\(\)\nscreen.clear\(\)/);
+  assert.match(code,/speaker\.on\(880\)\ntime.sleep\(2\)\nspeaker.off\(\)\nscreen.clear\(\)/);
   assert(!w.getAllBlocks(false).some(b=>b.type==='pico_tone'));
   assert.deepEqual(P.migrateSpeaker(P.migrateSpeaker(state)),P.migrateSpeaker(state));
   assert.equal(state.blocks.blocks[0].inputs.DO.block.type,'pico_tone');

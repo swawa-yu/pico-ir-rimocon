@@ -40,12 +40,12 @@
       {kind:'block',type:'text_prompt_ext',fields:{TYPE:'TEXT'},inputs:{TEXT:{shadow:{type:'text',fields:{TEXT:'名前は？ '}}}}}]},
     {kind:'category',name:'赤外線',colour:285,contents:[{kind:'block',type:'pico_receive',inputs:{TIMEOUT:number(1000)}},{kind:'block',type:'pico_ir_level'},{kind:'block',type:'pico_decode_bits',inputs:{SKIP:number(2),THRESHOLD:number(2)}},{kind:'block',type:'pico_send',fields:{PART:'infrared'},inputs:{VALUE:number(65)}},{kind:'block',type:'pico_carrier',fields:{ON:'1'}},{kind:'block',type:'pico_carrier',fields:{ON:'0'}}]},
     {kind:'category',name:'2進数・文字',colour:260,contents:[{kind:'block',type:'text_join'},{kind:'block',type:'text_length'},{kind:'block',type:'text_getSubstring'},{kind:'block',type:'pico_to_text',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_to_int',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'65'}}}}},{kind:'block',type:'pico_to_float',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'3.5'}}}}},{kind:'block',type:'pico_parse_int',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'01000001'}}},BASE:number(2)}},{kind:'block',type:'pico_base_text',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_bits_text'},{kind:'block',type:'pico_text_bits',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'01000001'}}}}},{kind:'block',type:'pico_bits_int'},{kind:'block',type:'pico_int_bits',inputs:{VALUE:number(65),WIDTH:number(8)}},{kind:'block',type:'pico_bitwise',inputs:{A:number(65),B:number(1)}},{kind:'block',type:'pico_char',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_ord',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'A'}}}}}]},
-    {kind:'category',name:'計算・条件',colour:210,contents:[{kind:'block',type:'text'},{kind:'block',type:'math_number'},{kind:'block',type:'math_arithmetic'},{kind:'block',type:'logic_compare'},{kind:'block',type:'logic_boolean'},{kind:'block',type:'logic_operation'},{kind:'block',type:'logic_negate'}]},
+    {kind:'category',name:'計算・条件',colour:210,contents:[{kind:'block',type:'text'},{kind:'block',type:'math_number'},{kind:'block',type:'math_arithmetic'},{kind:'block',type:'logic_compare'},{kind:'block',type:'logic_boolean'},{kind:'block',type:'logic_operation'},{kind:'block',type:'logic_negate'},{kind:'block',type:'logic_null'}]},
     {kind:'category',name:'変数',colour:330,custom:'VARIABLE'},
     {kind:'category',name:'関数',colour:290,custom:'STUDIO_FUNCTION'},
     {kind:'category',name:'リスト',colour:260,contents:[{kind:'block',type:'pico_range',inputs:{START:number(0),STOP:number(10),STEP:number(1)}},{kind:'block',type:'lists_create_with'},{kind:'block',type:'pico_index',inputs:{INDEX:number(0)}},{kind:'block',type:'pico_set_index',inputs:{INDEX:number(0),ITEM:number(1)}},{kind:'block',type:'lists_getIndex'},{kind:'block',type:'lists_setIndex'},{kind:'block',type:'lists_length'},{kind:'block',type:'lists_getSublist'},{kind:'block',type:'lists_reverse'},{kind:'block',type:'lists_split'},{kind:'block',type:'controls_forEach'}]}
   ]};
-  const theme=Blockly.Theme.defineTheme('pico',{base:Blockly.Themes.Classic,fontStyle:{family:'system-ui, sans-serif',weight:'normal',size:12},componentStyles:{workspaceBackgroundColour:'#f7fafc',toolboxBackgroundColour:'#edf2f7',flyoutBackgroundColour:'#e4edf4'}});
+  const theme=Blockly.Theme.defineTheme('pico',{base:Blockly.Themes.Classic,fontStyle:{family:'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',weight:'normal',size:12},componentStyles:{workspaceBackgroundColour:'#f7fafc',toolboxBackgroundColour:'#edf2f7',flyoutBackgroundColour:'#e4edf4'}});
   const workspace=Blockly.inject('blockly',{toolbox,theme,renderer:'zelos',media:'vendor/blockly/media/',sounds:false,trashcan:true,grid:{spacing:20,length:2,colour:'#dbe4ed',snap:true},zoom:{controls:true,wheel:true,startScale:.95,maxScale:2,minScale:.4}});
   workspace.registerToolboxCategoryCallback('STUDIO_FUNCTION',functionCategory);
   workspace.registerToolboxCategoryCallback('VARIABLE',ws=>Blockly.Variables.flyoutCategory(ws).filter(item=>item.type!=='math_change'));
@@ -193,13 +193,11 @@
       fileModels[fileWorkspacePath]={source,version:5,state:Blockly.serialization.workspaces.save(fileWorkspace)};
       fileStore.edit(fileWorkspacePath,source);files=fileStore.regenerate(generatedProject());fileWorkspaceDirty=false;
       if(activeFile===fileWorkspacePath)editor.setFile(activeFile,source);
-      codeValid=true;diagnoseProgram();renderFiles();renderPicoFiles();saveProject();notify();updateDevice();
+      codeValid=true;diagnoseProgram();fileModels[fileWorkspacePath].state=Blockly.serialization.workspaces.save(fileWorkspace);renderFiles();renderPicoFiles();saveProject();notify();updateDevice();
     }catch(error){notify(error.message);codeValid=false;updateDevice();}
   }
   function renderFileBlocks(){
-    const textual=activeFile!=='main.py'||Object.hasOwn(fileStore.edits,'main.py');
-    $('blockly').hidden=textual;$('file-blockly').hidden=!textual;
-    if(!textual){fileWorkspacePath=null;Blockly.svgResize(workspace);diagnoseProgram();return;}
+    $('blockly').hidden=true;$('file-blockly').hidden=false;
     ensureFileWorkspace();
     const source=files[activeFile]||'',model=fileModels[activeFile];
     if(fileWorkspacePath!==activeFile||!model||model.source!==source){
@@ -214,7 +212,7 @@
       fileWorkspacePath=activeFile;fileWorkspaceDirty=false;
       fileModels[activeFile]={source,version:5,state:Blockly.serialization.workspaces.save(fileWorkspace)};
     }
-    Blockly.svgResize(fileWorkspace);diagnoseProgram();
+    Blockly.svgResize(fileWorkspace);diagnoseProgram();fileModels[activeFile].state=Blockly.serialization.workspaces.save(fileWorkspace);
   }
   function renderFiles(){
     const tree=$('file-tree'),treeScroll=tree.scrollTop,opened=new Map([...tree.querySelectorAll('details')].map(e=>[e.dataset.path,e.open]));tree.replaceChildren();
@@ -403,8 +401,8 @@
   });
   function loadSample(name,ask=true){
     let nextParts=[],state,edits={};
-    if(['infrared_raw','infrared_jp'].includes(name)){
-      const sample=StudioSamples.infrared(name==='infrared_jp');nextParts=sample.parts;edits=sample.files;state={blocks:{languageVersion:0,blocks:[]}};
+    if(['infrared_raw','infrared_jp','infrared_send','infrared_send_jp'].includes(name)){
+      const sample=StudioSamples.infrared(name.endsWith('_jp'),name.includes('_send')?'send':'receive');nextParts=sample.parts;edits=sample.files;state={blocks:{languageVersion:0,blocks:[]}};
     }else if(['receive','receive_custom'].includes(name)){
       nextParts=[{id:'receiver',name:'赤外線受信',kind:'receiver',pin:15}];state=PicoBlocks.examples.receive();
       if(name==='receive_custom'){

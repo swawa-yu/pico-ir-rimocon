@@ -80,7 +80,7 @@ test('each file keeps its editable blocks and unsupported Python survives text e
   const klass=ws.getAllBlocks(false).find(b=>b.type==='pico_class');assert(klass);
   klass.setFieldValue('Renamed','HEADER');
   fileButton('main.py').click();
-  assert.equal(s.$('blockly').hidden,false);assert.equal(s.$('file-blockly').hidden,true);
+  assert.equal(s.$('blockly').hidden,true);assert.equal(s.$('file-blockly').hidden,false);
   fileButton('parts.py •').click();
   assert.equal(ws.getAllBlocks(false).find(b=>b.type==='pico_class').getFieldValue('HEADER'),'Renamed');
   s.$('run').click();await new Promise(resolve=>setImmediate(resolve));
@@ -283,5 +283,16 @@ test('a new named project keeps hardware configuration and a named saved copy re
   const saved=[];s.window.URL.createObjectURL=blob=>{saved.push(blob);return 'blob:project';};s.window.URL.revokeObjectURL=()=>{};s.window.HTMLAnchorElement.prototype.click=function(){saved.push(this.download);};
   s.$('project-save-as').click();s.$('project-name-input').value='別の練習';s.$('project-apply').click();
   assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).name,'別の練習');assert.equal(saved[1],'別の練習.json');
+ }finally{s.close();}
+});
+
+ test('typing a list comma preserves source bytes and does not write generated text back into the editor',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  const source='_outputs = [1,]\nprint(_outputs)\n\n';
+  s.window.editorCallbacks.onChange('main.py',source);
+  assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],source);
+  s.window.editorCallbacks.onChange('main.py','_outputs = [1,');
+  assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],'_outputs = [1,');
  }finally{s.close();}
 });
