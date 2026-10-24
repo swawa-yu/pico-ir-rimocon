@@ -198,8 +198,9 @@ export function configure(B,g,editRaw,options={}){
       const enabled=workspace.getAllBlocks(false).filter(b=>b.isEnabled()&&!b.getInheritedDisabled());
       const used=parts.filter(p=>enabled.some(b=>b.getFieldValue('PART')===p.id));
       const present=[...code.matchAll(/^from parts import ([^\r\n]+)/gm)].flatMap(match=>match[1].split(',').map(name=>name.trim()));
-      const missing=used.filter(p=>!present.includes(p.id)&&!present.includes('*'));
-      if(missing.length&&path!=='parts.py')imports.push('from parts import '+missing.map(p=>p.id).join(', '));
+      const variable=p=>p.variable||p.id;
+      const missing=used.filter(p=>!present.includes(variable(p))&&!present.includes('*'));
+      if(missing.length&&path!=='parts.py')imports.push('from parts import '+missing.map(variable).join(', '));
       if(enabled.some(b=>['pico_wait','pico_time_us','pico_time_diff'].includes(b.type))&&!/^import time\s*$/m.test(code))imports.push('import time');
       if(enabled.some(b=>b.type==='pico_bootsel')&&!/^import rp2\s*$/m.test(code))imports.push('import rp2');
       if(enabled.some(b=>['pico_new_bits','pico_set_bits','pico_decode_bits','pico_bits_text','pico_text_bits','pico_bits_int','pico_int_bits'].includes(b.type))&&!/^import ir_data\s*$/m.test(code))imports.push('import ir_data');

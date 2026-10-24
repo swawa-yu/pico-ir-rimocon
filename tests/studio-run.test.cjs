@@ -314,7 +314,7 @@ test('a new named project keeps hardware configuration and a named saved copy re
   assert.equal(s.$('project-tabs').querySelectorAll('[role=tab]').length,2);
   s.$('project-tabs').querySelector('[role=tab]').click();
   assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],'value = 7\nprint(value)\n');
-  assert.equal(s.$('parts-empty').hidden,true);assert.match(s.$('parts-rows').textContent,/赤外線送信/);
+  assert.equal(s.$('parts-empty').hidden,true);assert.match(s.$('parts-rows').textContent,/赤外線LED/);
   s.$('project-tabs').querySelectorAll('[role=tab]')[1].click();
   assert.match(s.$('parts-rows').textContent,/PWM出力/);
   const stored=Object.fromEntries(['pico-studio-tabs-1','pico-blocks-project-2'].map(key=>[key,s.window.localStorage.getItem(key)]));
@@ -447,6 +447,26 @@ test('RGB settings can be added beside infrared PWM, changed, saved and written 
   const files=s.calls.filter(c=>c[0]==='write').at(-1)[1];assert.match(files['parts.py'],/RGBLED\(2, 3, 4, common_anode=True, frequency=2000\)/);
   assert.equal(files['lib/pico_parts.py'],s.window.PicoSources.parts);
  }finally{s.close();}
+});
+
+test('renaming a part updates its blocks and Python while preserving older references through project restore',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));let restored;
+ try{
+  s.window.editorCallbacks.onChange('main.py','from parts import infrared\ninfrared.on()\nprint(infrared)\n');
+  const rename=variable=>{const row=s.$('parts-rows').querySelector('[data-kind=infrared]');row.querySelector('[data-field=name]').value=variable;s.$('parts-apply').click();return JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));};
+  const first=rename('赤外線LED');
+  assert.match(first.files['main.py'],/from parts import 赤外線LED/);
+  assert.match(first.files['main.py'],/赤外線LED\.on\(\)/);
+  assert.match(first.files['main.py'],/print\(infrared\)/);
+  assert.match(first.files['parts.py'],/infrared = 赤外線LED/);
+  const second=rename('送信用LED');
+  assert.match(second.files['main.py'],/送信用LED\.on\(\)/);
+  assert.match(second.files['parts.py'],/赤外線LED = 送信用LED/);
+  assert.match(second.files['parts.py'],/infrared = 送信用LED/);
+  restored=studio(async()=>JSON.stringify({changed:0}),Object.fromEntries(['pico-studio-tabs-1','pico-blocks-project-2'].map(key=>[key,s.window.localStorage.getItem(key)])));
+  assert.equal(restored.$('parts-rows').querySelector('[data-kind=infrared] [data-field=name]').value,'送信用LED');
+  assert.equal(JSON.parse(restored.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],second.files['main.py']);
+ }finally{restored?.close();s.close();}
 });
 
 test('three work tabs switch panels and keyboard focus while retaining independent Pico assignments and USB ports',()=>{

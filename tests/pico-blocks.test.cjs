@@ -12,6 +12,22 @@ const P=require('../pico-blocks.js');
 const {decodeDurations}=require('../live-core.js');
 let parts=P.defaults();
 P.configure(B,g,()=>parts);
+
+test('part variable names match block labels and generated imports while aliases preserve existing code',()=>{
+ const old=parts;parts=[{id:'infrared',name:'赤外線LED',variable:'赤外線LED',aliases:['以前のLED'],kind:'infrared',pin:16,unit:560}];
+ const w=new B.Workspace();
+ try{
+  const start=w.newBlock('pico_start'),on=w.newBlock('pico_carrier');on.setFieldValue('infrared','PART');on.setFieldValue('1','ON');start.getInput('DO').connection.connect(on.previousConnection);
+  assert.equal(on.getField('PART').getText(),'赤外線LED');
+  const files=generate(w);
+  assert.match(files['main.py'],/from parts import 赤外線LED[\s\S]*赤外線LED\.on\(\)/);
+  assert.match(files['parts.py'],/赤外線LED = Infrared\(16, unit=560\)\ninfrared = 赤外線LED\n以前のLED = 赤外線LED/);
+  const result=spawnSync('python3',['-c',`import sys,types\nm=types.ModuleType('pico_parts')\nclass Infrared:\n def __init__(self,*args,**kwargs): pass\nm.Infrared=Infrared\nsys.modules['pico_parts']=m\nexec(sys.stdin.read())\nassert infrared is 赤外線LED is 以前のLED\n`],{input:files['parts.py'],encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);
+  for(const variable of ['1led','two words','class','__debug__','LED'])assert.throws(()=>P.validateParts([{...parts[0],variable}]),/変数名/);
+  assert.throws(()=>P.validateParts([...parts,{id:'other',name:'別のLED',variable:'以前のLED',kind:'led',pin:13}]),/別の部品/);
+ }finally{w.dispose();parts=old;}
+});
 const runtime=require('node:fs').readFileSync(require('node:path').join(__dirname,'../programs/pico_parts.py'),'utf8');
 function generate(w){return P.generateProject(B,g,w,parts,runtime,require('../pico-sources.js').ssd1306,null,require('../pico-sources.js'));}
 function combined(w){const f=generate(w);return `import types,sys\n_driver=types.ModuleType('pico_parts')\nsys.modules['pico_parts']=_driver\nexec(${JSON.stringify(f['lib/pico_parts.py'])},_driver.__dict__)\n_parts=types.ModuleType('parts')\nsys.modules['parts']=_parts\nexec(${JSON.stringify(f['parts.py'])},_parts.__dict__)\ntry:\n exec(${JSON.stringify(f['main.py'])})\nfinally:\n _driver.close()\n`;} 

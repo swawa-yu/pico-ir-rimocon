@@ -70,7 +70,8 @@ export function nativeStatement(node,source,parts,parseBody){
         if(arguments_.length===method[1].length)return values(method[0],method[1],converted);
         if(target==='ir_data.int_to_bits'&&arguments_.length===1)return values('pico_int_bits',['VALUE','WIDTH'],[converted[0],number(8)]);
       }
-      const [id,action]=target.split('.'),part=parts.find(p=>p.id===id);
+      const [name,action]=target.split('.'),part=parts.find(p=>p.id===name||p.variable===name||p.aliases?.includes(name));
+      const id=part?.id;
       if(part?.kind==='receiver'&&action==='receive_bits'&&arguments_.length<=1)return values('pico_receive_bits',['TIMEOUT'],arguments_.length?converted:[number(1000)],{PART:id});
       if(part?.kind==='receiver'&&action==='receive'&&arguments_.length<=1)return values('pico_receive',['TIMEOUT'],arguments_.length?converted:[number(1000)],{PART:id});
       if(part&&['button','receiver'].includes(part.kind)&&['is_pressed','is_on'].includes(action)&&!arguments_.length)return {type:part.kind==='receiver'?'pico_ir_level':'pico_button',fields:{PART:id}};
@@ -96,7 +97,8 @@ export function nativeStatement(node,source,parts,parseBody){
       const actual=value.name==='CallExpression'&&text(value.firstChild)==='max'&&args(value).length===2&&text(args(value)[0])==='0'?expression(args(value)[1]):converted[0];
       return values('pico_wait',['SECONDS'],[actual]);
     }
-    const [id,action]=target.split('.'),part=parts.find(p=>p.id===id);
+    const [name,action]=target.split('.'),part=parts.find(p=>p.id===name||p.variable===name||p.aliases?.includes(name));
+      const id=part?.id;
     if(part){
       const fields={PART:id};
       if(part.kind==='pwm'&&action==='set'&&arguments_.length===1)return values('pico_pwm',['PERCENT'],converted,fields);

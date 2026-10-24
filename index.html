@@ -5,19 +5,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Pico Studio</title>
   <link rel="stylesheet" href="style.css?v=e50109bd6cca">
-  <link rel="stylesheet" href="block-studio.css?v=e9147453001e">
+  <link rel="stylesheet" href="block-studio.css?v=5df9f1cde3d4">
   <link rel="stylesheet" href="live-analyzer.css?v=20711674071d">
   <script src="vendor/blockly/blockly_compressed.js?v=cc761aa447e0" defer></script>
   <script src="vendor/blockly/blocks_compressed.js?v=4f0b3d4079fe" defer></script>
   <script src="vendor/blockly/python_compressed.js?v=7d880e1763a1" defer></script>
   <script src="vendor/blockly/msg/ja.js?v=81647ef6b769" defer></script>
-  <script src="pico-blocks.js?v=b47ad0ba6e23" defer></script>
+  <script src="pico-blocks.js?v=3a81184352b4" defer></script>
   <script src="display-preview.js?v=58978d24e695" defer></script>
   <script src="vendor/petme128.js?v=12454bca4f13" defer></script>
   <script src="pico-repl.js?v=24fce0bfb042" defer></script>
   <script src="pico-devices.js?v=c1349bf84504" defer></script>
   <script src="pico-project.js?v=2500a4b1d394" defer></script>
-  <script src="vendor/codemirror/editor.js?v=eef96e6e29df" defer></script>
+  <script src="vendor/codemirror/editor.js?v=5a1e4df8b73c" defer></script>
   <script src="studio-files.js?v=1ae19f45e0dd" defer></script>
   <script src="pico-sources.js?v=e97abbaa4219" defer></script>
   <script src="live-core.js?v=d47659fb5907" defer></script>
@@ -27,7 +27,7 @@
   <script src="signal-converter.js?v=655f9a027ef8" defer></script>
   <script src="studio-samples.js?v=dfbba6374033" defer></script>
   <script src="studio-layout.js?v=655fbdfc2fe8" defer></script>
-  <script src="block-studio.js?v=97c4a9944789" defer></script>
+  <script src="block-studio.js?v=16fa91b4bbc0" defer></script>
 </head>
 <body class="block-studio">
 <main>
@@ -42,8 +42,8 @@
     <div id="project-tabs" class="project-tabs" role="tablist" aria-label="開いているプロジェクト"></div>
     <details class="card parts-settings"><summary>部品設定</summary>
       <p id="parts-empty" hidden>部品は未設定です</p>
-      <table><thead><tr><th>名前</th><th>部品</th><th>接続（GP）</th><th>設定</th><th></th></tr></thead><tbody id="parts-rows"></tbody></table>
-      <div class="bar"><select id="new-part-kind" aria-label="追加する部品"><option value="receiver">赤外線受信</option><option value="infrared">赤外線送信</option><option value="button">ボタン</option><option value="pwm">PWM出力</option><option value="speaker">圧電スピーカー</option><option value="dip">8連DIPスイッチ</option><option value="led">LED</option><option value="rgb">フルカラーLED（RGB）</option><option value="ssd1306">SSD1306（I²C）</option></select><button id="part-add" class="secondary">部品を追加</button><button id="parts-apply">設定を反映</button></div>
+      <table><thead><tr><th>変数名</th><th>部品</th><th>接続（GP）</th><th>設定</th><th></th></tr></thead><tbody id="parts-rows"></tbody></table>
+      <div class="bar"><select id="new-part-kind" aria-label="追加する部品"><option value="receiver">赤外線センサー</option><option value="infrared">赤外線LED</option><option value="button">デジタル入力</option><option value="pwm">PWM出力</option><option value="speaker">圧電スピーカー</option><option value="dip">8連DIPスイッチ</option><option value="led">デジタル出力</option><option value="rgb">フルカラーLED（RGB）</option><option value="ssd1306">SSD1306（I²C）</option></select><button id="part-add" class="secondary">部品を追加</button><button id="parts-apply">設定を反映</button></div>
     </details>
     <section class="program-workspace" aria-label="ブロックとコードの編集・実行">
       <div class="workspace-toolbar" role="toolbar" aria-label="プログラムの実行">

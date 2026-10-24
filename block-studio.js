@@ -616,12 +616,13 @@
   function renderParts(){
     const body=$('parts-rows');body.replaceChildren();
     $('parts-empty').hidden=parts.length>0;body.closest('table').hidden=parts.length===0;
-    const names={button:'ボタン',led:'LED',infrared:'赤外線送信',speaker:'圧電スピーカー',ssd1306:'SSD1306',dip:'8連DIPスイッチ',pwm:'PWM出力',receiver:'赤外線受信',rgb:'フルカラーLED'};
+    const names={button:'デジタル入力',led:'デジタル出力',infrared:'赤外線LED',speaker:'圧電スピーカー',ssd1306:'SSD1306',dip:'8連DIPスイッチ',pwm:'PWM出力',receiver:'赤外線センサー',rgb:'フルカラーLED'};
     for(const part of parts){
+      const partLabel=PicoBlocks.variableFor(part);
       const row=document.createElement('tr');row.dataset.id=part.id;row.dataset.kind=part.kind;
-      const name=document.createElement('input');name.value=part.name;name.maxLength=40;name.setAttribute('aria-label',part.name+' の名前');name.dataset.field='name';
+      const name=document.createElement('input');name.value=partLabel;name.maxLength=40;name.setAttribute('aria-label',partLabel+' の変数名');name.dataset.field='name';
       const connection=document.createElement('div');connection.className='part-connections';
-      function number(parent,label,field,value,min,max){const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement('input');input.type='number';input.min=min;if(max!==undefined)input.max=max;input.value=value;input.dataset.field=field;input.setAttribute('aria-label',part.name+' '+label);wrap.append(input);parent.append(wrap);return input;}
+      function number(parent,label,field,value,min,max){const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement('input');input.type='number';input.min=min;if(max!==undefined)input.max=max;input.value=value;input.dataset.field=field;input.setAttribute('aria-label',partLabel+' '+label);wrap.append(input);parent.append(wrap);return input;}
       if(part.kind==='ssd1306'){number(connection,'SDA','sda',part.sda,0,22);number(connection,'SCL','scl',part.scl,0,22);}
       else if(part.kind==='rgb')for(const [label,field] of [['R','red'],['G','green'],['B','blue']])number(connection,label,field,part[field],0,22);
       else if(part.kind==='dip')part.pins.forEach((pin,i)=>number(connection,String(i+1),'pin'+i,pin,0,22));
@@ -629,15 +630,15 @@
       const settings=document.createElement('div');settings.className='part-options';
       if(['pwm','rgb'].includes(part.kind))number(settings,'Hz','frequency',part.frequency,1);
       if(part.kind==='rgb'){
-        const wrap=document.createElement('label');wrap.textContent='共通端子';const select=document.createElement('select');select.dataset.field='common_anode';select.setAttribute('aria-label',part.name+' 共通端子');
+        const wrap=document.createElement('label');wrap.textContent='共通端子';const select=document.createElement('select');select.dataset.field='common_anode';select.setAttribute('aria-label',partLabel+' 共通端子');
         for(const [value,label] of [['0','GND（カソード）'],['1','3.3V（アノード）']]){const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option);}select.value=part.common_anode?'1':'0';wrap.append(select);settings.append(wrap);
       }
       if(part.kind==='infrared')number(settings,'µs','unit',part.unit,100,100000);
       if(part.kind==='ssd1306'){
-        for(const [field,label,options] of [['height','画面',[[32,'128 × 32'],[64,'128 × 64']]],['address','アドレス',[[60,'0x3C'],[61,'0x3D']]]]){const wrap=document.createElement('label');wrap.textContent=label;const select=document.createElement('select');select.dataset.field=field;select.setAttribute('aria-label',part.name+' '+label);for(const [value,text] of options){const option=document.createElement('option');option.value=value;option.textContent=text;select.append(option);}select.value=part[field];wrap.append(select);settings.append(wrap);}
+        for(const [field,label,options] of [['height','画面',[[32,'128 × 32'],[64,'128 × 64']]],['address','アドレス',[[60,'0x3C'],[61,'0x3D']]]]){const wrap=document.createElement('label');wrap.textContent=label;const select=document.createElement('select');select.dataset.field=field;select.setAttribute('aria-label',partLabel+' '+label);for(const [value,text] of options){const option=document.createElement('option');option.value=value;option.textContent=text;select.append(option);}select.value=part[field];wrap.append(select);settings.append(wrap);}
       }
       if(part.kind==='dip'){const hint=document.createElement('span');hint.className='hint';hint.textContent='ONでGND・1が最下位ビット';settings.append(hint);}
-      const remove=document.createElement('button');remove.textContent='削除';remove.className='secondary';remove.setAttribute('aria-label',part.name+' を削除');remove.addEventListener('click',()=>{row.remove();markPartsDirty();});
+      const remove=document.createElement('button');remove.textContent='削除';remove.className='secondary';remove.setAttribute('aria-label',partLabel+' を削除');remove.addEventListener('click',()=>{row.remove();markPartsDirty();});
       for(const item of [name,names[part.kind],connection,settings,remove]){const cell=document.createElement('td');if(typeof item==='string')cell.textContent=item;else cell.append(item);row.append(cell);}body.append(row);
     }
   }
@@ -646,7 +647,9 @@
   $('parts-rows').addEventListener('change',markPartsDirty);
   function draftParts(){return Array.from($('parts-rows').children,row=>{
     const value=field=>{const input=row.querySelector('[data-field='+field+']');return input.value===''?NaN:Number(input.value);};
-    const part={id:row.dataset.id,kind:row.dataset.kind,name:row.querySelector('[data-field=name]').value.trim()};
+    const previous=parts.find(p=>p.id===row.dataset.id);
+    const variable=row.querySelector('[data-field=name]').value.trim().normalize('NFKC');
+    const part={id:row.dataset.id,kind:row.dataset.kind,name:variable,variable,aliases:[...new Set([...(previous?.aliases||[]),...(previous?[PicoBlocks.variableFor(previous)]:[])])].filter(alias=>alias!==variable)};
     if(part.kind==='ssd1306')Object.assign(part,{sda:value('sda'),scl:value('scl'),width:128,height:value('height'),address:value('address')});
     else if(part.kind==='rgb')Object.assign(part,{red:value('red'),green:value('green'),blue:value('blue'),common_anode:value('common_anode')===1,frequency:value('frequency')});
     else if(part.kind==='dip')part.pins=Array.from({length:8},(_,i)=>value('pin'+i));
@@ -666,8 +669,8 @@
     const count=kind==='dip'?8:kind==='ssd1306'?2:kind==='rgb'?3:1;
     if(free.length<count){notify('必要なGPIOが足りません。部品設定を確認してください。');return;}
     let n=1;while(draft.some(p=>p.id===`${kind}_${n}`)||parts.some(p=>p.id===`${kind}_${n}`))n++;
-    const names={led:'LED',button:'ボタン',infrared:'赤外線LED',speaker:'スピーカー',ssd1306:'画面',dip:'DIPスイッチ',pwm:'PWM出力',receiver:'赤外線受信',rgb:'フルカラーLED'};
-    const part={id:`${kind}_${n}`,name:`${names[kind]} ${n}`,kind};
+    const names={led:'デジタル出力',button:'デジタル入力',infrared:'赤外線LED',speaker:'スピーカー',ssd1306:'画面',dip:'DIPスイッチ',pwm:'PWM出力',receiver:'赤外線センサー',rgb:'フルカラーLED'};
+    const part={id:`${kind}_${n}`,name:`${names[kind]}${n}`,variable:`${names[kind]}${n}`,kind};
     if(kind==='ssd1306')Object.assign(part,{sda:free[0],scl:free[1],width:128,height:64,address:60});
     else if(kind==='rgb')Object.assign(part,{red:free[0],green:free[1],blue:free[2],common_anode:false,frequency:1000});
     else if(kind==='dip')part.pins=free.slice(0,8);
@@ -684,7 +687,9 @@
       if(used.some(id=>!next.some(p=>p.id===id)))throw Error('使用中の部品は削除できません。対応するブロックを変更・削除してください。');
       const edits={...fileStore.edits};
       if(Object.hasOwn(edits,'parts.py')){if(!confirm('部品設定の反映で、parts.pyの編集を置き換えます。続けますか？'))return;delete edits['parts.py'];}
+      const renamed=next.some(p=>{const previous=parts.find(old=>old.id===p.id);return previous&&PicoBlocks.variableFor(previous)!==PicoBlocks.variableFor(p);});
       loadWorkspace(state,false,next,edits);dirty=true;
+      if(renamed&&fileWorkspacePath&&fileWorkspace.getAllBlocks(false).some(block=>block.getField('PART'))){fileWorkspaceDirty=true;commitFileBlocks();}
     }catch(error){notify(error.message);}
   });
   function renderConsole(){const id=PicoDevices.entry(activeRole).id,text=consoleBuffers.get(id)||'—',output=$('output');if(output.dataset.pico!==id){$('console-input').value='';output.dataset.pico=id;}if(output.textContent!==text){output.textContent=text;output.scrollTop=output.scrollHeight;}}
