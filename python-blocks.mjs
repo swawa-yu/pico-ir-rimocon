@@ -1,4 +1,4 @@
-import {nativeStatement} from './python-native.mjs';
+import {nativeStatement,friendlyCall} from './python-native.mjs';
 import {parser} from '@lezer/python';
 
 function hasError(tree){let bad=false;tree.iterate({enter(node){if(node.type.isError)bad=true;}});return bad;}
@@ -72,14 +72,20 @@ function positionRoots(blocks){
   for(const block of blocks){block.x=24;block.y=y;y+=48*count(block)+32;}
   return blocks;
 }
-export function fromSource(source,parts=null){const first=chain(parse(source,parts));if(first&&parts)first.data='pico-source-root';return {blocks:{languageVersion:0,blocks:positionRoots(first?[first]:[])}};}
-export function upgrade(state,parts=null){
+function fileRoot(first,path){return {type:path==='main.py'?'pico_start':'pico_module',data:'pico-source-root',...(first?{inputs:{DO:{block:first}}}:{})};}
+export function fromSource(source,parts=null,path='main.py'){return {blocks:{languageVersion:0,blocks:positionRoots([fileRoot(chain(parse(source,parts)),path)])}};}
+export function upgrade(state,parts=null,path='main.py'){
   const copy=structuredClone(state);
   function clean(first){
     const result=[];let gap='';
     for(let block=first;block;){
-      const next=block.next?.block;delete block.next;
+      const next=block.next?.block;delete block.next;if(block.data==='pico-source-root')delete block.data;
       for(const input of Object.values(block.inputs||{}))if(input.block)input.block=chain(clean(input.block));
+      if(block.type==='pico_call_value'){
+        const args=Array.from({length:block.extraState?.argumentCount||0},(_,i)=>block.inputs?.['ARG'+i]?.block);
+        const friendly=args.every(Boolean)?friendlyCall(block.fields?.TARGET,args):null;
+        if(friendly)block={...block,...friendly,extraState:{before:block.extraState?.before||'',after:block.extraState?.after||''}};
+      }
       if(block.type==='pico_python'&&!block.extraState?.code?.trim()){gap+=(block.extraState?.before||'')+(block.extraState?.code||'')+(block.extraState?.after||'');block=next;continue;}
       if(block.type==='pico_import'&&Object.hasOwn(block.fields||{},'CODE')){
         const code=block.fields.CODE,imported=importState(code);
@@ -100,10 +106,10 @@ export function upgrade(state,parts=null){
   const roots=[];
   for(const root of copy.blocks?.blocks||[]){
     if(['pico_class','pico_def','pico_import','pico_import_as','pico_from_import','pico_python'].includes(root.type)&&root.disabledReasons?.includes('PICO_UNCONNECTED'))root.disabledReasons=[...new Set([...root.disabledReasons,'MANUALLY_DISABLED'])];
-    if(root.type==='pico_module'){const body=clean(root.inputs?.DO?.block);for(const block of body){delete block.x;delete block.y;const reasons=(root.disabledReasons||[]).filter(reason=>reason!=='PICO_UNCONNECTED');if(reasons.length)block.disabledReasons=[...new Set([...(block.disabledReasons||[]),...reasons])];}roots.push(...body);}
+    if(['pico_module','pico_start'].includes(root.type)){const body=clean(root.inputs?.DO?.block);for(const block of body){delete block.x;delete block.y;const reasons=(root.disabledReasons||[]).filter(reason=>reason!=='PICO_UNCONNECTED');if(reasons.length)block.disabledReasons=[...new Set([...(block.disabledReasons||[]),...reasons])];}roots.push(...body);}
     else{const list=clean(root);if(list.length)roots.push(chain(list));}
   }
-  if(copy.blocks){const first=chain(roots);if(first&&parts)first.data='pico-source-root';copy.blocks.blocks=positionRoots(first?[first]:[]);}
+  if(copy.blocks)copy.blocks.blocks=positionRoots([fileRoot(chain(roots),path)]);
   return copy;
 }
 export function layout(workspace){
@@ -113,25 +119,25 @@ export function layout(workspace){
     const point=block.getRelativeToSurfaceXY();block.moveBy(24-point.x,y-point.y);y+=block.getHeightWidth().height+24;
   }
 }
-const rootTypes=['pico_module','pico_start','pico_class','pico_def','pico_import','pico_import_as','pico_from_import','pico_python','procedures_defnoreturn','procedures_defreturn'];
+const rootTypes=['pico_module','pico_start'];
 export function configure(B,g,editRaw){
   B.defineBlocksWithJsonArray([
-    {type:'pico_module',message0:'ファイル %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],colour:45},
+    {type:'pico_module',message0:'読み込まれたとき %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],colour:45},
     {type:'pico_import',message0:'import %1',args0:[{type:'field_input',name:'MODULE',text:'time'}],previousStatement:null,nextStatement:null,colour:165},
     {type:'pico_from_import',message0:'from %1 import %2',args0:[{type:'field_input',name:'MODULE',text:'my_tools'},{type:'field_input',name:'NAMES',text:'Counter, twice'}],previousStatement:null,nextStatement:null,colour:165},
     {type:'pico_import_as',message0:'import %1 as %2',args0:[{type:'field_input',name:'MODULE',text:'time'},{type:'field_input',name:'ALIAS',text:'clock'}],previousStatement:null,nextStatement:null,colour:165},
-    {type:'pico_class',message0:'クラス %1 %2 %3',args0:[{type:'field_input',name:'HEADER',text:'MyClass'},{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,colour:215},
-    {type:'pico_def',message0:'関数 %1 %2 %3',args0:[{type:'field_input',name:'HEADER',text:'my_function()'},{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,colour:290}
+    {type:'pico_class',message0:'クラス %1 を定義 %2 %3',args0:[{type:'field_input',name:'HEADER',text:'MyClass'},{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,colour:215},
+    {type:'pico_def',message0:'関数 %1 を定義 %2 %3',args0:[{type:'field_input',name:'HEADER',text:'my_function()'},{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,colour:290}
   ]);
   B.defineBlocksWithJsonArray([
     {type:'pico_expression',message0:'%1',args0:[{type:'field_input',name:'CODE',text:'value'}],output:null,colour:210},
-    {type:'pico_return',message0:'return %1',args0:[{type:'input_value',name:'VALUE'}],previousStatement:null,nextStatement:null,colour:290},
-    {type:'pico_flow',message0:'%1',args0:[{type:'field_dropdown',name:'CODE',options:[['continue','continue'],['break','break'],['pass','pass']]}],previousStatement:null,nextStatement:null,colour:120}
+    {type:'pico_return',message0:'%1 を返す',args0:[{type:'input_value',name:'VALUE'}],previousStatement:null,nextStatement:null,colour:290},
+    {type:'pico_flow',message0:'%1',args0:[{type:'field_dropdown',name:'CODE',options:[['次の繰り返しへ','continue'],['繰り返しを抜ける','break'],['何もしない','pass']]}],previousStatement:null,nextStatement:null,colour:120}
   ]);
   for(const type of ['pico_call','pico_call_value'])B.Blocks[type]={
     init(){this.appendDummyInput('TARGET').appendField(new B.FieldTextInput('my_function'),'TARGET');this.argumentCount=0;this.setColour(290);if(type==='pico_call_value')this.setOutput(true);else{this.setPreviousStatement(true);this.setNextStatement(true);}this.setInputsInline(true);},
     saveExtraState(){return {argumentCount:this.argumentCount};},
-    loadExtraState(state){for(let i=0;i<this.argumentCount;i++)this.removeInput('ARG'+i);this.argumentCount=state.argumentCount||0;for(let i=0;i<this.argumentCount;i++)this.appendValueInput('ARG'+i).appendField(i?',':'(');if(this.getInput('END'))this.removeInput('END');this.appendDummyInput('END').appendField(this.argumentCount?')':'()');}
+    loadExtraState(state){for(let i=0;i<this.argumentCount;i++)this.removeInput('ARG'+i);this.argumentCount=state.argumentCount||0;for(let i=0;i<this.argumentCount;i++)this.appendValueInput('ARG'+i).appendField(i?',':'(');if(this.getInput('END'))this.removeInput('END');this.appendDummyInput('END').appendField((this.argumentCount?')':'()')+' を呼び出す');}
   };
   g.forBlock.pico_expression=block=>[block.getFieldValue('CODE'),g.ORDER_NONE];
   for(const type of ['pico_call','pico_call_value'])g.forBlock[type]=(block,g)=>{const args=Array.from({length:block.argumentCount},(_,i)=>g.valueToCode(block,'ARG'+i,g.ORDER_NONE)||'None');const code=block.getFieldValue('TARGET')+'('+args.join(', ')+')';return type==='pico_call_value'?[code,g.ORDER_FUNCTION_CALL]:code+'\n';};
@@ -175,7 +181,7 @@ export function configure(B,g,editRaw){
     g.getVariableName=id=>workspace.getVariableMap().getVariableById(id)?.name||id;
     B.Events.disable();
     try{
-      for(const block of workspace.getAllBlocks(false)){const root=block.getRootBlock(),manual=block.hasDisabledReason('MANUALLY_DISABLED');block.setDisabledReason(!rootTypes.includes(root.type)&&root.data!=='pico-source-root','PICO_UNCONNECTED');if(manual)block.setDisabledReason(true,'MANUALLY_DISABLED');}
+      for(const block of workspace.getAllBlocks(false)){const root=block.getRootBlock(),manual=block.hasDisabledReason('MANUALLY_DISABLED');block.setDisabledReason(!rootTypes.includes(root.type),'PICO_UNCONNECTED');if(manual)block.setDisabledReason(true,'MANUALLY_DISABLED');}
       g.init(workspace);
       let code='';const roots=workspace.getTopBlocks(false).sort((a,b)=>{const p=a.getRelativeToSurfaceXY(),q=b.getRelativeToSurfaceXY();return p.y-q.y||p.x-q.x;});
       for(const block of roots)if(block.isEnabled()){const text=sequence(block,g);if(code&&!code.endsWith('\n')&&text&&!/^[\r\n]/.test(text))code+='\n';code+=text;}

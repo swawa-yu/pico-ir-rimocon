@@ -8,7 +8,7 @@ Object.assign(Blockly.Msg,require('../vendor/blockly/msg/ja.js'));
 const {pythonGenerator}=require('../vendor/blockly/python_compressed.js');
 
 function studio(exec){
-  const dom=new JSDOM(fs.readFileSync('block-studio.html','utf8'),{url:'http://localhost/',runScripts:'outside-only'});
+  const dom=new JSDOM(fs.readFileSync('index.html','utf8'),{url:'http://localhost/',runScripts:'outside-only'});
   const w=dom.window,calls=[];
   Blockly.utils.xml.injectDependencies({document:w.document,DOMParser:w.DOMParser,XMLSerializer:w.XMLSerializer});
   const workspace=new Blockly.Workspace();

@@ -10,9 +10,9 @@ for(const name of [...packages].sort()){
   licenses+=`${name} ${info.version}\n${license}\n\n`;
 }
 await writeFile('vendor/codemirror/LICENSES.txt',licenses);
-let html=await readFile('block-studio.html','utf8');
+let html=await readFile('index.html','utf8');
 for(const match of [...html.matchAll(/(<(?:script|link)\b[^>]*?\b(?:src|href)=")([^"?]+)(?:\?[^"\s]*)?("[^>]*>)/g)]){
   const version=createHash('sha256').update(await readFile(match[2])).digest('hex').slice(0,12);
   html=html.replace(match[0],`${match[1]}${match[2]}?v=${version}${match[3]}`);
 }
-await writeFile('block-studio.html',html);
+await writeFile('index.html',html);

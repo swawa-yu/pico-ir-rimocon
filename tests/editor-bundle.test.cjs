@@ -6,7 +6,7 @@ const {JSDOM}=require('jsdom');
 
 test('the page loads the current editor bundle and its public highlight API works',()=>{
   const bundle=fs.readFileSync('vendor/codemirror/editor.js','utf8');
-  const dom=new JSDOM(fs.readFileSync('block-studio.html','utf8'),{runScripts:'outside-only',pretendToBeVisual:true});
+  const dom=new JSDOM(fs.readFileSync('index.html','utf8'),{runScripts:'outside-only',pretendToBeVisual:true});
   try{
     const {window}=dom;
     for(const asset of window.document.querySelectorAll('script[src],link[rel="stylesheet"]')){

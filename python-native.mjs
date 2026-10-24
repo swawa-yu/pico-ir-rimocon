@@ -1,3 +1,17 @@
+const outputType=b=>!b?null:['variables_get','pico_expression','pico_call_value'].includes(b.type)?null:['text','pico_char','pico_bits_text','pico_to_text','pico_base_text'].includes(b.type)?'String':['lists_create_with','pico_receive','pico_int_bits','pico_text_bits','pico_decode_bits','pico_range'].includes(b.type)?'Array':b.type.startsWith('logic_')||['pico_bootsel','pico_ir_level','pico_button'].includes(b.type)?'Boolean':'Number';
+export function friendlyCall(target,items){
+  if(items.some(item=>item?.type==='pico_expression'&&/^\s*\*/.test(item.fields?.CODE||'')))return null;
+  const number=n=>({type:'math_number',fields:{NUM:n}});
+  let type,names,values=items,fields={};
+  if(target==='range'&&items.length>=1&&items.length<=3){type='pico_range';names=['START','STOP','STEP'];values=items.length===1?[number(0),items[0],number(1)]:[items[0],items[1],items[2]||number(1)];}
+  else if(items.length===1&&['int','float','str'].includes(target)){type={int:'pico_to_int',float:'pico_to_float',str:'pico_to_text'}[target];names=['VALUE'];}
+  else if(items.length===1&&['bin','oct','hex'].includes(target)){type='pico_base_text';names=['VALUE'];fields={BASE:target};}
+  else if(target==='int'&&items.length===2){type='pico_parse_int';names=['VALUE','BASE'];}
+  if(!type)return null;
+  const expected=type==='pico_parse_int'?['String','Number']:type==='pico_range'?['Number','Number','Number']:type==='pico_base_text'?['Number']:null;
+  if(expected&&values.some((value,i)=>outputType(value)&&outputType(value)!==expected[i]))return null;
+  return {type,fields,inputs:Object.fromEntries(names.map((name,i)=>[name,{block:values[i]}]))};
+}
 // Only complete, recognized expressions are converted; all others stay as source.
 export function nativeStatement(node,source,parts,parseBody){
   const text=n=>source.slice(n.from,n.to);
@@ -13,7 +27,6 @@ export function nativeStatement(node,source,parts,parseBody){
   const input=block=>({block});
   const number=n=>({type:'math_number',fields:{NUM:n}});
   const variable=name=>({type:'variables_get',fields:{VAR:{name}}});
-  const outputType=b=>!b?null:['variables_get','pico_expression','pico_call_value'].includes(b.type)?null:['text','pico_char','pico_bits_text'].includes(b.type)?'String':['lists_create_with','pico_receive','pico_int_bits','pico_text_bits','pico_decode_bits'].includes(b.type)?'Array':b.type.startsWith('logic_')||['pico_bootsel','pico_ir_level','pico_button'].includes(b.type)?'Boolean':'Number';
   const checks={math_arithmetic:'Number',pico_time_diff:'Number',pico_wait:'Number',pico_pwm:'Number',pico_send:'Number',pico_speaker_on:'Number',pico_receive:'Number',pico_char:'Number',pico_ord:'String',pico_int_bits:'Number',pico_text_bits:'String',pico_bits_text:'Array',pico_bits_int:'Array',pico_decode_bits:null,lists_length:'Array',text_length:'String',logic_negate:'Boolean'};
   function values(type,names,items,fields={}){
     if(!items.every(Boolean))return null;
@@ -42,6 +55,7 @@ export function nativeStatement(node,source,parts,parseBody){
     }
     if(n.name==='CallExpression'){
       const target=text(cs[0]),arguments_=args(n),converted=arguments_.map(expression);
+      if(!arguments_.some(a=>a.name==='RawExpression')){const friendly=friendlyCall(target,converted);if(friendly)return friendly;}
       if(target==='rp2.bootsel_button'&&!arguments_.length)return {type:'pico_bootsel'};
       if(target==='time.ticks_us'&&!arguments_.length)return {type:'pico_time_us'};
       if(target==='time.ticks_diff'&&arguments_.length===2)return values('pico_time_diff',['END','START'],converted);
@@ -50,7 +64,10 @@ export function nativeStatement(node,source,parts,parseBody){
       if(target==='ord'&&arguments_.length===1)return values('pico_ord',['VALUE'],converted);
       const methods={bits_to_text:['pico_bits_text',['VALUE']],text_to_bits:['pico_text_bits',['VALUE']],bits_to_int:['pico_bits_int',['VALUE']],int_to_bits:['pico_int_bits',['VALUE','WIDTH']],durations_to_bits:['pico_decode_bits',['TIMES','SKIP','THRESHOLD']]};
       const method=methods[target.replace(/^ir_data\./,'')];
-      if(target.startsWith('ir_data.')&&method&&arguments_.length===method[1].length)return values(method[0],method[1],converted);
+      if(target.startsWith('ir_data.')&&method){
+        if(arguments_.length===method[1].length)return values(method[0],method[1],converted);
+        if(target==='ir_data.int_to_bits'&&arguments_.length===1)return values('pico_int_bits',['VALUE','WIDTH'],[converted[0],number(8)]);
+      }
       const [id,action]=target.split('.'),part=parts.find(p=>p.id===id);
       if(part?.kind==='receiver'&&action==='receive'&&arguments_.length<=1)return values('pico_receive',['TIMEOUT'],arguments_.length?converted:[number(1000)],{PART:id});
       if(part&&['button','receiver'].includes(part.kind)&&['is_pressed','is_on'].includes(action)&&!arguments_.length)return {type:part.kind==='receiver'?'pico_ir_level':'pico_button',fields:{PART:id}};

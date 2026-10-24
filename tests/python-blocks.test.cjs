@@ -80,7 +80,7 @@ test('file statements and definitions form one connected sequence without blank 
  const ws=workspace(source);
  try{
   assert.equal(ws.getTopBlocks(false).length,1);
-  const types=[];for(let b=ws.getTopBlocks(false)[0];b;b=b.getNextBlock())types.push(b.type);
+  const types=[];for(let b=ws.getTopBlocks(false)[0].getInputTargetBlock('DO');b;b=b.getNextBlock())types.push(b.type);
   assert.deepEqual(types,['pico_import','pico_def','pico_class','pico_python']);
   assert(!ws.getAllBlocks(false).some(b=>b.type==='pico_module'||b.type==='pico_python'&&!b.pythonCode.trim()));
   assert.equal(ws.getAllBlocks(false).find(b=>b.type==='pico_def'&&b.getFieldValue('HEADER')==='value(self)').getSurroundParent().type,'pico_class');
@@ -203,4 +203,34 @@ test('all bundled Python files still parse after conversion into structured bloc
    assert.equal(result.status,0,name+': '+result.stderr);
   }finally{ws.dispose();}
  }
+});
+
+
+test('main and imported modules enclose all statements in their execution event and keep detached code inactive',()=>{
+ const source='def twice(value):\n    return value * 2\nprint(twice(3))\n';
+ for(const path of ['main.py','tools.py']){
+  const ws=new B.Workspace();
+  try{
+   B.serialization.workspaces.load(fromSource(source,[],path),ws);
+   const root=ws.getTopBlocks(false)[0];assert.equal(root.type,path==='main.py'?'pico_start':'pico_module');
+   assert.equal(root.getInputTargetBlock('DO').type,'pico_def');
+   const detached=ws.newBlock('pico_def');detached.setFieldValue('unused()','HEADER');
+   const code=api.generate(ws,[],path);assert.doesNotMatch(code,/unused/);
+   const result=spawnSync('python3',['-c',code],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'6\n');
+  }finally{ws.dispose();}
+ }
+});
+
+test('range and numeric conversions are editable blocks and retain Python values through save and migration',()=>{
+ const source='values = list(range(5, -1, -2))\nnumber = int("41", 16)\ntext = str(number)\ninteger = int(3.9)\nreal = float("3.5")\nbinary = bin(number)\nhexadecimal = hex(number)\nprint(values, number, text, integer, real, binary, hexadecimal)\n';
+ const ws=new B.Workspace(),copy=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource(source,[]),ws);
+  for(const type of ['pico_range','pico_parse_int','pico_to_text','pico_to_int','pico_to_float','pico_base_text'])assert(ws.getAllBlocks(false).some(b=>b.type===type),type);
+  const code=api.generate(ws),result=spawnSync('python3',['-c',code],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,"[5, 3, 1] 65 65 3 3.5 0b1000001 0x41\n");
+  B.serialization.workspaces.load(B.serialization.workspaces.save(ws),copy);assert.equal(api.generate(copy),code);
+  const old={blocks:{languageVersion:0,blocks:[{type:'variables_set',fields:{VAR:{name:'values'}},inputs:{VALUE:{block:{type:'pico_call_value',fields:{TARGET:'range'},extraState:{argumentCount:1},inputs:{ARG0:{block:{type:'math_number',fields:{NUM:5}}}}}}}}]}};
+  copy.clear();B.serialization.workspaces.load(upgrade(old,[],'tools.py'),copy);
+  assert.equal(copy.getTopBlocks(false)[0].type,'pico_module');assert(copy.getAllBlocks(false).some(b=>b.type==='pico_range'));
+ }finally{ws.dispose();copy.dispose();}
 });

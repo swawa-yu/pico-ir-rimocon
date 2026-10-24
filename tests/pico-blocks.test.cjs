@@ -155,6 +155,7 @@ test('functions and lists generate executable MicroPython activity code',()=>{
   const start={type:'pico_start',inputs:{DO:{block:set}}};
   B.serialization.workspaces.load({blocks:{languageVersion:0,blocks:[def,start]}},w);
   const main=generate(w)['main.py'];
+  assert.equal(w.getAllBlocks(false).find(b=>b.type==='procedures_defreturn').getSurroundParent().type,'pico_start');
   assert.match(main,/def values/);assert.match(main,/\[65, 66\]/);
   const map=new Map(),mapped=P.generateProject(B,g,w,parts,runtime,require('../pico-sources.js').ssd1306,map,require('../pico-sources.js'))['main.py'];
   assert.equal(mapped,main);
