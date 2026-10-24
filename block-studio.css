@@ -193,6 +193,12 @@
 .studio-header .shared-connection{padding:0;margin:0 0 0 auto;flex:1;min-width:260px}
 .studio-header .shared-connection .bar{justify-content:flex-end;gap:10px}
 .studio-header #program-state{margin-right:0}
-#project-name{font-size:.85rem;font-weight:600;margin-left:auto}
 .code-panel .editor-shell{margin-top:0}
 #project-dialog input{margin:8px 0 20px}
+
+.project-tabs{display:flex;gap:4px;overflow-x:auto;margin:0 0 12px;border-bottom:1px solid #dbe4ed}
+.project-tabs>span{display:flex;flex-shrink:0;border-radius:6px 6px 0 0;background:#e8eff3}
+.project-tabs [role=tab]{background:transparent;color:#445e6c;border-radius:0;border-bottom:3px solid transparent;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-tabs [aria-selected=true]{background:white;color:#075b81;border-bottom-color:#075b81;font-weight:600}
+.project-tabs .project-close{background:transparent;color:#667d89;padding:4px 8px}
+#parts-empty{font-size:.85rem;color:#667d89;margin:16px 0}

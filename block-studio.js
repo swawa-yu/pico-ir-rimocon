@@ -2,6 +2,7 @@
   'use strict';
   const $=id=>document.getElementById(id), generator=python.pythonGenerator;
   let parts=PicoBlocks.defaults(),files={},runtime='',deploying=false,partsDirty=false,projectName='無題',projectDialogMode='new';
+  let openedProjects=[],activeProject=0,switchingProjects=false;
   let browsing=false,picoSnapshot=null,picoSelected=null,picoContents=new Map();
   let activeRole='program';
   runtime=PicoSources.parts;
@@ -45,6 +46,8 @@
     {kind:'category',name:'関数',colour:290,custom:'STUDIO_FUNCTION'},
     {kind:'category',name:'リスト',colour:260,contents:[{kind:'block',type:'pico_range',inputs:{START:number(0),STOP:number(10),STEP:number(1)}},{kind:'block',type:'lists_create_with'},{kind:'block',type:'pico_index',inputs:{INDEX:number(0)}},{kind:'block',type:'pico_set_index',inputs:{INDEX:number(0),ITEM:number(1)}},{kind:'block',type:'lists_getIndex'},{kind:'block',type:'lists_setIndex'},{kind:'block',type:'lists_length'},{kind:'block',type:'lists_getSublist'},{kind:'block',type:'lists_reverse'},{kind:'block',type:'lists_split'},{kind:'block',type:'controls_forEach'}]}
   ]};
+  const categoryOrder=['Python','変数','計算・条件','制御','関数','リスト','2進数・文字','コンソール','入力','出力','赤外線','画面'];
+  toolbox.contents.sort((a,b)=>categoryOrder.indexOf(a.name)-categoryOrder.indexOf(b.name));
   const theme=Blockly.Theme.defineTheme('pico',{base:Blockly.Themes.Classic,fontStyle:{family:'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',weight:'normal',size:12},componentStyles:{workspaceBackgroundColour:'#f7fafc',toolboxBackgroundColour:'#edf2f7',flyoutBackgroundColour:'#e4edf4'}});
   const workspace=Blockly.inject('blockly',{toolbox,theme,renderer:'zelos',media:'vendor/blockly/media/',sounds:false,trashcan:true,grid:{spacing:20,length:2,colour:'#dbe4ed',snap:true},zoom:{controls:true,wheel:true,startScale:.95,maxScale:2,minScale:.4}});
   workspace.registerToolboxCategoryCallback('STUDIO_FUNCTION',functionCategory);
@@ -121,7 +124,37 @@
     onDefinition:goDefinition,
     onSave(){download(activeFile.split('/').pop(),files[activeFile]||'','text/x-python');}
   });
-  function saveProject(){try{localStorage.setItem('pico-blocks-project-2',JSON.stringify(project()));}catch(_){} }
+  function renderProjectTabs(){
+    const tabs=$('project-tabs');tabs.replaceChildren();
+    openedProjects.forEach((entry,index)=>{
+      const wrap=document.createElement('span'),button=document.createElement('button');button.type='button';button.setAttribute('role','tab');button.setAttribute('aria-selected',String(index===activeProject));button.tabIndex=index===activeProject?0:-1;button.textContent=entry.data.name||'無題';button.disabled=partsDirty||Boolean(debugSession||debugStarting);button.addEventListener('click',()=>switchProject(index));button.addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();switchProject((index+(event.key==='ArrowRight'?1:-1)+openedProjects.length)%openedProjects.length);$('project-tabs').querySelector('[aria-selected=true]')?.focus({preventScroll:true});}});
+      const close=document.createElement('button');close.type='button';close.textContent='×';close.className='project-close';close.setAttribute('aria-label',(entry.data.name||'無題')+' を閉じる');close.disabled=button.disabled;close.addEventListener('click',()=>closeProject(index));wrap.append(button,close);tabs.append(wrap);
+    });
+  }
+  function saveProject(){
+    if(switchingProjects)return;
+    const data=project();openedProjects[activeProject]={data,file:activeFile,dirty};renderProjectTabs();
+    try{localStorage.setItem('pico-blocks-project-2',JSON.stringify(data));localStorage.setItem('pico-studio-tabs-1',JSON.stringify({active:activeProject,projects:openedProjects}));}catch(_){notify('ブラウザに保存できません。プロジェクトをファイルに保存してください。');}
+  }
+  function openProject(load){
+    if(partsDirty||debugSession||debugStarting)return false;
+    saveProject();switchingProjects=true;
+    try{if(!load())return false;activeProject=openedProjects.length;openedProjects.push({data:project(),file:activeFile,dirty:false});return true;}
+    finally{switchingProjects=false;saveProject();}
+  }
+  function switchProject(index){
+    if(index===activeProject||partsDirty||debugSession||debugStarting)return;
+    saveProject();const next=openedProjects[index];switchingProjects=true;
+    try{restoreProject(next.data,false);activeProject=index;dirty=next.dirty;openFile(Object.hasOwn(files,next.file)?next.file:'main.py');}
+    catch(error){notify(error.message);}
+    finally{switchingProjects=false;saveProject();}
+  }
+  function closeProject(index){
+    saveProject();const entry=openedProjects[index];if(entry.dirty&&!confirm('このプロジェクトのタブを閉じますか？必要な内容は先にファイルへ保存してください。'))return;
+    if(openedProjects.length===1){notify('最後のプロジェクトは閉じられません。');return;}
+    if(index===activeProject)switchProject(index?index-1:1);
+    openedProjects.splice(index,1);if(index<activeProject)activeProject--;saveProject();
+  }
   function openFile(path,line){commitFileBlocks();activeFile=path;editor.setFile(path,files[path]||'');editor.setReadOnly?.(Boolean(debugSession||debugStarting));editor.highlightLines?.(null);renderFiles();renderFileBlocks();if(line)editor.goLine(line);}
   function updateFileActions(){
     $('file-rename').disabled=!treeSelection||fileStore.protected(treeSelection)||Boolean(debugSession||debugStarting);
@@ -349,6 +382,8 @@
     $('console-input').placeholder=deploying?'書き込み中…':browsing?'ファイルを取得中…':device.busy?'処理中…':debugSession?.paused?'「次へ」で進めてください':!device.port?'USB接続してください':device.task==='observer'&&device.running?'ロジアナで観測中':device.running?'入力を送る':'';
     $('project-save').disabled=partsDirty;
     $('project-save-as').disabled=partsDirty;
+    for(const id of ['project-new','project-load','example-load','example'])$(id).disabled=partsDirty||Boolean(debugSession||debugStarting);
+    renderProjectTabs();
     $('pico-files-refresh').disabled=!device.port||connecting||deploying||browsing||device.busy;
     $('pico-files-refresh').textContent=browsing?'取得中…':device.running?'停止して一覧を更新':picoSnapshot?'一覧を更新':'一覧を取得';
     for(const button of document.querySelectorAll('#pico-file-tree button, #pc-file-tree button, #pico-directory button'))button.disabled=browsing||deploying||device.busy||device.running;
@@ -391,7 +426,7 @@
     }
     catch(error){parts=oldParts;Blockly.serialization.workspaces.load(previous,workspace);throw error;}
     finally {Blockly.Events.enable();}
-    projectName=nextName;$('project-name').textContent=projectName;clearTimeout(fileRefreshTimer);fileWorkspaceDirty=false;fileWorkspacePath=null;fileModels=structuredClone(nextModels);fileStore.restore(restoredEdits);workspace.scrollCenter();selectedId=null;dirty=false;partsDirty=false;renderParts();refresh();return true;
+    projectName=nextName;clearTimeout(fileRefreshTimer);fileWorkspaceDirty=false;fileWorkspacePath=null;fileModels=structuredClone(nextModels);fileStore.restore(restoredEdits);workspace.scrollCenter();selectedId=null;dirty=false;partsDirty=false;renderParts();refresh();return true;
   }
   function download(name,text,type){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   workspace.addChangeListener(event=>{
@@ -401,7 +436,9 @@
   });
   function loadSample(name,ask=true){
     let nextParts=[],state,edits={};
-    if(['infrared_raw','infrared_jp','infrared_send','infrared_send_jp'].includes(name)){
+    if(name.startsWith('basic_')){const sample=StudioSamples.basic(name.slice(6));nextParts=sample.parts;edits=sample.files;state={blocks:{languageVersion:0,blocks:[]}};
+    }else if(name.startsWith('organized_')){const sample=StudioSamples.organized(name.slice(10));nextParts=sample.parts;edits=sample.files;state={blocks:{languageVersion:0,blocks:[]}};
+    }else if(['infrared_raw','infrared_jp','infrared_send','infrared_send_jp'].includes(name)){
       const sample=StudioSamples.infrared(name.endsWith('_jp'),name.includes('_send')?'send':'receive');nextParts=sample.parts;edits=sample.files;state={blocks:{languageVersion:0,blocks:[]}};
     }else if(['receive','receive_custom'].includes(name)){
       nextParts=[{id:'receiver',name:'赤外線受信',kind:'receiver',pin:15}];state=PicoBlocks.examples.receive();
@@ -418,7 +455,7 @@
       else if(name==='fan')nextParts=[{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:25000}];
       else if(['send','bootsel','blink','button','button_send'].includes(name))nextParts=PicoBlocks.defaults().filter(p=>name==='blink'?p.kind==='led':name==='button'?p.kind!=='infrared':['send','bootsel'].includes(name)?p.kind==='infrared':true);
     }
-    if(loadWorkspace(state,ask,nextParts,edits,{},null,$('example').querySelector(`option[value="${name}"]`)?.textContent||name))openFile('main.py');
+    if(!loadWorkspace(state,ask,nextParts,edits,{},null,$('example').querySelector(`option[value="${name}"]`)?.textContent||name))return false;openFile('main.py');return true;
   }
   function restoreProject(data,ask=true){
     if(data.format==='pico-blocks-1')data=PicoBlocks.migrate(data.workspace);
@@ -426,8 +463,8 @@
     if(data.format==='pico-blocks-5'&&!data.files)throw Error('プロジェクトのファイルがありません。');
     return loadWorkspace(data.workspace,ask,data.parts,data.edits||{},data.fileWorkspaces||{},data.format==='pico-blocks-5'?data.files:null,typeof data.name==='string'?data.name.slice(0,80):'無題');
   }
-  $('example-load').addEventListener('click',()=>{try{loadSample($('example').value);}catch(error){notify(error.message);}});
-  function saveProjectFile(){download(projectName.replace(/[\\/:*?"<>|]/g,'_')+'.json',JSON.stringify(project(),null,2),'application/json');dirty=false;}
+  $('example-load').addEventListener('click',()=>{try{openProject(()=>loadSample($('example').value,false));}catch(error){notify(error.message);}});
+  function saveProjectFile(){download(projectName.replace(/[\\/:*?"<>|]/g,'_')+'.json',JSON.stringify(project(),null,2),'application/json');dirty=false;saveProject();}
   $('project-save').addEventListener('click',saveProjectFile);
   function openProjectDialog(mode){projectDialogMode=mode;$('project-dialog-title').textContent=mode==='new'?'新規プロジェクト':'名前を付けて保存';$('project-apply').textContent=mode==='new'?'作成':'保存';$('project-name-input').value=mode==='new'?'無題':projectName;$('project-dialog').showModal();$('project-name-input').select();}
   $('project-new').addEventListener('click',()=>openProjectDialog('new'));
@@ -435,16 +472,15 @@
   $('project-apply').addEventListener('click',()=>{
     const name=$('project-name-input').value.trim();$('project-name-input').value=name;if(!name){$('project-name-input').reportValidity();return;}
     if(projectDialogMode==='new'){
-      if(!loadWorkspace({blocks:{languageVersion:0,blocks:[]}},true,parts,{'main.py':''},{},null,name))return;
-      openFile('main.py');
-    }else{projectName=name;$('project-name').textContent=name;saveProject();saveProjectFile();}
+      if(!openProject(()=>{if(!loadWorkspace({blocks:{languageVersion:0,blocks:[]}},false,parts,{'main.py':''},{},null,name))return false;openFile('main.py');return true;}))return;
+    }else{const copy=project();copy.name=name;if(!openProject(()=>restoreProject(copy,false)))return;saveProjectFile();}
     $('project-dialog').close();
   });
   $('project-dialog').querySelector('form').addEventListener('submit',event=>{if(event.submitter?.value!=='cancel'){event.preventDefault();$('project-apply').click();}});
   $('project-load').addEventListener('click',()=>$('project-file').click());
   $('project-file').addEventListener('change',async()=>{
     const file=$('project-file').files[0];if(!file)return;
-    try{if(file.size>1048576)throw Error('プロジェクトは1MB以内にしてください。');restoreProject(JSON.parse(await file.text()));}
+    try{if(file.size>1048576)throw Error('プロジェクトは1MB以内にしてください。');const data=JSON.parse(await file.text());openProject(()=>restoreProject(data,false));}
     catch(error){notify(error.message);}finally{$('project-file').value='';}
   });
   $('program-connect').addEventListener('click',async()=>{
@@ -525,6 +561,7 @@
   new ResizeObserver(()=>Blockly.svgResize(workspace)).observe($('blockly'));
   function renderParts(){
     const body=$('parts-rows');body.replaceChildren();
+    $('parts-empty').hidden=parts.length>0;body.closest('table').hidden=parts.length===0;
     const names={button:'ボタン',led:'LED',infrared:'赤外線送信',speaker:'圧電スピーカー',ssd1306:'SSD1306',dip:'8連DIPスイッチ',pwm:'PWM出力',receiver:'赤外線受信'};
     for(const part of parts){
       const row=document.createElement('tr');row.dataset.id=part.id;row.dataset.kind=part.kind;
@@ -545,7 +582,7 @@
       for(const item of [name,names[part.kind],connection,settings,remove]){const cell=document.createElement('td');if(typeof item==='string')cell.textContent=item;else cell.append(item);row.append(cell);}body.append(row);
     }
   }
-  function markPartsDirty(){partsDirty=true;dirty=true;renderDisplay();updateDevice();}
+  function markPartsDirty(){partsDirty=true;dirty=true;$('parts-empty').hidden=$('parts-rows').childElementCount>0;$('parts-rows').closest('table').hidden=$('parts-rows').childElementCount===0;renderDisplay();updateDevice();}
   $('parts-rows').addEventListener('input',markPartsDirty);
   $('parts-rows').addEventListener('change',markPartsDirty);
   function draftParts(){return Array.from($('parts-rows').children,row=>{
@@ -605,11 +642,13 @@
   });
   $('console-input').addEventListener('input',event=>{event.target.style.height='auto';event.target.style.height=Math.min(event.target.scrollHeight,100)+'px';});
   $('terminal-surface').addEventListener('click',event=>{if(event.target.id!=='console-input'&&!window.getSelection()?.toString())$('console-input').focus({preventScroll:true});});
+  switchingProjects=true;
   try {
-    const saved=localStorage.getItem('pico-blocks-project-2'),legacy=localStorage.getItem('pico-blocks-workspace-1');
-    if(saved||legacy)restoreProject(saved?JSON.parse(saved):PicoBlocks.migrate(JSON.parse(legacy)),false);
-    else loadSample('send',false);
-  }catch(error){loadSample('send',false);notify('保存されていた内容を読み込めなかったため、サンプルを表示しました。');}
+    const tabs=JSON.parse(localStorage.getItem('pico-studio-tabs-1')||'null');
+    if(tabs&&Array.isArray(tabs.projects)&&tabs.projects.length&&Number.isInteger(tabs.active)&&tabs.projects[tabs.active]?.data){openedProjects=tabs.projects;activeProject=tabs.active;restoreProject(openedProjects[activeProject].data,false);dirty=Boolean(openedProjects[activeProject].dirty);openFile(Object.hasOwn(files,openedProjects[activeProject].file)?openedProjects[activeProject].file:'main.py');}
+    else{const saved=localStorage.getItem('pico-blocks-project-2'),legacy=localStorage.getItem('pico-blocks-workspace-1');if(saved||legacy)restoreProject(saved?JSON.parse(saved):PicoBlocks.migrate(JSON.parse(legacy)),false);else loadSample('basic_console',false);}
+  }catch(error){openedProjects=[];activeProject=0;loadSample('basic_console',false);notify('保存されていた内容を読み込めませんでした。保存ファイルから開いてください。');}
+  switchingProjects=false;saveProject();
   updateDevice();
   if(location.hash==='#analyzer')showPanel('analyzer');
 })();

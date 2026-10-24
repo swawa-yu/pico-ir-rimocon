@@ -7,7 +7,7 @@ require('../vendor/blockly/blocks_compressed.js');
 Object.assign(Blockly.Msg,require('../vendor/blockly/msg/ja.js'));
 const {pythonGenerator}=require('../vendor/blockly/python_compressed.js');
 
-function studio(exec){
+function studio(exec,stored={}){
   const dom=new JSDOM(fs.readFileSync('index.html','utf8'),{url:'http://localhost/',runScripts:'outside-only'});
   const w=dom.window,calls=[];
   Blockly.utils.xml.injectDependencies({document:w.document,DOMParser:w.DOMParser,XMLSerializer:w.XMLSerializer});
@@ -33,6 +33,7 @@ function studio(exec){
   w.LiveAnalyzer={show(){}};
   w.ResizeObserver=class{observe(){}};
   w.HTMLElement.prototype.scrollIntoView=function(){calls.push(['scroll',this.id]);};
+  for(const [key,value] of Object.entries(stored))w.localStorage.setItem(key,value);
   w.eval(fs.readFileSync('block-studio.js','utf8'));
   return {window:w,device,calls,workspaces,$:id=>w.document.getElementById(id),close(){for(const ws of workspaces)ws.dispose();dom.window.close();for(const type of Object.keys(Blockly.Blocks))if(type.startsWith('pico_'))delete Blockly.Blocks[type];}};
 }
@@ -72,7 +73,7 @@ test('a failed write remains visible in the console, does not run the program an
 test('each file keeps its editable blocks and unsupported Python survives text edits and switching',async()=>{
  const s=studio(async()=>JSON.stringify({changed:0}));
  try{
-  const fileButton=name=>[...s.$('file-tree').querySelectorAll('button')].find(b=>b.textContent===name);
+  const fileButton=name=>[...s.$('file-tree').querySelectorAll('button')].find(b=>b.title===name);
   fileButton('parts.py').click();
   assert.equal(s.$('blockly').hidden,true);assert.equal(s.$('file-blockly').hidden,false);
   s.window.editorCallbacks.onChange('parts.py','import time\n\nclass Custom:\n    pass\n');
@@ -81,7 +82,7 @@ test('each file keeps its editable blocks and unsupported Python survives text e
   klass.setFieldValue('Renamed','HEADER');
   fileButton('main.py').click();
   assert.equal(s.$('blockly').hidden,true);assert.equal(s.$('file-blockly').hidden,false);
-  fileButton('parts.py •').click();
+  fileButton('parts.py').click();
   assert.equal(ws.getAllBlocks(false).find(b=>b.type==='pico_class').getFieldValue('HEADER'),'Renamed');
   s.$('run').click();await new Promise(resolve=>setImmediate(resolve));
   const written=s.calls.find(c=>c[0]==='write')[1];
@@ -277,9 +278,10 @@ test('a new named project keeps hardware configuration and a named saved copy re
  const s=studio(async()=>'{"changed":0}');
  try{
   s.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};s.window.HTMLDialogElement.prototype.close=function(){this.open=false;};
+  const originalParts=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).parts;
   s.$('project-new').click();s.$('project-name-input').value='赤外線の練習';s.$('project-apply').click();
   const fresh=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
-  assert.equal(fresh.name,'赤外線の練習');assert.equal(fresh.files['main.py'],'');assert(fresh.parts.length>0);
+  assert.equal(fresh.name,'赤外線の練習');assert.equal(fresh.files['main.py'],'');assert.deepEqual(fresh.parts,originalParts);
   const saved=[];s.window.URL.createObjectURL=blob=>{saved.push(blob);return 'blob:project';};s.window.URL.revokeObjectURL=()=>{};s.window.HTMLAnchorElement.prototype.click=function(){saved.push(this.download);};
   s.$('project-save-as').click();s.$('project-name-input').value='別の練習';s.$('project-apply').click();
   assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).name,'別の練習');assert.equal(saved[1],'別の練習.json');
@@ -294,5 +296,36 @@ test('a new named project keeps hardware configuration and a named saved copy re
   assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],source);
   s.window.editorCallbacks.onChange('main.py','_outputs = [1,');
   assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],'_outputs = [1,');
+ }finally{s.close();}
+});
+
+ test('project tabs keep independent files and parts, restore after reload, and share the USB connection',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));let restored;
+ try{
+  s.window.editorCallbacks.onChange('main.py','value = 7\nprint(value)\n');
+  s.$('example').value='fan';s.$('example-load').click();
+  assert.equal(s.$('project-tabs').querySelectorAll('[role=tab]').length,2);
+  s.$('project-tabs').querySelector('[role=tab]').click();
+  assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],'value = 7\nprint(value)\n');
+  assert.equal(s.$('parts-empty').hidden,false);
+  s.$('project-tabs').querySelectorAll('[role=tab]')[1].click();
+  assert.match(s.$('parts-rows').textContent,/PWM出力/);
+  const stored=Object.fromEntries(['pico-studio-tabs-1','pico-blocks-project-2'].map(key=>[key,s.window.localStorage.getItem(key)]));
+  restored=studio(async()=>JSON.stringify({changed:0}),stored);
+  assert.equal(restored.$('project-tabs').querySelectorAll('[role=tab]').length,2);
+  assert.equal(restored.$('project-tabs').querySelector('[aria-selected=true]').textContent,'BOOTSELで扇風機を回す（部品ライブラリ）');
+  restored.$('project-tabs').querySelector('[role=tab]').click();
+  assert.equal(JSON.parse(restored.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],'value = 7\nprint(value)\n');
+  restored.window.confirm=()=>true;restored.$('project-tabs').querySelectorAll('.project-close')[1].click();
+  assert.equal(restored.$('project-tabs').querySelectorAll('[role=tab]').length,1);assert(restored.device.port);assert(!restored.calls.some(call=>call[0]==='write'));
+ }finally{restored?.close();s.close();}
+});
+
+test('parts settings show an empty state before a part is added and after the last part is removed',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  assert.equal(s.$('parts-empty').hidden,false);assert.equal(s.$('parts-rows').closest('table').hidden,true);
+  s.$('new-part-kind').value='receiver';s.$('part-add').click();assert.equal(s.$('parts-empty').hidden,true);
+  s.$('parts-rows').querySelector('button').click();assert.equal(s.$('parts-empty').hidden,false);
  }finally{s.close();}
 });

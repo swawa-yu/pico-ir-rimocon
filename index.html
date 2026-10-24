@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Pico Studio</title>
   <link rel="stylesheet" href="style.css?v=e50109bd6cca">
-  <link rel="stylesheet" href="block-studio.css?v=84c2a6cec2eb">
+  <link rel="stylesheet" href="block-studio.css?v=bde41b2d98d0">
   <link rel="stylesheet" href="live-analyzer.css?v=49cfe401eda8">
   <script src="vendor/blockly/blockly_compressed.js?v=cc761aa447e0" defer></script>
   <script src="vendor/blockly/blocks_compressed.js?v=4f0b3d4079fe" defer></script>
@@ -23,9 +23,9 @@
   <script src="live-core.js?v=d47659fb5907" defer></script>
   <script src="live-view.js?v=9952c6dd9b68" defer></script>
   <script src="live-analyzer.js?v=496ac2810593" defer></script>
-  <script src="studio-samples.js?v=afa66197dada" defer></script>
+  <script src="studio-samples.js?v=863d14524546" defer></script>
   <script src="studio-layout.js?v=655fbdfc2fe8" defer></script>
-  <script src="block-studio.js?v=f79367ec30cf" defer></script>
+  <script src="block-studio.js?v=40de9eda1acc" defer></script>
 </head>
 <body class="block-studio">
 <main>
@@ -36,11 +36,12 @@
   <div class="studio-tabs" role="tablist" aria-label="作業"><button id="program-tab" role="tab" aria-selected="true" aria-controls="program-panel">プログラム</button><button id="analyzer-tab" role="tab" aria-selected="false" aria-controls="observer-panel" tabindex="-1">ロジアナ</button></div>
   <div id="program-panel" role="tabpanel" aria-labelledby="program-tab">
   <section class="editor-section" aria-label="プログラム編集">
-    <div class="bar project-bar"><label for="example">サンプルプロジェクト</label><select id="example"><option value="send">赤外線を1回送信</option><option value="button_send">ボタンで赤外線送信</option><option value="bootsel">BOOTSELで38 kHzを送信</option><option value="fan">BOOTSELで扇風機を回す</option><option value="receive">受信してビット・整数に変換</option><option value="infrared_raw">赤外線の受信・解読（基本）</option><option value="infrared_send">赤外線の送信（基本）</option><option value="infrared_send_jp">赤外線の送信（日本語名）</option><option value="infrared_jp">赤外線の受信・解読（日本語名）</option><option value="receive_custom">受信の判定を自分で書く</option><option value="binary">2進数・配列の練習</option><option value="blink">LED点滅</option><option value="button">ボタンでLED</option><option value="pixels">ピクセルで斜線を描く</option><option value="console">コンソールで入出力</option><option value="modules">自作モジュールをimport</option><option value="peripherals">画面・音・DIPスイッチ</option></select><button id="example-load" class="secondary">読み込む</button><span id="project-name">無題</span><button id="project-new" class="secondary">新規</button><button id="project-save-as" class="secondary">名前を付けて保存</button><button id="project-save" class="secondary">プロジェクトを保存</button><button id="project-load" class="secondary">開く</button><input id="project-file" type="file" accept=".json,application/json" hidden></div>
+    <div class="bar project-bar"><label for="example">サンプルプロジェクト</label><select id="example"><optgroup label="基本：main.pyだけで試す"><option value="basic_console">変数の値を表示</option><option value="basic_bits">ビット配列を数値にする</option><option value="basic_button">BOOTSELの値を読む</option><option value="basic_carrier">38 kHzをON・OFF</option><option value="basic_pwm">BOOTSELで扇風機の強さを変える</option><option value="basic_level">受信ピンの値を読む</option><option value="basic_times">受信を時間配列にする</option><option value="basic_decode">時間配列を解読する</option><option value="basic_send">ビット配列を送信する</option><option value="basic_receive">受信して解読する</option></optgroup><optgroup label="日本語名"><option value="infrared_send_jp">赤外線の送信（日本語名）</option><option value="infrared_jp">赤外線の受信・解読（日本語名）</option></optgroup><optgroup label="関数・ライブラリで整理"><option value="organized_send">ビット配列を送信する（関数に分ける）</option><option value="organized_receive">受信して解読する（関数に分ける）</option><option value="send">赤外線を1回送信（部品ライブラリ）</option><option value="button_send">ボタンで赤外線送信（部品ライブラリ）</option><option value="bootsel">BOOTSELで38 kHzを送信（部品ライブラリ）</option><option value="fan">BOOTSELで扇風機を回す（部品ライブラリ）</option><option value="receive">受信してビット・整数に変換（部品ライブラリ）</option><option value="receive_custom">受信の判定を自分で書く</option><option value="binary">2進数・配列の練習</option><option value="modules">自作モジュールをimport</option></optgroup><optgroup label="追加で試す"><option value="blink">LED点滅</option><option value="button">ボタンでLED</option><option value="pixels">ピクセルで斜線を描く</option><option value="console">コンソールで入出力</option><option value="peripherals">画面・音・DIPスイッチ</option></optgroup></select><button id="example-load" class="secondary">読み込む</button><button id="project-new" class="secondary">新規</button><button id="project-save-as" class="secondary">名前を付けて保存</button><button id="project-save" class="secondary">プロジェクトを保存</button><button id="project-load" class="secondary">開く</button><input id="project-file" type="file" accept=".json,application/json" hidden></div>
+    <div id="project-tabs" class="project-tabs" role="tablist" aria-label="開いているプロジェクト"></div>
     <details class="card parts-settings"><summary>部品設定</summary>
+      <p id="parts-empty" hidden>部品は未設定です</p>
       <table><thead><tr><th>名前</th><th>部品</th><th>接続（GP）</th><th>設定</th><th></th></tr></thead><tbody id="parts-rows"></tbody></table>
-      <div class="bar"><select id="new-part-kind" aria-label="追加する部品"><option value="led">LED</option><option value="button">ボタン</option><option value="infrared">赤外線送信</option><option value="receiver">赤外線受信</option><option value="ssd1306">SSD1306（I²C）</option><option value="speaker">圧電スピーカー</option><option value="pwm">PWM出力</option><option value="dip">8連DIPスイッチ</option></select><button id="part-add" class="secondary">部品を追加</button><button id="parts-apply">設定を反映</button></div>
-      <p class="hint">ボタンは押すと3.3V。DIPスイッチはONでGND。SSD1306の文字表示は英数字。モーターはGPIOに直接つながず、ドライバを使用。</p>
+      <div class="bar"><select id="new-part-kind" aria-label="追加する部品"><option value="receiver">赤外線受信</option><option value="infrared">赤外線送信</option><option value="button">ボタン</option><option value="pwm">PWM出力</option><option value="speaker">圧電スピーカー</option><option value="dip">8連DIPスイッチ</option><option value="led">LED</option><option value="ssd1306">SSD1306（I²C）</option></select><button id="part-add" class="secondary">部品を追加</button><button id="parts-apply">設定を反映</button></div>
     </details>
     <section class="program-workspace" aria-label="ブロックとコードの編集・実行">
       <div class="workspace-toolbar" role="toolbar" aria-label="プログラムの実行">

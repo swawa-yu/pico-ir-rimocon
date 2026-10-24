@@ -361,3 +361,38 @@ test('imports required by a new wait block appear in main as connected import bl
   assert.equal(api.generate(ws),'import time\ntime.sleep(0.01)\n');
  }finally{ws.dispose();}
 });
+
+test('foundation programs are editable main-only code and organized transmission preserves PWM and timings',()=>{
+ const samples=require('../studio-samples.js');
+ for(const name of ['console','bits','button','carrier','pwm','level','times','decode','send','receive']){
+  const sample=samples.basic(name);assert.deepEqual(Object.keys(sample.files),['main.py']);assert.doesNotMatch(sample.files['main.py'],/from (parts|pico_parts|ir_data) import/);
+  const ws=new B.Workspace();try{B.serialization.workspaces.load(fromSource(sample.files['main.py'],[]),ws);const code=api.generate(ws);const result=spawnSync('python3',['-c',`compile(${JSON.stringify(code)}, 'main.py', 'exec')`],{encoding:'utf8',timeout:5000});assert.equal(result.status,0,result.stderr);}finally{ws.dispose();}
+ }
+ const organized=samples.organized('send').files,receiver=samples.organized('receive').files;
+ const py=`import sys, types, time
+machine = types.ModuleType('machine')
+sys.modules['machine'] = machine
+records = []
+class Output:
+    def __init__(self, pin, **settings): records.append(('open', pin, settings))
+    def duty_u16(self, n): records.append(('duty', n))
+    def deinit(self): records.append(('close',))
+machine.Pin = lambda *args: args[0]
+machine.Pin.IN = 0
+machine.PWM = Output
+time.sleep_us = lambda n: records.append(('wait', n))
+time.ticks_us = lambda: 0
+time.ticks_diff = lambda a,b: a-b
+exec(${JSON.stringify(samples.basic('send').files['main.py'])}, {})
+expected = records[:]
+records.clear()
+module = types.ModuleType('ir_signal')
+sys.modules['ir_signal'] = module
+exec(${JSON.stringify(organized['ir_signal.py'])}, module.__dict__)
+exec(${JSON.stringify(organized['main.py'])}, {})
+assert records == expected
+exec(${JSON.stringify(receiver['ir_signal.py'])}, module.__dict__)
+assert module.decode([9000,4500,560,1680,560,560,560]) == ([1,0],1)
+`;
+ const result=spawnSync('python3',['-c',py],{encoding:'utf8',timeout:5000});assert.equal(result.status,0,result.stderr);
+});
