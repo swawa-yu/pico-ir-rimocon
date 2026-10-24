@@ -101,6 +101,7 @@ export function nativeStatement(node,source,parts,parseBody){
       const id=part?.id;
     if(part){
       const fields={PART:id};
+      if(part.kind==='ssd1306'&&action==='text'&&[1,2].includes(arguments_.length))return values('pico_display_text',['TEXT','LINE'],[converted[0],converted[1]||number(1)],fields);
       if(part.kind==='pwm'&&action==='set'&&arguments_.length===1)return values('pico_pwm',['PERCENT'],converted,fields);
       if(part.kind==='infrared'&&action==='send_times'&&arguments_.length===1)return values('pico_send_times',['TIMES'],converted,fields);
       if(part.kind==='rgb'&&action==='set'&&arguments_.length===3)return values('pico_rgb',['RED','GREEN','BLUE'],converted,fields);

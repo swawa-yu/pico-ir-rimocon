@@ -321,6 +321,13 @@
   const print=(label,input)=>({type:'text_print',inputs:{TEXT:{block:{type:'text_join',extraState:{itemCount:2},inputs:{ADD0:{shadow:{type:'text',fields:{TEXT:label}}},ADD1:input}}}}});
   const convert=(type,input,extra={})=>({block:{type,inputs:{VALUE:input,...extra}}});
   const examples={
+    display:()=>root(stack(
+      {type:'pico_led',fields:{PART:'display_power',ON:'1'}},
+      wait(.1),
+      {type:'pico_display_text',fields:{PART:'screen'},inputs:{LINE:number(1),TEXT:{shadow:{type:'text',fields:{TEXT:'Hello, Pico!'}}}}},
+      {type:'text_print',inputs:{TEXT:{shadow:{type:'text',fields:{TEXT:'SSD1306 ready'}}}}},
+      {type:'pico_forever',inputs:{DO:{block:wait(1)}}}
+    )),
     binary:()=>root(stack(
       assign('bits',convert('pico_int_bits',number(65),{WIDTH:number(8)})),
       print('ビット配列: ',variable('bits')),
@@ -362,6 +369,10 @@
     bootsel:()=>root({type:'pico_forever',inputs:{DO:{block:stack({type:'controls_if',extraState:{hasElse:true},inputs:{IF0:{block:{type:'pico_bootsel'}},DO0:{block:{type:'pico_carrier',fields:{PART:'infrared',ON:'1'}}},ELSE:{block:{type:'pico_carrier',fields:{PART:'infrared',ON:'0'}}}}},wait(.01))}}}),
     button_send:()=>root({type:'pico_forever',inputs:{DO:{block:stack({type:'controls_if',inputs:{IF0:button(),DO0:{block:stack(led(1),send(),{type:'controls_whileUntil',fields:{MODE:'WHILE'},inputs:{BOOL:button(),DO:{block:wait(.01)}}},led(0))}}},wait(.01))}}})
   };
+  const displayParts=()=>[
+    {id:'display_power',name:'画面の電源',variable:'画面の電源',kind:'led',pin:2},
+    {id:'screen',name:'画面',variable:'画面',kind:'ssd1306',sda:4,scl:3,width:128,height:64,address:60}
+  ];
   const peripheralParts=()=>[
     {id:'screen',name:'画面',kind:'ssd1306',sda:16,scl:17,width:128,height:64,address:60},
     {id:'speaker',name:'スピーカー',kind:'speaker',pin:18},
@@ -384,7 +395,7 @@
     }
     throw Error('波形のプレビューには、数値または計算式を指定してください。変数を使うプログラムは実機で実行できます。');
   }
-  const api={configure,generateProject,defaults,validateParts,validateWorkspace,migrate,migrateSpeaker,examples,signalForByte,previewValue,pinsFor,peripheralParts,variableFor};
+  const api={configure,generateProject,defaults,validateParts,validateWorkspace,migrate,migrateSpeaker,examples,signalForByte,previewValue,pinsFor,peripheralParts,displayParts,variableFor};
   if(typeof module!=='undefined')module.exports=api;
   if(typeof window!=='undefined')window.PicoBlocks=api;
 })();

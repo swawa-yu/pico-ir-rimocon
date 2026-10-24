@@ -469,6 +469,31 @@ test('renaming a part updates its blocks and Python while preserving older refer
  }finally{restored?.close();s.close();}
 });
 
+test('the display sample uses GP2 power before SoftI2C on GP3 and GP4 and opens as editable display blocks',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.$('example').value='display';s.$('example-load').click();
+  const saved=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
+  const power=saved.parts.find(p=>p.kind==='led'),screen=saved.parts.find(p=>p.kind==='ssd1306');
+  assert.deepEqual([power.pin,screen.scl,screen.sda],[2,3,4]);
+  assert.match(saved.files['main.py'],/画面の電源\.on\(\)[\s\S]*time.sleep\(0.1\)[\s\S]*画面.text\('Hello, Pico!', 1\)/);
+  assert(saved.files['lib/ssd1306.py']);
+  assert(s.workspaces.at(-1).getAllBlocks(false).some(block=>block.type==='pico_display_text'));
+  assert.equal(s.$('program-state').hidden,true);
+  assert.equal(s.$('display-preview'),null);
+ }finally{s.close();}
+});
+
+test('a new display defaults to SDA4 and SCL3 without changing existing parts',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.$('new-part-kind').value='ssd1306';s.$('part-add').click();
+  const row=s.$('parts-rows').querySelector('[data-kind=ssd1306]');
+  assert.equal(row.querySelector('[data-field=sda]').value,'4');
+  assert.equal(row.querySelector('[data-field=scl]').value,'3');
+ }finally{s.close();}
+});
+
 test('three work tabs switch panels and keyboard focus while retaining independent Pico assignments and USB ports',()=>{
  const s=studio(async()=>JSON.stringify({changed:0}));
  try{

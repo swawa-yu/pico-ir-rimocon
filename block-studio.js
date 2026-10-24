@@ -65,52 +65,6 @@
   let dirty=false,codeValid=false,connecting=false,deviceState='disconnected',selectedId=null,refreshTimer;
 
   const notify=text=>{$('studio-status').textContent=text||'';};
-  const displaySurfaces=new Map(),displayValues={};let displayConfig='';
-  function displaySurface(){
-    const screen=parts.find(p=>p.id===$('display-device').value&&p.kind==='ssd1306');if(!screen)return null;
-    let surface=displaySurfaces.get(screen.id);
-    if(!surface||surface.width!==screen.width||surface.height!==screen.height){surface=new DisplayPreview.Surface(screen.width,screen.height,PicoFont8x8);displaySurfaces.set(screen.id,surface);}
-    return surface;
-  }
-  function paintDisplay(){
-    const screen=parts.find(p=>p.id===$('display-device').value&&p.kind==='ssd1306');if(!screen)return;
-    const surface=displaySurface(),canvas=$('display-canvas');canvas.width=screen.width;canvas.height=screen.height;
-    const context=canvas.getContext('2d');context.fillStyle='#080e13';context.fillRect(0,0,canvas.width,canvas.height);context.fillStyle='#d5faff';
-    surface.visible.forEach((value,i)=>{if(value)context.fillRect(i%screen.width,Math.floor(i/screen.width),1,1);});
-    const count=surface.visible.reduce((a,b)=>a+b,0);
-    canvas.setAttribute('aria-label',`${screen.name} ${screen.width}×${screen.height}：${count}ピクセル点灯`);
-    $('display-status').textContent=surface.dirty?'未反映':'';
-  }
-  function renderDisplay(){
-    const screens=parts.filter(p=>p.kind==='ssd1306');$('display-preview').hidden=!screens.length;
-    const config=JSON.stringify(parts.filter(p=>['ssd1306','dip'].includes(p.kind)));
-    if(config!==displayConfig){
-      displayConfig=config;const current=$('display-device').value;$('display-device').replaceChildren();
-      for(const p of screens){const option=document.createElement('option');option.value=p.id;option.textContent=`${p.name} · ${p.width}×${p.height}`;$('display-device').append(option);}
-      if(screens.some(p=>p.id===current))$('display-device').value=current;
-      $('display-inputs').replaceChildren();
-      for(const p of parts.filter(p=>p.kind==='dip')){
-        const label=document.createElement('label');label.textContent=p.name+'（0〜255）';
-        const input=document.createElement('input');input.type='number';input.min=0;input.max=255;input.step=1;input.value=displayValues[p.id]??0;
-        input.setAttribute('aria-label',p.name+' の模擬値');
-        input.addEventListener('input',()=>{displayValues[p.id]=input.value===''?NaN:Number(input.value);});
-        label.append(input);$('display-inputs').append(label);
-      }
-      paintDisplay();
-    }
-    $('display-apply').disabled=partsDirty||!codeValid;
-  }
-  $('display-device').addEventListener('change',()=>{paintDisplay();$('display-status').textContent='';});
-  $('display-reset').addEventListener('click',()=>{displaySurface()?.apply({clear:true});paintDisplay();});
-  $('display-show').addEventListener('click',()=>{displaySurface()?.show();paintDisplay();});
-  $('display-apply').addEventListener('click',()=>{
-    try{
-      const id=$('display-device').value,surface=displaySurface();
-      surface.apply(DisplayPreview.command(workspace,selectedId,parts,id,displayValues,surface));
-      paintDisplay();
-      if(Object.hasOwn(fileStore.edits,'main.py'))$('display-status').textContent+=' ブロックを表示しました。手書きのPythonは反映しません。';
-    }catch(error){$('display-status').textContent=error.message;}
-  });
   function deviceOutput(id,text,error=false){
     const item=PicoDevices.devices?.find(item=>item.id===id);
     if(item?.task==='observer'||id===device.id&&device.task==='observer')return;
@@ -394,7 +348,8 @@
     if(debugSession?.started&&!device.running&&!device.busy&&!deploying)endDebug();
     const current=PicoDevices.entry(activeRole),link=current.link;
     if(picoSnapshot&&(picoSnapshot.id!==device.id||picoSnapshot.port!==device.port))clearPicoFiles();
-    $('program-state').textContent=browsing?'ファイルを取得中…':deploying?'書き込み中…':connecting?'USB接続中…':({disconnected:'USB未接続',connected:'USB接続済み',uploading:'書き込み中…',running:current.task==='observer'?'受信中':'実行中',stopping:'停止中…','close-error':'USB切断未完了'}[current.state]||current.state);
+    $('program-state').textContent=browsing?'ファイルを取得中…':deploying?'書き込み中…':connecting?'USB接続中…':({disconnected:'',connected:'',uploading:'書き込み中…',running:current.task==='observer'?'受信中':'実行中',stopping:'停止中…','close-error':'USB切断未完了'}[current.state]??current.state);
+    $('program-state').hidden=!$('program-state').textContent;
     $('program-device').disabled=browsing||deploying||connecting||link.busy||Boolean(debugSession||debugStarting);
     $('program-device').setAttribute('aria-label',activeRole==='program'?'このプロジェクトで使うPico':'ロジアナで使うPico');
     $('program-connect').disabled=browsing||deploying||connecting||Boolean(link.port);
@@ -434,7 +389,7 @@
       if(!Object.keys(files).some(path=>path===treeSelection||path.startsWith(treeSelection+'/')))treeSelection=activeFile;
       editor.setFile(activeFile,files[activeFile]);renderFiles();renderFileBlocks();renderPicoFiles();saveProject();notify();
     }catch(error){codeValid=false;notify(error.message);}
-    highlightBlock();renderDisplay();updateDevice();
+    highlightBlock();updateDevice();
   }
   function project(){commitFileBlocks();return {format:'pico-blocks-5',name:projectName,pico:device.id,parts,files:{...files},workspace:Blockly.serialization.workspaces.save(workspace),fileWorkspaces:{...fileModels}};}
   function loadWorkspace(state,ask=true,nextParts=parts,nextEdits=fileStore.edits,nextModels=fileModels,projectFiles=null,nextName=projectName){
@@ -473,6 +428,8 @@
     }else if(name.startsWith('organized_')){const sample=StudioSamples.organized(name.slice(10));nextParts=sample.parts;edits=sample.files;state={blocks:{languageVersion:0,blocks:[]}};
     }else if(['infrared_raw','infrared_jp','infrared_send','infrared_send_jp'].includes(name)){
       const sample=StudioSamples.infrared(name.endsWith('_jp'),name.includes('_send')?'send':'receive');nextParts=sample.parts;edits=sample.files;state={blocks:{languageVersion:0,blocks:[]}};
+    }else if(name==='display'){
+      nextParts=PicoBlocks.displayParts();state=PicoBlocks.examples.display();
     }else if(['receive','receive_custom'].includes(name)){
       nextParts=[{id:'receiver',name:'赤外線受信',kind:'receiver',pin:15}];state=PicoBlocks.examples.receive();
       if(name==='receive_custom'){
@@ -642,7 +599,7 @@
       for(const item of [name,names[part.kind],connection,settings,remove]){const cell=document.createElement('td');if(typeof item==='string')cell.textContent=item;else cell.append(item);row.append(cell);}body.append(row);
     }
   }
-  function markPartsDirty(){partsDirty=true;dirty=true;$('parts-empty').hidden=$('parts-rows').childElementCount>0;$('parts-rows').closest('table').hidden=$('parts-rows').childElementCount===0;renderDisplay();updateDevice();}
+  function markPartsDirty(){partsDirty=true;dirty=true;$('parts-empty').hidden=$('parts-rows').childElementCount>0;$('parts-rows').closest('table').hidden=$('parts-rows').childElementCount===0;updateDevice();}
   $('parts-rows').addEventListener('input',markPartsDirty);
   $('parts-rows').addEventListener('change',markPartsDirty);
   function draftParts(){return Array.from($('parts-rows').children,row=>{
@@ -671,7 +628,7 @@
     let n=1;while(draft.some(p=>p.id===`${kind}_${n}`)||parts.some(p=>p.id===`${kind}_${n}`))n++;
     const names={led:'デジタル出力',button:'デジタル入力',infrared:'赤外線LED',speaker:'スピーカー',ssd1306:'画面',dip:'DIPスイッチ',pwm:'PWM出力',receiver:'赤外線センサー',rgb:'フルカラーLED'};
     const part={id:`${kind}_${n}`,name:`${names[kind]}${n}`,variable:`${names[kind]}${n}`,kind};
-    if(kind==='ssd1306')Object.assign(part,{sda:free[0],scl:free[1],width:128,height:64,address:60});
+    if(kind==='ssd1306')Object.assign(part,{sda:used.includes(3)||used.includes(4)?free[0]:4,scl:used.includes(3)||used.includes(4)?free[1]:3,width:128,height:64,address:60});
     else if(kind==='rgb')Object.assign(part,{red:free[0],green:free[1],blue:free[2],common_anode:false,frequency:1000});
     else if(kind==='dip')part.pins=free.slice(0,8);
     else{part.pin=free[0];if(kind==='infrared')part.unit=560;if(kind==='pwm')part.frequency=1000;}

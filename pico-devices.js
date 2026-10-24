@@ -46,7 +46,7 @@
     }
     bindSelect(element,role){
       const current=()=>typeof role==='function'?role():role;
-      const render=()=>{element.replaceChildren();for(const item of this.devices){const option=document.createElement('option');option.value=item.id;option.textContent=`Pico ${item.id}${item.link.port?' · 接続済み':''}`;element.append(option);}element.value=this.roles[current()];};
+      const render=()=>{element.replaceChildren();for(const item of this.devices){const option=document.createElement('option');option.value=item.id;option.textContent=`Pico ${item.id} · ${item.link.port?'接続済み':'未接続'}`;element.append(option);}element.value=this.roles[current()];};
       this.listeners.add(render);element.addEventListener('change',()=>{try{this.select(current(),element.value);}catch(error){render();element.dispatchEvent(new CustomEvent('device-error',{detail:error.message}));}});render();
     }
   }

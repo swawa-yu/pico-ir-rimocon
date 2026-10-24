@@ -42,6 +42,8 @@ test('the shared selector follows the active tab while keeping each role assignm
   try{
     const pool=new Connections(REPL),select=document.querySelector('select');let role='program';
     pool.bindSelect(select,()=>role);pool.select('program','2');assert.equal(select.value,'2');
+    assert.equal(select.options[1].textContent,'Pico 2 · 未接続');
+    pool.devices[1].link.port={};pool.changed();assert.equal(select.options[1].textContent,'Pico 2 · 接続済み');
     role='observer';pool.changed();assert.equal(select.value,'1');
     select.value='2';select.dispatchEvent(new dom.window.Event('change'));assert.equal(pool.roles.observer,'2');
     role='program';pool.changed();select.value='1';select.dispatchEvent(new dom.window.Event('change'));

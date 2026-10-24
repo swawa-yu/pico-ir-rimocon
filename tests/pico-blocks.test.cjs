@@ -31,7 +31,7 @@ test('part variable names match block labels and generated imports while aliases
 const runtime=require('node:fs').readFileSync(require('node:path').join(__dirname,'../programs/pico_parts.py'),'utf8');
 function generate(w){return P.generateProject(B,g,w,parts,runtime,require('../pico-sources.js').ssd1306,null,require('../pico-sources.js'));}
 function combined(w){const f=generate(w);return `import types,sys\n_driver=types.ModuleType('pico_parts')\nsys.modules['pico_parts']=_driver\nexec(${JSON.stringify(f['lib/pico_parts.py'])},_driver.__dict__)\n_parts=types.ModuleType('parts')\nsys.modules['parts']=_parts\nexec(${JSON.stringify(f['parts.py'])},_parts.__dict__)\ntry:\n exec(${JSON.stringify(f['main.py'])})\nfinally:\n _driver.close()\n`;} 
-function workspace(example){parts=example==='receive'?[...P.defaults(),{id:'receiver',name:'赤外線受信',kind:'receiver',pin:15}]:example==='peripherals'?P.peripheralParts():example==='pixels'?P.peripheralParts().filter(p=>p.kind==='ssd1306'):example==='fan'?[...P.defaults(),{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:25000}]:P.defaults();const w=new B.Workspace();B.serialization.workspaces.load(P.examples[example](),w);return w;}
+function workspace(example){parts=example==='display'?P.displayParts():example==='receive'?[...P.defaults(),{id:'receiver',name:'赤外線受信',kind:'receiver',pin:15}]:example==='peripherals'?P.peripheralParts():example==='pixels'?P.peripheralParts().filter(p=>p.kind==='ssd1306'):example==='fan'?[...P.defaults(),{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:25000}]:P.defaults();const w=new B.Workspace();B.serialization.workspaces.load(P.examples[example](),w);return w;}
 function python(script,source){const result=spawnSync('python3',['-c',script],{input:source,encoding:'utf8'});assert.equal(result.status,0,JSON.stringify({stderr:result.stderr,stdout:result.stdout,signal:result.signal,error:String(result.error)}));return result.stdout;}
 
 test('all examples generate valid Python and survive block save/load',()=>{
@@ -275,7 +275,7 @@ test('source mapping preserves generated Python and associates selected blocks w
       const range=map.get(block.id);assert(range.from>0&&range.to>=range.from&&range.to<=lines.length);
       if(block.type==='pico_speaker_on')assert(lines.slice(range.from-1,range.to).some(line=>line.includes('speaker.on(')));
       if(block.type==='pico_speaker_on')assert.equal(range.from,range.to);
-      if(block.type==='pico_display_text')assert(lines.slice(range.from-1,range.to).some(line=>line.includes('screen.text(')));
+      if(block.type==='pico_display_text')assert(lines.slice(range.from-1,range.to).some(line=>line.includes(P.variableFor(parts.find(p=>p.id===block.getFieldValue('PART')))+'.text(')));
     }
     w.dispose();
   }

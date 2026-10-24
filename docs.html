@@ -105,7 +105,7 @@ Pico GND  ── ドライバGND ── 電源GND
       <tr><td>圧電スピーカー</td><td>部品設定でPWMを出すGPIOを指定します。周波数で音程を変え、ONとOFFで発音を制御します。</td></tr>
       <tr><td>ミニ扇風機</td><td>MOSFETまたはモータードライバを介して制御します。モーターの電源は仕様に合わせ、PicoとGNDを共通化します。サンプルはGP20、25kHzを使います。</td></tr>
       <tr><td>8連DIPスイッチ</td><td>各スイッチをGPIOとGNDの間へ接続します。内部プルアップを使い、ONでLOWになります。</td></tr>
-      <tr><td>SSD1306（I²C）</td><td>SDAとSCLを部品設定で指定します。3.3Vで使用でき、信号のプルアップ先も3.3Vのモジュールを使います。文字表示は英数字です。</td></tr>
+      <tr><td>SSD1306（I²C）</td><td>文字表示サンプルはVDD→GP2、SCL→GP3、SDA→GP4です。GPIOから給電できるかはモジュールの消費電流に依存します。3.3Vで使用でき、信号のプルアップ先も3.3Vのモジュールを使います。文字表示は英数字です。</td></tr>
     </tbody></table></div>
     <p>同じGPIOを複数の部品へ割り当てないようにします。
     PWM回路を共有するピンでは周波数にも制約があり、部品設定を反映するときに確認します。</p>
@@ -131,7 +131,6 @@ Pico GND  ── ドライバGND ── 電源GND
     <ul>
       <li><a href="https://docs.blockly.com/">Blockly</a>：ブロック編集。<a href="vendor/blockly/LICENSE">Apache-2.0ライセンス</a>。</li>
       <li><a href="https://codemirror.net/">CodeMirrorとLezer</a>：テキスト編集とPythonの構文解析。<a href="vendor/codemirror/LICENSES.txt">MITライセンス一覧</a>。</li>
-      <li>PETME128フォント：SSD1306のブラウザプレビューで使用。<a href="vendor/petme128.js">MITライセンスを含むソース</a>。</li>
       <li>SSD1306ドライバ：<a href="programs/SSD1306-LICENSE.txt">MITライセンス</a>。</li>
       <li><a href="https://github.com/piersfinlayson/picoflash">picoflash</a>：ファームウェア書き込みのWebUSB通信。<a href="vendor/picoflash/LICENSE">MITライセンス</a>・<a href="vendor/picoflash/SOURCE.txt">取得元</a>。</li>
       <li>MicroPython v1.29.0：公式UF2を変更せずに配信し、機種の選択後に自動で読み込みます。<a href="firmware/SOURCE.txt">配布元と照合値</a>・<a href="firmware/LICENSES.txt">ライセンスと著作権表示</a>。</li>
