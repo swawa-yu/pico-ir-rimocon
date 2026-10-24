@@ -93,7 +93,14 @@ finally:
     const binary = '信号 = [\n    0, 1, 0, 0, 0, 0, 0, 1,\n    0, 0, 1, 0, 1, 0, 1, 0,\n]\n';
     const sender = [{id:'infrared',name:'赤外線LED',kind:'infrared',pin:16,unit:560}];
     const receiver = [{id:'receiver',name:'赤外線受信',kind:'receiver',pin:15}];
+    const receiveBits = 'from parts import receiver\nimport ir_data\n\nwhile True:\n    時間 = receiver.receive(1000)\n    if 時間:\n        信号 = ir_data.durations_to_bits(時間, 0, 2)\n        print(信号)\n';
     const examples = {
+      one_bit: {parts:sender,code:'from parts import infrared\n\ninfrared.send_times([560, 1680, 560])\n'},
+      byte: {parts:sender,code:'from parts import infrared\n\n信号 = [0, 1, 0, 0, 0, 0, 0, 1]\ninfrared.send_bits(信号, leader=False)\n'},
+      long: {parts:sender,code:'from parts import infrared\n\n信号 = [\n    0, 1, 0, 0, 0, 0, 0, 1,\n    0, 0, 1, 0, 1, 0, 1, 0,\n    1, 1, 1, 1, 0, 0, 0, 0,\n    0, 0, 0, 0, 1, 1, 1, 1,\n]\ninfrared.send_bits(信号, leader=False)\n'},
+      receive_one: {parts:receiver,code:'from parts import receiver\n\nwhile True:\n    時間 = receiver.receive(1000)\n    if 時間:\n        print(時間)\n'},
+      receive_byte: {parts:receiver,code:receiveBits},
+      receive_long: {parts:receiver,code:receiveBits+'        print(len(信号))\n'},
       continuous: {parts:sender,code:'from parts import infrared\nimport rp2\n\nwhile True:\n    if rp2.bootsel_button():\n        infrared.send_times([560, 1680])\n    else:\n        infrared.send_times([560, 560])\n'},
       times: {parts:sender,code:'from parts import infrared\n\n時間 = [560, 560, 560, 1680, 560]\ninfrared.send_times(時間)\n'},
       button_times: {parts:sender,code:'from parts import infrared\nimport rp2\nimport time\n\n時間 = [560, 560, 560, 1680, 560]\nwhile True:\n    if rp2.bootsel_button():\n        infrared.send_times(時間)\n    time.sleep(0.1)\n'},

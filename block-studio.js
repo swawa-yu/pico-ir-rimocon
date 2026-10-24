@@ -46,7 +46,7 @@
       {kind:'block',type:'pico_receive',inputs:{TIMEOUT:number(1000)}},{kind:'block',type:'pico_ir_level'},
       {kind:'block',type:'pico_carrier',fields:{ON:'1'}},{kind:'block',type:'pico_carrier',fields:{ON:'0'}},
       {kind:'sep'},{kind:'label',text:'0・1の配列'},
-      {kind:'block',type:'pico_send_bits'},{kind:'block',type:'pico_receive_bits',inputs:{TIMEOUT:number(1000)}},
+      {kind:'block',type:'pico_send_bits',fields:{LEADER:'0'}},{kind:'block',type:'pico_receive_bits',inputs:{TIMEOUT:number(1000)}},
       {kind:'sep'},{kind:'label',text:'数値（8ビット）'},
       {kind:'block',type:'pico_send',fields:{PART:'infrared'},inputs:{VALUE:number(65)}}]},
     {kind:'category',name:'2進数・文字',colour:260,contents:[{kind:'block',type:'pico_decode_bits',inputs:{SKIP:number(2),THRESHOLD:number(2)}},{kind:'block',type:'text_join'},{kind:'block',type:'text_length'},{kind:'block',type:'text_getSubstring'},{kind:'block',type:'pico_to_text',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_to_int',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'65'}}}}},{kind:'block',type:'pico_to_float',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'3.5'}}}}},{kind:'block',type:'pico_parse_int',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'01000001'}}},BASE:number(2)}},{kind:'block',type:'pico_base_text',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_bits_text'},{kind:'block',type:'pico_text_bits',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'01000001'}}}}},{kind:'block',type:'pico_bits_int'},{kind:'block',type:'pico_int_bits',inputs:{VALUE:number(65),WIDTH:number(8)}},{kind:'block',type:'pico_bitwise',inputs:{A:number(65),B:number(1)}},{kind:'block',type:'pico_char',inputs:{VALUE:number(65)}},{kind:'block',type:'pico_ord',inputs:{VALUE:{shadow:{type:'text',fields:{TEXT:'A'}}}}}]},
@@ -717,8 +717,20 @@
   try {
     const tabs=JSON.parse(localStorage.getItem('pico-studio-tabs-1')||'null');
     if(tabs&&Array.isArray(tabs.projects)&&tabs.projects.length&&Number.isInteger(tabs.active)&&tabs.projects[tabs.active]?.data){lastClosedProject=tabs.closed||null;openedProjects=tabs.projects.map(entry=>Object.hasOwn(entry,'savedSignature')?entry:{...entry,savedSignature:null,dirty:true});activeProject=tabs.active;restoreProject(openedProjects[activeProject].data,false);dirty=Boolean(openedProjects[activeProject].dirty);openFile(Object.hasOwn(files,openedProjects[activeProject].file)?openedProjects[activeProject].file:'main.py');}
-    else{const saved=localStorage.getItem('pico-blocks-project-2'),legacy=localStorage.getItem('pico-blocks-workspace-1');if(saved||legacy)restoreProject(saved?JSON.parse(saved):PicoBlocks.migrate(JSON.parse(legacy)),false);else{loadSample('beginner_continuous',false);dirty=true;}}
-  }catch(error){openedProjects=[];activeProject=0;loadSample('beginner_continuous',false);notify('保存されていた内容を読み込めませんでした。保存ファイルから開いてください。');}
+    else{const saved=localStorage.getItem('pico-blocks-project-2'),legacy=localStorage.getItem('pico-blocks-workspace-1');if(saved||legacy)restoreProject(saved?JSON.parse(saved):PicoBlocks.migrate(JSON.parse(legacy)),false);else{loadSample('beginner_continuous',false);projectName='無題';dirty=true;}}
+  }catch(error){openedProjects=[];activeProject=0;loadSample('beginner_continuous',false);projectName='無題';notify('保存されていた内容を読み込めませんでした。保存ファイルから開いてください。');}
+  if(projectName==='無題'){
+    const compact=(files['main.py']||'').replace(/\s/g,'');
+    const infrared=parts.find(part=>part.kind==='infrared'&&compact===`frompartsimport${part.id}${part.id}.send(65)`);
+    if(infrared){
+      if(!/def send_times\s*\(/.test(files['lib/pico_parts.py']||'')){
+        let previous='lib/pico_parts_previous.py',number=2;while(Object.hasOwn(files,previous))previous=`lib/pico_parts_previous_${number++}.py`;
+        fileStore.edit(previous,files['lib/pico_parts.py']);fileStore.edit('lib/pico_parts.py',PicoSources.parts);delete fileModels['lib/pico_parts.py'];
+      }
+      fileStore.edit('main.py',StudioSamples.beginner('continuous').files['main.py'].replace(/\binfrared\b/g,infrared.id));
+      delete fileModels['main.py'];fileWorkspacePath=null;fileWorkspaceDirty=false;activeFile='main.py';refresh();dirty=true;
+    }
+  }
   switchingProjects=false;saveProject();
   updateDevice();
   if(['#analyzer','#conversion'].includes(location.hash))showPanel(location.hash.slice(1));

@@ -399,7 +399,7 @@ assert module.decode([9000,4500,560,1680,560,560,560]) == ([1,0],1)
 
 test('beginner samples expose editable binary, receive and send blocks and regenerate changed digits',()=>{
  const samples=require('../studio-samples.js');
- for(const name of ['continuous','times','button_times','receive_times','console','binary','number','send','receive','button_send','carrier','fan','rgb']){
+ for(const name of ['one_bit','byte','long','receive_one','receive_byte','receive_long','continuous','times','button_times','receive_times','console','binary','number','send','receive','button_send','carrier','fan','rgb']){
   const sample=samples.beginner(name),source=sample.files['main.py'],ws=new B.Workspace();testParts=sample.parts;
   B.serialization.workspaces.load(fromSource(source,sample.parts),ws);
   try{
@@ -423,6 +423,7 @@ assert ast.dump(ast.parse(sys.stdin.read())) == ast.dump(ast.parse(${JSON.string
     color.getInputTargetBlock('RED').setFieldValue(25,'NUM');assert.match(api.generate(ws,sample.parts),/color_led\.set\(25, 0, 0\)/);
     assert(ws.getAllBlocks(false).some(b=>b.type==='pico_rgb_off'));
    }
+   if(['byte','long'].includes(name))assert.equal(ws.getAllBlocks(false).find(b=>b.type==='pico_send_bits').getFieldValue('LEADER'),'0');
    if(name==='send')assert(ws.getAllBlocks(false).some(b=>b.type==='pico_send_bits'));
    if(name==='receive')assert(ws.getAllBlocks(false).some(b=>b.type==='pico_receive_bits'));
    const code=api.generate(ws,sample.parts);

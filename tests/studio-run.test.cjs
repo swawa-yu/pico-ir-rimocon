@@ -399,8 +399,8 @@ test('save-and-close saves the targeted inactive project and leaves the other pr
  try{
   const downloaded=[];s.window.URL.createObjectURL=()=> 'blob:project';s.window.URL.revokeObjectURL=()=>{};s.window.HTMLAnchorElement.prototype.click=function(){downloaded.push(this.download);};
   s.$('example').value='basic_send';s.$('example-load').click();s.$('project-tabs').querySelector('.project-close').click();assert(s.$('project-close-dialog').open);
-  s.$('project-save-close').click();assert.deepEqual(downloaded,['BOOTSELで0・1を送り続ける.json']);
-  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects.length,1);assert.equal(tabs.projects[0].data.name,'ビット配列を送信する');assert.equal(tabs.closed.data.name,'BOOTSELで0・1を送り続ける');assert.equal(tabs.closed.dirty,false);
+  s.$('project-save-close').click();assert.deepEqual(downloaded,['無題.json']);
+  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects.length,1);assert.equal(tabs.projects[0].data.name,'ビット配列を送信する');assert.equal(tabs.closed.data.name,'無題');assert.equal(tabs.closed.dirty,false);
  }finally{s.close();}
 });
 
@@ -410,7 +410,7 @@ test('save-and-close waits if the targeted project Pico is busy without replacin
   s.window.PicoDevices.select('program','1');s.$('example').value='basic_send';s.$('example-load').click();s.window.PicoDevices.select('program','2');
   s.$('project-tabs').querySelector('.project-close').click();assert(s.$('project-close-dialog').open);s.links['1'].busy=true;
   s.$('project-save-close').click();assert.equal(s.$('project-tabs').querySelectorAll('[role=tab]').length,2);assert(s.$('project-close-dialog').open);
-  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects[0].data.name,'BOOTSELで0・1を送り続ける');assert.equal(tabs.projects[1].data.name,'ビット配列を送信する');
+  const tabs=JSON.parse(s.window.localStorage.getItem('pico-studio-tabs-1'));assert.equal(tabs.projects[0].data.name,'無題');assert.equal(tabs.projects[1].data.name,'ビット配列を送信する');
  }finally{s.close();}
 });
 
@@ -474,10 +474,48 @@ test('fresh pages start with the continuous BOOTSEL sender and restoring a saved
  const s=studio(async()=>JSON.stringify({changed:0}));let restored;
  try{
   const project=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
-  assert.equal(project.name,'BOOTSELで0・1を送り続ける');assert.equal(project.files['main.py'],s.window.StudioSamples.beginner('continuous').files['main.py']);
+  assert.equal(project.name,'無題');assert.equal(project.files['main.py'],s.window.StudioSamples.beginner('continuous').files['main.py']);
   s.window.editorCallbacks.onChange('main.py','print("my saved program")\n');
   const stored=Object.fromEntries(['pico-studio-tabs-1','pico-blocks-project-2'].map(key=>[key,s.window.localStorage.getItem(key)]));
   restored=studio(async()=>JSON.stringify({changed:0}),stored);
   assert.equal(JSON.parse(restored.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],'print("my saved program")\n');
  }finally{restored?.close();s.close();}
+});
+
+test('only the untouched untitled 65 sender is upgraded on startup, preserving pins, libraries and custom files',()=>{
+ const initial=studio(async()=>JSON.stringify({changed:0}));let cases=[];
+ try{
+  const base=JSON.parse(initial.window.localStorage.getItem('pico-blocks-project-2'));
+  base.name='無題';base.files['main.py']='from parts import infrared\n\ninfrared.send(65)\n';base.fileWorkspaces={};
+  base.parts[0].pin=20;base.files['parts.py']=base.files['parts.py'].replace('Infrared(16,','Infrared(20,');
+  base.files['notes.py']='print("keep")\n';base.files['lib/pico_parts.py']+='\nUSER_MARKER = 1\n';
+  for(const [name,source,upgrades] of [['無題',base.files['main.py'],true],['自作送信',base.files['main.py'],false],['無題',base.files['main.py']+'print("edited")\n',false]]){
+   const data=structuredClone(base);data.name=name;data.files['main.py']=source;
+   const s=studio(async()=>JSON.stringify({changed:0}),{'pico-blocks-project-2':JSON.stringify(data)});cases.push(s);
+   const restored=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
+   assert.equal(restored.parts[0].pin,20);assert.equal(restored.files['notes.py'],base.files['notes.py']);assert.equal(restored.files['lib/pico_parts.py'],base.files['lib/pico_parts.py']);
+   if(upgrades){assert.match(restored.files['main.py'],/bootsel_button/);assert.doesNotMatch(restored.files['main.py'],/send\(65\)/);}
+   else assert.equal(restored.files['main.py'],source);
+  }
+ }finally{for(const s of cases)s.close();initial.close();}
+});
+
+test('legacy untitled starter workspaces also open as continuous BOOTSEL senders',()=>{
+ const data={format:'pico-blocks-2',parts:require('../pico-blocks.js').defaults(),workspace:require('../pico-blocks.js').examples.send()};
+ const s=studio(async()=>JSON.stringify({changed:0}),{'pico-blocks-project-2':JSON.stringify(data)});
+ try{const restored=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));assert.equal(restored.name,'無題');assert.match(restored.files['main.py'],/bootsel_button/);}
+ finally{s.close();}
+});
+
+test('updating the old starter supplies time-array support and preserves an incompatible old runtime as a separate file',()=>{
+ const original=studio(async()=>JSON.stringify({changed:0}));let restored;
+ try{
+  const data=JSON.parse(original.window.localStorage.getItem('pico-blocks-project-2'));
+  data.name='無題';data.files['main.py']='from parts import infrared\ninfrared.send(65)\n';data.fileWorkspaces={};
+  data.files['lib/pico_parts.py']='OLD_RUNTIME_MARKER = 1\n';data.files['lib/pico_parts_previous.py']='USER_FILE = 1\n';
+  restored=studio(async()=>JSON.stringify({changed:0}),{'pico-blocks-project-2':JSON.stringify(data)});
+  const files=JSON.parse(restored.window.localStorage.getItem('pico-blocks-project-2')).files;
+  assert.match(files['main.py'],/bootsel_button/);assert.equal(files['lib/pico_parts.py'],restored.window.PicoSources.parts);
+  assert.equal(files['lib/pico_parts_previous.py'],'USER_FILE = 1\n');assert.equal(files['lib/pico_parts_previous_2.py'],'OLD_RUNTIME_MARKER = 1\n');
+ }finally{restored?.close();original.close();}
 });

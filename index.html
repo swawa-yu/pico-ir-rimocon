@@ -5,33 +5,33 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Pico Studio</title>
   <link rel="stylesheet" href="style.css?v=e50109bd6cca">
-  <link rel="stylesheet" href="block-studio.css?v=fe8aa959fe28">
+  <link rel="stylesheet" href="block-studio.css?v=e9147453001e">
   <link rel="stylesheet" href="live-analyzer.css?v=20711674071d">
   <script src="vendor/blockly/blockly_compressed.js?v=cc761aa447e0" defer></script>
   <script src="vendor/blockly/blocks_compressed.js?v=4f0b3d4079fe" defer></script>
   <script src="vendor/blockly/python_compressed.js?v=7d880e1763a1" defer></script>
   <script src="vendor/blockly/msg/ja.js?v=81647ef6b769" defer></script>
-  <script src="pico-blocks.js?v=bdb9b0dcf54c" defer></script>
+  <script src="pico-blocks.js?v=b47ad0ba6e23" defer></script>
   <script src="display-preview.js?v=58978d24e695" defer></script>
   <script src="vendor/petme128.js?v=12454bca4f13" defer></script>
   <script src="pico-repl.js?v=24fce0bfb042" defer></script>
   <script src="pico-devices.js?v=c1349bf84504" defer></script>
   <script src="pico-project.js?v=2500a4b1d394" defer></script>
-  <script src="vendor/codemirror/editor.js?v=f30099f47e5b" defer></script>
+  <script src="vendor/codemirror/editor.js?v=eef96e6e29df" defer></script>
   <script src="studio-files.js?v=1ae19f45e0dd" defer></script>
-  <script src="pico-sources.js?v=058031a59e9c" defer></script>
+  <script src="pico-sources.js?v=e97abbaa4219" defer></script>
   <script src="live-core.js?v=d47659fb5907" defer></script>
   <script src="live-view.js?v=301b075e40c9" defer></script>
   <script src="live-analyzer.js?v=d30740dcf758" defer></script>
   <script src="signal-conversion.js?v=baf41741ec41" defer></script>
   <script src="signal-converter.js?v=655f9a027ef8" defer></script>
-  <script src="studio-samples.js?v=07fb74a116ed" defer></script>
+  <script src="studio-samples.js?v=dfbba6374033" defer></script>
   <script src="studio-layout.js?v=655fbdfc2fe8" defer></script>
-  <script src="block-studio.js?v=5ae811db10c5" defer></script>
+  <script src="block-studio.js?v=97c4a9944789" defer></script>
 </head>
 <body class="block-studio">
 <main>
-  <header class="studio-header"><h1>Pico Studio</h1>
+  <header class="studio-header"><h1>Pico Studio</h1><a class="docs-link" href="docs.html" target="_blank" rel="noopener">Docs</a>
   <section class="shared-connection" aria-label="USB接続">
     <div class="bar"><select id="program-device" aria-label="このタブで使うPico"></select><span id="program-state" role="status">USB未接続</span><button id="program-connect">USB接続する</button><button id="program-disconnect" class="secondary" disabled>USBを切断する</button></div>
   </section></header>
@@ -84,16 +84,14 @@
   </div>
   <section id="observer-panel" class="analyzer live-analyzer" role="tabpanel" aria-labelledby="analyzer-tab" hidden></section>
   <section id="conversion-panel" class="analyzer live-analyzer" role="tabpanel" aria-labelledby="conversion-tab" hidden></section>
-  <details class="libraries"><summary>ライブラリ</summary>
-    <p class="hint"><a href="https://docs.blockly.com/">Blockly 13.4.0</a> / <a href="vendor/blockly/LICENSE">Apache-2.0</a> · <a href="programs/SSD1306-LICENSE.txt">SSD1306 driver / MIT</a> · <a href="https://codemirror.net/">CodeMirror</a> / <a href="vendor/codemirror/LICENSES.txt">MIT</a></p>
-  </details>
+
 
 </main>
 <section class="output" id="console-panel" aria-labelledby="console-title">
   <div class="console-header"><h2 id="console-title">コンソール</h2><span id="console-state" role="status">USB未接続</span></div>
   <div class="terminal-surface" id="terminal-surface"><pre id="output" role="log" aria-live="polite">—</pre><div class="terminal-line"><span id="console-prompt" aria-hidden="true">&gt;&gt;&gt;</span><textarea id="console-input" rows="1" spellcheck="false" aria-label="コンソール入力" title="Enterで送信・Shift+Enterで改行・Ctrl+Cで停止" disabled></textarea></div></div>
 </section>
-<dialog id="project-add-dialog" aria-labelledby="project-add-title"><form method="dialog"><h2 id="project-add-title">プロジェクトを追加</h2><div class="bar"><button id="project-new" type="button">新規プロジェクト</button><button id="project-load" type="button" class="secondary">ローカルファイルを開く</button><button id="project-reopen" type="button" class="secondary" hidden>閉じたプロジェクトを戻す</button></div><div class="sample-picker"><label for="example">サンプルプロジェクト</label><select id="example"><optgroup label="1. 時間と波形"><option value="beginner_continuous">BOOTSELで0・1を送り続ける</option><option value="beginner_times">時間配列を手打ちして送信する</option><option value="beginner_button_times">BOOTSELで時間配列を送信する</option><option value="beginner_receive_times">受信した時間配列を表示する</option></optgroup><optgroup label="2. 0・1の配列"><option value="beginner_send">0・1の配列を送信する</option><option value="beginner_button_send">BOOTSELで0・1の配列を送信する</option><option value="beginner_receive">受信した0・1の配列を表示する</option></optgroup><optgroup label="3. 変換を試す"><option value="beginner_binary">0・1の配列を文字列にする</option><option value="beginner_number">0・1の配列を数値にする</option></optgroup><optgroup label="入力・出力を試す"><option value="beginner_console">変数の値を表示する</option><option value="beginner_carrier">BOOTSELで38 kHzをON・OFF</option><option value="beginner_fan">BOOTSELで扇風機を回す</option><option value="beginner_rgb">フルカラーLEDの色を変える</option></optgroup><optgroup label="仕組みを読む：main.pyだけで試す"><option value="basic_console">変数の値を表示</option><option value="basic_bits">ビット配列を数値にする</option><option value="basic_button">BOOTSELの値を読む</option><option value="basic_carrier">38 kHzをON・OFF</option><option value="basic_pwm">BOOTSELで扇風機の強さを変える</option><option value="basic_level">受信ピンの値を読む</option><option value="basic_times">受信を時間配列にする</option><option value="basic_decode">時間配列を解読する</option><option value="basic_send">ビット配列を送信する</option><option value="basic_receive">受信して解読する</option></optgroup><optgroup label="仕組みを読む：日本語名"><option value="infrared_send_jp">赤外線の送信（日本語名）</option><option value="infrared_jp">赤外線の受信・解読（日本語名）</option></optgroup><optgroup label="関数・ライブラリで整理する"><option value="organized_send">ビット配列を送信する（関数に分ける）</option><option value="organized_receive">受信して解読する（関数に分ける）</option><option value="send">赤外線を1回送信（部品ライブラリ）</option><option value="button_send">ボタンで赤外線送信（部品ライブラリ）</option><option value="bootsel">BOOTSELで38 kHzを送信（部品ライブラリ）</option><option value="fan">BOOTSELで扇風機を回す（部品ライブラリ）</option><option value="receive">受信してビット・整数に変換（部品ライブラリ）</option><option value="receive_custom">受信の判定を自分で書く</option><option value="binary">2進数・配列の練習</option><option value="modules">自作モジュールをimport</option></optgroup><optgroup label="追加で試す"><option value="blink">LED点滅</option><option value="button">ボタンでLED</option><option value="pixels">ピクセルで斜線を描く</option><option value="console">コンソールで入出力</option><option value="peripherals">画面・音・DIPスイッチ</option></optgroup></select><button id="example-load" type="button" class="secondary">サンプルを開く</button></div><div class="bar"><button value="cancel" class="secondary">キャンセル</button></div></form></dialog>
+<dialog id="project-add-dialog" aria-labelledby="project-add-title"><form method="dialog"><h2 id="project-add-title">プロジェクトを追加</h2><div class="bar"><button id="project-new" type="button">新規プロジェクト</button><button id="project-load" type="button" class="secondary">ローカルファイルを開く</button><button id="project-reopen" type="button" class="secondary" hidden>閉じたプロジェクトを戻す</button></div><div class="sample-picker"><label for="example">サンプルプロジェクト</label><select id="example"><optgroup label="1. 時間と波形"><option value="beginner_continuous">BOOTSELで0・1を送り続ける</option><option value="beginner_one_bit">1ビットを送る（開始信号なし）</option><option value="beginner_receive_one">1ビットの時間配列を受信する</option><option value="beginner_times">時間配列を手打ちして送信する</option><option value="beginner_button_times">BOOTSELで時間配列を送信する</option><option value="beginner_receive_times">受信した時間配列を表示する</option></optgroup><optgroup label="2. 0・1の配列"><option value="beginner_byte">8ビットを送る（開始信号なし）</option><option value="beginner_receive_byte">8ビットを受信して0・1を表示する</option><option value="beginner_long">32ビットを送る（開始信号なし）</option><option value="beginner_receive_long">長い信号を受信してビット数を調べる</option><option value="beginner_send">0・1の配列を送信する</option><option value="beginner_button_send">BOOTSELで0・1の配列を送信する</option><option value="beginner_receive">受信した0・1の配列を表示する</option></optgroup><optgroup label="3. 変換を試す"><option value="beginner_binary">0・1の配列を文字列にする</option><option value="beginner_number">0・1の配列を数値にする</option></optgroup><optgroup label="入力・出力を試す"><option value="beginner_console">変数の値を表示する</option><option value="beginner_carrier">BOOTSELで38 kHzをON・OFF</option><option value="beginner_fan">BOOTSELで扇風機を回す</option><option value="beginner_rgb">フルカラーLEDの色を変える</option></optgroup><optgroup label="仕組みを読む：main.pyだけで試す"><option value="basic_console">変数の値を表示</option><option value="basic_bits">ビット配列を数値にする</option><option value="basic_button">BOOTSELの値を読む</option><option value="basic_carrier">38 kHzをON・OFF</option><option value="basic_pwm">BOOTSELで扇風機の強さを変える</option><option value="basic_level">受信ピンの値を読む</option><option value="basic_times">受信を時間配列にする</option><option value="basic_decode">時間配列を解読する</option><option value="basic_send">ビット配列を送信する</option><option value="basic_receive">受信して解読する</option></optgroup><optgroup label="仕組みを読む：日本語名"><option value="infrared_send_jp">赤外線の送信（日本語名）</option><option value="infrared_jp">赤外線の受信・解読（日本語名）</option></optgroup><optgroup label="関数・ライブラリで整理する"><option value="organized_send">ビット配列を送信する（関数に分ける）</option><option value="organized_receive">受信して解読する（関数に分ける）</option><option value="send">赤外線を1回送信（部品ライブラリ）</option><option value="button_send">ボタンで赤外線送信（部品ライブラリ）</option><option value="bootsel">BOOTSELで38 kHzを送信（部品ライブラリ）</option><option value="fan">BOOTSELで扇風機を回す（部品ライブラリ）</option><option value="receive">受信してビット・整数に変換（部品ライブラリ）</option><option value="receive_custom">受信の判定を自分で書く</option><option value="binary">2進数・配列の練習</option><option value="modules">自作モジュールをimport</option></optgroup><optgroup label="追加で試す"><option value="blink">LED点滅</option><option value="button">ボタンでLED</option><option value="pixels">ピクセルで斜線を描く</option><option value="console">コンソールで入出力</option><option value="peripherals">画面・音・DIPスイッチ</option></optgroup></select><button id="example-load" type="button" class="secondary">サンプルを開く</button></div><div class="bar"><button value="cancel" class="secondary">キャンセル</button></div></form></dialog>
 <input id="project-file" type="file" accept=".json,application/json" hidden>
 <div id="project-menu" class="project-menu" role="menu" aria-label="プロジェクトの操作" hidden><button role="menuitem" id="project-menu-save">ローカルに保存</button><button role="menuitem" id="project-save-as">別名でローカルに保存…</button><button role="menuitem" id="project-duplicate">複製…</button><button role="menuitem" id="project-menu-close">閉じる</button></div>
 <dialog id="project-close-dialog" aria-labelledby="project-close-title"><form method="dialog"><h2 id="project-close-title">ローカル未保存の変更があります</h2><p id="project-close-name"></p><div class="bar"><button type="button" id="project-save-close">ローカルに保存して閉じる</button><button type="button" class="secondary" id="project-discard-close">保存せず閉じる</button><button value="cancel" class="secondary">キャンセル</button></div></form></dialog>

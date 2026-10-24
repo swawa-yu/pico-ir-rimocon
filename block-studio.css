@@ -216,3 +216,4 @@
 .project-tab-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .project-pico,.project-unsaved{flex-shrink:0}
 #project-add{position:sticky;right:0;flex-shrink:0;z-index:1;background:#e4eef2;box-shadow:-5px 0 8px #f2f6f7}
+.studio-header .docs-link{font-size:.85rem;font-weight:400;white-space:nowrap}

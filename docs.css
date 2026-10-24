@@ -1,0 +1,16 @@
+.docs{scroll-behavior:auto}
+.docs header{max-width:1120px;flex-wrap:wrap}
+.docs nav{display:flex;gap:18px;flex-wrap:wrap;font-size:.9rem}
+.docs main{max-width:1000px}
+.docs h1{font-size:2rem;margin:8px 0 24px}
+.docs .card{scroll-margin-top:16px}
+.docs h2{margin-top:0}
+.docs h3{margin:28px 0 10px}
+.docs th{background:#f2f6f8;white-space:nowrap}
+.docs td{vertical-align:top}
+.docs ol li,.docs ul li{margin:10px 0}
+.docs .circuit{white-space:pre;overflow:auto;font-size:.9rem}
+.docs .table-wrap{max-height:none}
+.docs p{max-width:76ch}
+.docs-link{font-size:.85rem;font-weight:400;white-space:nowrap}
+@media(max-width:600px){.docs nav{gap:10px}.docs .card{padding:16px}.docs table{font-size:.85rem}}

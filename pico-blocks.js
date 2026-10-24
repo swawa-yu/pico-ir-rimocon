@@ -62,7 +62,7 @@
       {type:'pico_send_times',message0:'%1 で時間配列 %2 を送る（µs）',args0:[{type:'field_dropdown',name:'PART',options:options('infrared')},{type:'input_value',name:'TIMES',check:'Array'}],previousStatement:null,nextStatement:null,colour:285,tooltip:'先頭からON・OFFを交互に指定します。単位はµs。例：[560, 560, 560, 1680, 560]。指定した時間だけを送り、最後はOFFにします。'},
       {type:'pico_rgb',message0:'%1 を R %2 %% G %3 %% B %4 %% にする',args0:[{type:'field_dropdown',name:'PART',options:options('rgb')},{type:'input_value',name:'RED',check:'Number'},{type:'input_value',name:'GREEN',check:'Number'},{type:'input_value',name:'BLUE',check:'Number'}],previousStatement:null,nextStatement:null,colour:150,tooltip:'赤・緑・青それぞれの明るさを0〜100%で指定します。'},
       {type:'pico_rgb_off',message0:'%1 を消灯する',args0:[{type:'field_dropdown',name:'PART',options:options('rgb')}],previousStatement:null,nextStatement:null,colour:150},
-      {type:'pico_send_bits',message0:'%1 で2進数 %2 を送る',args0:[{type:'field_dropdown',name:'PART',options:options('infrared')},{type:'input_value',name:'BITS',check:'Array'}],previousStatement:null,nextStatement:null,colour:285,tooltip:'ビット配列を左から順に送ります。先頭の0も送信します。'},
+      {type:'pico_send_bits',message0:'%1 で0・1の配列 %2 を送る（開始信号 %3）',args0:[{type:'field_dropdown',name:'PART',options:options('infrared')},{type:'input_value',name:'BITS',check:'Array'},{type:'field_dropdown',name:'LEADER',options:[['あり','1'],['なし','0']]}],previousStatement:null,nextStatement:null,colour:285,tooltip:'ビット配列を左から順に送ります。先頭の0も送信します。'},
       {type:'pico_bits_text',message0:'ビット配列 %1 を 0 と 1 の文字列に変換',args0:[{type:'input_value',name:'VALUE',check:'Array'}],output:'String',colour:260,tooltip:'例：[0, 1, 0, 0, 0, 0, 0, 1] → "01000001"。先頭の0も残します。'},
       {type:'pico_text_bits',message0:'0 と 1 の文字列 %1 をビット配列に変換',args0:[{type:'input_value',name:'VALUE',check:'String'}],output:'Array',colour:260,tooltip:'例："01000001" → [0, 1, 0, 0, 0, 0, 0, 1]。0と1の文字列を指定します。'},
       {type:'pico_bits_int',message0:'ビット配列 %1 を整数に変換',args0:[{type:'input_value',name:'VALUE',check:'Array'}],output:'Number',colour:260,tooltip:'先頭を上位ビットとして読みます。例：[1, 0, 1] → 5。空の配列は変換できません。'},
@@ -116,7 +116,7 @@
     generator.forBlock.pico_send_times=(b,g)=>`${part(b)}.send_times(${value(b,g,'TIMES','[]')})\n`;
     generator.forBlock.pico_rgb=(b,g)=>`${part(b)}.set(${value(b,g,'RED','0')}, ${value(b,g,'GREEN','0')}, ${value(b,g,'BLUE','0')})\n`;
     generator.forBlock.pico_rgb_off=b=>`${part(b)}.off()\n`;
-    generator.forBlock.pico_send_bits=(b,g)=>`${part(b)}.send_bits(${value(b,g,'BITS','[]')})\n`;
+    generator.forBlock.pico_send_bits=(b,g)=>`${part(b)}.send_bits(${value(b,g,'BITS','[]')}${b.getFieldValue('LEADER')==='0'?', leader=False':''})\n`;
     generator.forBlock.pico_decode_bits=(b,g)=>[`ir_data.durations_to_bits(${value(b,g,'TIMES','[]')}, ${value(b,g,'SKIP','2')}, ${value(b,g,'THRESHOLD','2')})`,g.ORDER_FUNCTION_CALL];
     for(const [type,method,fallback] of [['pico_bits_text','bits_to_text','[]'],['pico_text_bits','text_to_bits',"''"],['pico_bits_int','bits_to_int','[]']])generator.forBlock[type]=(b,g)=>[`ir_data.${method}(${value(b,g,'VALUE',fallback)})`,g.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_int_bits=(b,g)=>[`ir_data.int_to_bits(${value(b,g,'VALUE','0')}, ${value(b,g,'WIDTH','8')})`,g.ORDER_FUNCTION_CALL];

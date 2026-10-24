@@ -104,6 +104,7 @@ export function nativeStatement(node,source,parts,parseBody){
       if(part.kind==='rgb'&&action==='set'&&arguments_.length===3)return values('pico_rgb',['RED','GREEN','BLUE'],converted,fields);
       if(part.kind==='rgb'&&action==='off'&&!arguments_.length)return {type:'pico_rgb_off',fields};
       if(part.kind==='infrared'&&action==='send_bits'&&arguments_.length===1)return values('pico_send_bits',['BITS'],converted,fields);
+      if(part.kind==='infrared'&&action==='send_bits'&&arguments_.length===2&&/^leader\s*=\s*(True|False)$/.test(text(arguments_[1])))return values('pico_send_bits',['BITS'],[converted[0]],{...fields,LEADER:/False$/.test(text(arguments_[1]))?'0':'1'});
       if(part.kind==='infrared'&&action==='send'&&arguments_.length===1)return values('pico_send',['VALUE'],converted,fields);
       if(['infrared','led'].includes(part.kind)&&['on','off'].includes(action)&&!arguments_.length)return {type:part.kind==='led'?'pico_led':'pico_carrier',fields:{...fields,ON:action==='on'?'1':'0'}};
       if(part.kind==='speaker'&&action==='on'&&arguments_.length===1)return values('pico_speaker_on',['HZ'],converted,fields);

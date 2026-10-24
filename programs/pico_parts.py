@@ -126,11 +126,11 @@ class Infrared:
         value = int(value)
         self.send_bits([(value >> shift) & 1 for shift in range(7, -1, -1)])
 
-    def send_bits(self, bits):
+    def send_bits(self, bits, leader=True):
         if not bits or any(bit not in (0, 1) for bit in bits):
             raise ValueError("Expected a nonempty array of 0 and 1")
         unit = self.unit
-        signal = [8 * unit, 4 * unit]
+        signal = [8 * unit, 4 * unit] if leader else []
         for bit in bits:
             signal.extend([unit, (3 if bit else 1) * unit])
         signal.append(unit)

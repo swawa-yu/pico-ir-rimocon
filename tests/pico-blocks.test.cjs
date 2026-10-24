@@ -617,3 +617,41 @@ assert intervals == [(21845,560),(0,560),(21845,560),(0,560),(21845,560),(0,1680
 assert output.pwm.duty == 0 and output.pwm.closed
 `,'');
 });
+
+test('one, eight and thirty-two-bit samples transmit without a leader and their receivers recover the same data',()=>{
+ const samples=require('../studio-samples.js'),sources=require('../pico-sources.js');
+ python(`import sys,types,io,contextlib
+intervals=[]
+class PWM:
+ def __init__(self,*a,**k): self.duty=0
+ def duty_u16(self,value): self.duty=value
+ def deinit(self): pass
+sys.modules['machine']=types.SimpleNamespace(Pin=lambda n:n,PWM=PWM)
+sys.modules['time']=types.SimpleNamespace(sleep_us=intervals.append)
+hardware=types.ModuleType('pico_parts')
+exec(${JSON.stringify(runtime)},hardware.__dict__)
+data=types.ModuleType('ir_data')
+exec(${JSON.stringify(sources.irData)},data.__dict__)
+sys.modules['ir_data']=data
+parts=types.ModuleType('parts');sys.modules['parts']=parts
+parts.infrared=hardware.Infrared(16)
+for sender,receiver,length in ${JSON.stringify(['one_bit','byte','long'].map((name,i)=>[samples.beginner(name).files['main.py'],samples.beginner(['receive_one','receive_byte','receive_long'][i]).files['main.py'],[1,8,32][i]]))}:
+ intervals.clear()
+ exec(sender,{})
+ times=intervals[:] if length == 1 else intervals[:-1]
+ assert len(times) == length * 2 + 1 and times[0] == 560 and times[-1] == 560
+ bits=data.durations_to_bits(times,0,2)
+ assert len(bits) == length
+ if length == 1: assert bits == [1]
+ if length == 8: assert data.bits_to_int(bits) == 65
+ packets=iter([[],times])
+ parts.receiver=types.SimpleNamespace(receive=lambda timeout:next(packets))
+ output=io.StringIO()
+ with contextlib.redirect_stdout(output):
+  try: exec(receiver,{})
+  except StopIteration: pass
+ assert str(times if length == 1 else bits) in output.getvalue()
+ if length == 32: assert output.getvalue().endswith('32\\n')
+ assert parts.infrared.pwm.duty == 0
+`,'');
+});
