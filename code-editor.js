@@ -21,7 +21,7 @@ export function create(parent,{onChange,onDefinition,onSave}){
     return value;
   },provide:field=>EditorView.decorations.from(field)});
   const setErrors=StateEffect.define();
-  const errors=StateField.define({create:()=>Decoration.none,update(value,tr){if(tr.docChanged)value=Decoration.none;for(const effect of tr.effects)if(effect.is(setErrors))value=Decoration.set(effect.value.filter(e=>e.from<tr.state.doc.length).map(e=>Decoration.mark({class:'cm-source-error',attributes:{title:e.message}}).range(Math.max(0,e.from),Math.min(tr.state.doc.length,Math.max(e.from+1,e.to)))),true);return value;},provide:field=>EditorView.decorations.from(field)});
+  const errors=StateField.define({create:()=>Decoration.none,update(value,tr){if(tr.docChanged)value=Decoration.none;for(const effect of tr.effects)if(effect.is(setErrors))value=Decoration.set(effect.value.filter(()=>tr.state.doc.length>0).map(e=>{const from=Math.max(0,Math.min(e.from,tr.state.doc.length-1));return Decoration.mark({class:'cm-source-error',attributes:{title:e.message}}).range(from,Math.min(tr.state.doc.length,Math.max(from+1,e.to)));}),true);return value;},provide:field=>EditorView.decorations.from(field)});
   const extensions=[basicSetup,python(),access.of([]),indentUnit.of('    '),highlights,errors,
     keymap.of([indentWithTab,{key:'F12',run:()=>{onDefinition();return true;}},{key:'Mod-s',run:()=>{onSave();return true;}}]),
     EditorView.contentAttributes.of({'aria-label':'MicroPythonエディタ'}),

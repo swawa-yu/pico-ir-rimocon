@@ -36,7 +36,7 @@ export function inspect(source){
   let returns=false;
   tree.iterate({from:body.from,to:body.to,enter(ref){if(ref.from>=body.from&&['FunctionDefinition','ClassDefinition'].includes(ref.name))return false;if(ref.name==='ReturnStatement'&&ref.node.firstChild?.nextSibling&&text(ref.node.firstChild.nextSibling)!=='None')returns=true;}});
   const previous=source.slice(0,node.from).trimEnd().split('\n').at(-1),sentence=previous?.match(/^\s*# ブロック:\s*(.*)$/)?.[1]||'';
-  functions.push({...info,sentence,returns,help:`${info.name}(${info.params.join(', ')})`,line:source.slice(0,node.from).split('\n').length});
+  functions.push({...info,sentence,returns,help:`${info.name}(${info.params.join(', ')})`+(sentence?'\n'+sentence:''),line:source.slice(0,node.from).split('\n').length});
  }
  if(!wildcard)tree.iterate({enter(ref){const n=ref.node;if(n.name!=='VariableName'||declared.has(text(n)))return;const p=n.parent;if(['ImportStatement','ParamList','FunctionDefinition','ClassDefinition'].includes(p?.name))return;if(p?.name==='ArgList'&&n.nextSibling?.name==='AssignOp')return;if(p?.name==='ExceptClause'||p?.name==='CapturePattern')return;issues.push({from:n.from,to:n.to,message:`「${text(n)}」が定義されていません。`});}});
  return {functions,issues,declared};
