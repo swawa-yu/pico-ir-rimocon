@@ -177,7 +177,7 @@ test('write-only preserves console output, blocks terminal input throughout tran
  }finally{s.close();}
 });
 
-test('fan sample adds a compatible PWM component and writes its BOOTSEL program with existing parts preserved',async()=>{
+test('fan sample replaces the whole project with its own PWM files and configuration',async()=>{
  const s=studio(async()=>JSON.stringify({changed:0}));
  try{
   s.$('example').value='fan';s.$('example-load').click();
@@ -186,7 +186,7 @@ test('fan sample adds a compatible PWM component and writes its BOOTSEL program 
   const files=s.calls.find(c=>c[0]==='write')[1];
   assert.match(files['main.py'],/rp2\.bootsel_button\(\)[\s\S]*fan\.set\(50\)[\s\S]*fan\.set\(0\)/);
   assert.match(files['parts.py'],/fan = PWMOutput\(20, frequency=1000\)/);
-  assert.match(files['parts.py'],/infrared = Infrared/);
+  assert.doesNotMatch(files['parts.py'],/infrared = Infrared/);
  }finally{s.close();}
 });
 
@@ -204,5 +204,48 @@ for(const sample of ['receive','receive_custom'])test(sample+' installs editable
    assert.match(files['decode_signal.py'],/off >= on \* 2/);
    assert.match(files['main.py'],/from decode_signal import decode_signal/);
   }
+ }finally{s.close();}
+});
+
+test('editing PWM source rebuilds the matching blocks and later block edits update the same file',async()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.$('example').value='fan';s.$('example-load').click();
+  s.window.editorCallbacks.onChange('main.py','from parts import fan\nimport rp2\nwhile True:\n    if rp2.bootsel_button():\n        fan.set(75)\n    else:\n        fan.set(0)\n');
+  const ws=s.workspaces[1],output=ws.getAllBlocks(false).find(b=>b.type==='pico_pwm'&&b.getInputTargetBlock('PERCENT').getFieldValue('NUM')===75);
+  assert(output);output.getInputTargetBlock('PERCENT').setFieldValue(60,'NUM');
+  s.$('write-only').click();await new Promise(resolve=>setImmediate(resolve));
+  const files=s.calls.find(c=>c[0]==='write')[1];assert.match(files['main.py'],/fan\.set\(60\)/);assert.equal((files['main.py'].match(/from parts import fan/g)||[]).length,1);assert.match(files['main.py'],/while True/);
+ }finally{s.close();}
+});
+
+test('project files round-trip including generated library edits and a sample replaces the complete file group',async()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.window.confirm=()=>true;
+  s.$('example').value='modules';s.$('example-load').click();
+  const saved=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
+  assert.equal(saved.format,'pico-blocks-5');assert(saved.files['my_tools.py']);assert(saved.files['lib/pico_parts.py']);
+  saved.files['lib/pico_parts.py']+='\nCUSTOM_LIBRARY_MARKER = 42\n';
+  const text=JSON.stringify(saved);
+  Object.defineProperty(s.$('project-file'),'files',{value:[{size:text.length,async text(){return text;}}]});
+  s.$('project-file').dispatchEvent(new s.window.Event('change'));await new Promise(resolve=>setImmediate(resolve));
+  const restored=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
+  assert.equal(restored.files['lib/pico_parts.py'],saved.files['lib/pico_parts.py']);
+  assert.equal(restored.files['my_tools.py'],saved.files['my_tools.py']);
+  s.$('example').value='fan';s.$('example-load').click();
+  const replaced=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
+  assert.equal(replaced.files['my_tools.py'],undefined);assert.doesNotMatch(replaced.files['lib/pico_parts.py'],/CUSTOM_LIBRARY_MARKER/);
+ }finally{s.close();}
+});
+
+
+test('text imports include the built-in conversion library in the saved file group',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.window.editorCallbacks.onChange('main.py','import ir_data\nprint(ir_data.bits_to_int([0, 1]))\n');
+  const project=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
+  assert.equal(project.files['lib/ir_data.py'],s.window.PicoSources.irData);
+  assert.match(project.files['main.py'],/bits_to_int/);
  }finally{s.close();}
 });

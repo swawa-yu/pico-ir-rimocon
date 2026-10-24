@@ -168,3 +168,13 @@ test('wheel zoom changes scale continuously and preserves the time under the poi
   assert(Math.abs(vm.runInContext('liveBounds().begin+liveBounds().span*.25',context)-before)<.001);
   context.zoomLive(-1);assert.equal(elements.get('window').value,'100000');
 });
+
+test('history places binary beside HEX and the previous-signal interval after the recording time',()=>{
+ const {context,elements}=page();
+ const durations=require('../pico-blocks.js').signalForByte(65,560);
+ elements.get('start').value='2';elements.get('order').value='msb';
+ vm.runInContext(`capture.addFrame({durations:${JSON.stringify(durations)},source:'USB',intervalUs:108000,recordedAt:1700000000000});renderHistory()`,context);
+ const cells=elements.get('history-rows').children[0].children;
+ assert.equal(cells[4].textContent,'41');assert.equal(cells[5].textContent,'01000001');assert.equal(cells[5].className,'history-binary');
+ assert.match(cells[6].textContent,/:/);assert.equal(cells[7].textContent,'108.00 ms');
+});

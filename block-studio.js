@@ -114,7 +114,7 @@
   PicoDevices.bindSelect($('program-device'),()=>activeRole);
   PicoDevices.listeners.add(updateDevice);
   const editor=PicoEditor.create($('code-editor'),{
-    onChange(path,text){clearTimeout(fileRefreshTimer);fileWorkspaceDirty=false;fileStore.edit(path,text);files=fileStore.all;dirty=true;renderFiles();renderFileBlocks();renderPicoFiles();saveProject();updateDevice();},
+    onChange(path,text){clearTimeout(fileRefreshTimer);fileWorkspaceDirty=false;fileStore.edit(path,text);files=fileStore.regenerate(generatedProject());dirty=true;renderFiles();renderFileBlocks();renderPicoFiles();saveProject();updateDevice();},
     onDefinition:goDefinition,
     onSave(){download(activeFile.split('/').pop(),files[activeFile]||'','text/x-python');}
   });
@@ -185,7 +185,7 @@
     try{
       const source=pythonBlocks.generate(fileWorkspace,parts,fileWorkspacePath);
       fileModels[fileWorkspacePath]={source,version:2,state:Blockly.serialization.workspaces.save(fileWorkspace)};
-      fileStore.edit(fileWorkspacePath,source);files=fileStore.all;fileWorkspaceDirty=false;
+      fileStore.edit(fileWorkspacePath,source);files=fileStore.regenerate(generatedProject());fileWorkspaceDirty=false;
       if(activeFile===fileWorkspacePath)editor.setFile(activeFile,source);
       codeValid=true;renderFiles();renderPicoFiles();saveProject();notify();updateDevice();
     }catch(error){notify(error.message);codeValid=false;updateDevice();}
@@ -200,7 +200,7 @@
       Blockly.Events.disable();
       try{
         const cached=model?.source===source;
-        const state=cached?(model.version===2?model.state:PicoEditor.blocks.upgrade(model.state)):PicoEditor.blocks.fromSource(source);
+        const state=cached?(model.version===2?model.state:PicoEditor.blocks.upgrade(model.state)):PicoEditor.blocks.fromSource(source,parts);
         Blockly.serialization.workspaces.load(state,fileWorkspace);
         if(!cached||model.version!==2)PicoEditor.blocks.layout(fileWorkspace);
         fileWorkspace.clearUndo();
@@ -345,26 +345,42 @@
     $('pico-files-refresh').textContent=browsing?'取得中…':device.running?'停止して一覧を更新':picoSnapshot?'一覧を更新':'一覧を取得';
     for(const button of document.querySelectorAll('#pico-file-tree button, #pc-file-tree button, #pico-directory button'))button.disabled=browsing||deploying||device.busy||device.running;
   }
+  function generatedProject(){
+    const generated=PicoBlocks.generateProject(Blockly,generator,workspace,parts,runtime,PicoSources.ssd1306,sourceMap,PicoSources);
+    const edited=Object.values(fileStore.edits);
+    if(edited.some(text=>/^(?:import ir_data\b|from ir_data import\b)/m.test(text)))generated['lib/ir_data.py']=PicoSources.irData;
+    if(edited.some(text=>/ir_data\.Receiver\b|^from ir_data import.*\bReceiver\b/m.test(text)))generated['lib/live_receiver.py']=PicoSources.receiver;
+    return generated;
+  }
   function refresh(){
     try {
-      files=fileStore.regenerate(PicoBlocks.generateProject(Blockly,generator,workspace,parts,runtime,PicoSources.ssd1306,sourceMap,PicoSources));codeValid=true;
+      files=fileStore.regenerate(generatedProject());codeValid=true;
       if(!Object.hasOwn(files,activeFile))activeFile='main.py';
       if(!Object.keys(files).some(path=>path===treeSelection||path.startsWith(treeSelection+'/')))treeSelection=activeFile;
       editor.setFile(activeFile,files[activeFile]);renderFiles();renderFileBlocks();renderPicoFiles();saveProject();notify();
     }catch(error){codeValid=false;notify(error.message);}
     highlightBlock();renderDisplay();updateDevice();
   }
-  function project(){commitFileBlocks();return {format:'pico-blocks-4',parts,workspace:Blockly.serialization.workspaces.save(workspace),edits:{...fileStore.edits},fileWorkspaces:{...fileModels}};}
-  function loadWorkspace(state,ask=true,nextParts=parts,nextEdits=fileStore.edits,nextModels=fileModels){
-    if(ask&&(dirty||Object.keys(fileStore.edits).some(path=>nextEdits[path]!==fileStore.edits[path]))&&!confirm('編集中のプロジェクトを置き換えます。保存していない変更は失われます。続けますか？'))return false;
+  function project(){commitFileBlocks();return {format:'pico-blocks-5',parts,files:{...files},workspace:Blockly.serialization.workspaces.save(workspace),fileWorkspaces:{...fileModels}};}
+  function loadWorkspace(state,ask=true,nextParts=parts,nextEdits=fileStore.edits,nextModels=fileModels,projectFiles=null){
+    if(ask&&dirty&&!confirm('編集中のプロジェクトを置き換えます。保存していない変更は失われます。続けますか？'))return false;
     state=PicoEditor.blocks.upgrade(PicoBlocks.migrateSpeaker(state));
-    PicoBlocks.validateParts(nextParts);PicoBlocks.validateWorkspace(state,nextParts);const restoredEdits=StudioFiles.validateEdits(nextEdits);
+    PicoBlocks.validateParts(nextParts);PicoBlocks.validateWorkspace(state,nextParts);let restoredEdits=StudioFiles.validateEdits(nextEdits);
+    const snapshot=projectFiles===null?null:StudioFiles.validateEdits(projectFiles);
+    if(snapshot&&['main.py','parts.py','lib/pico_parts.py'].some(path=>!Object.hasOwn(snapshot,path)))throw Error('プロジェクトのファイルが不足しています。');
     if(!nextModels||typeof nextModels!=='object'||Array.isArray(nextModels)||Object.entries(nextModels).some(([path,model])=>!StudioFiles.validPath(path)||typeof model?.source!=='string'||!model.state))throw Error('ファイルのブロック形式が不正です。');
     for(const model of Object.values(nextModels)){const check=new Blockly.Workspace();try{Blockly.serialization.workspaces.load(model.version===2?model.state:PicoEditor.blocks.upgrade(model.state),check);}finally{check.dispose();}}
     const previous=Blockly.serialization.workspaces.save(workspace),oldParts=parts;parts=nextParts;
     generator.addReservedWords(parts.map(p=>p.id).join(','));
     Blockly.Events.disable();
-    try {Blockly.serialization.workspaces.load(state,workspace);}
+    try {
+      Blockly.serialization.workspaces.load(state,workspace);
+      if(snapshot){
+        const generated=PicoBlocks.generateProject(Blockly,generator,workspace,parts,runtime,PicoSources.ssd1306,null,PicoSources);
+        if(Object.keys(generated).some(path=>!Object.hasOwn(snapshot,path)))throw Error('プロジェクトのライブラリが不足しています。');
+        restoredEdits=Object.fromEntries(Object.entries(snapshot).filter(([path,text])=>generated[path]!==text));
+      }
+    }
     catch(error){parts=oldParts;Blockly.serialization.workspaces.load(previous,workspace);throw error;}
     finally {Blockly.Events.enable();}
     clearTimeout(fileRefreshTimer);fileWorkspaceDirty=false;fileWorkspacePath=null;fileModels=structuredClone(nextModels);fileStore.restore(restoredEdits);workspace.scrollCenter();selectedId=null;dirty=false;partsDirty=false;renderParts();refresh();return true;
@@ -375,51 +391,38 @@
     if(event.isUiEvent)return;
     dirty=true;clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,60);
   });
-  function loadReceiverExample(custom){
-    const next=[...parts];let receiver=next.find(p=>p.kind==='receiver'),added=false;
-    if(!receiver){
-      for(const pin of [15, ...Array.from({length:23},(_,i)=>i).filter(pin=>pin!==15)]){
-        const candidate={id:'receiver',name:'赤外線受信',kind:'receiver',pin};
-        while(next.some(p=>p.id===candidate.id))candidate.id+='_';
-        while(next.some(p=>p.name===candidate.name))candidate.name+=' 2';
-        try{PicoBlocks.validateParts([...next,candidate]);receiver=candidate;break;}catch(_){}
+  function loadSample(name,ask=true){
+    let nextParts=[],state,edits={};
+    if(['receive','receive_custom'].includes(name)){
+      nextParts=[{id:'receiver',name:'赤外線受信',kind:'receiver',pin:15}];state=PicoBlocks.examples.receive();
+      if(name==='receive_custom'){
+        edits['decode_signal.py']='def decode_signal(times):\n    bits = []\n    for i in range(2, len(times) - 1, 2):\n        on = times[i]\n        off = times[i + 1]\n        if off >= on * 2:\n            bits.append(1)\n        else:\n            bits.append(0)\n    return bits\n';
+        edits['main.py']='from parts import receiver\nfrom decode_signal import decode_signal\nimport ir_data\n\nwhile True:\n    times = receiver.receive(1000)\n    if not times:\n        continue\n    bits = decode_signal(times)\n    print("times us:", times)\n    print("bits:", bits)\n    print("binary:", ir_data.bits_to_text(bits))\n    if bits:\n        print("integer:", ir_data.bits_to_int(bits))\n';
       }
-      if(!receiver)throw Error('赤外線受信用の空きGPIOがありません。');
-      next.push(receiver);added=true;
+    }else if(name==='modules'){
+      state={blocks:{languageVersion:0,blocks:[]}};
+      edits={'my_tools.py':'def twice(value):\n    return value * 2\n\nclass Counter:\n    def __init__(self, value=0):\n        self.value = value\n\n    def add(self, amount):\n        self.value += amount\n        return self.value\n','main.py':'from my_tools import twice, Counter\n\nprint(twice(21))\ncounter = Counter(10)\nprint(counter.add(5))\n'};
+    }else{
+      state=PicoBlocks.examples[name]();
+      if(['pixels','peripherals'].includes(name))nextParts=PicoBlocks.peripheralParts().filter(p=>name!=='pixels'||p.kind==='ssd1306');
+      else if(name==='fan')nextParts=[{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:1000}];
+      else if(['send','bootsel','blink','button','button_send'].includes(name))nextParts=PicoBlocks.defaults().filter(p=>name==='blink'?p.kind==='led':name==='button'?p.kind!=='infrared':['send','bootsel'].includes(name)?p.kind==='infrared':true);
     }
-    const state=PicoBlocks.examples.receive();
-    function remap(value){if(!value||typeof value!=='object')return;if(value.fields?.PART==='receiver')value.fields.PART=receiver.id;Object.values(value).forEach(remap);}remap(state);
-    const edits={...fileStore.edits};delete edits['main.py'];if(added)delete edits['parts.py'];
-    if(custom){
-      edits['decode_signal.py']='def decode_signal(times):\n    bits = []\n    for i in range(2, len(times) - 1, 2):\n        on = times[i]\n        off = times[i + 1]\n        if off >= on * 2:\n            bits.append(1)\n        else:\n            bits.append(0)\n    return bits\n';
-      edits['main.py']=`from parts import ${receiver.id}\nfrom decode_signal import decode_signal\nimport ir_data\n\nwhile True:\n    times = ${receiver.id}.receive(1000)\n    if not times:\n        continue\n    bits = decode_signal(times)\n    print("times us:", times)\n    print("bits:", bits)\n    print("binary:", ir_data.bits_to_text(bits))\n    if bits:\n        print("integer:", ir_data.bits_to_int(bits))\n`;
-    }
-    if(loadWorkspace(state,true,next,edits))openFile('main.py');
+    if(loadWorkspace(state,ask,nextParts,edits,{}))openFile('main.py');
   }
-  $('example-load').addEventListener('click',()=>{try{if(['receive','receive_custom'].includes($('example').value)){loadReceiverExample($('example').value==='receive_custom');return;}if($('example').value==='modules'){
-      commitFileBlocks();
-      const edits={...fileStore.edits,'my_tools.py':'def twice(value):\n    return value * 2\n\nclass Counter:\n    def __init__(self, value=0):\n        self.value = value\n\n    def add(self, amount):\n        self.value += amount\n        return self.value\n','main.py':'from my_tools import twice, Counter\n\nprint(twice(21))\ncounter = Counter(10)\nprint(counter.add(5))\n'};
-      if(loadWorkspace(Blockly.serialization.workspaces.save(workspace),true,parts,edits))openFile('main.py');return;
-    }if(['bootsel','fan'].includes($('example').value)&&!parts.some(p=>p.kind===($('example').value==='fan'?'pwm':'infrared'))){
-      const example=$('example').value,isFan=example==='fan',next=[...parts];let component;
-      const template=isFan?{id:'fan',name:'扇風機',kind:'pwm',frequency:1000}:{id:'infrared',name:'赤外線LED',kind:'infrared',unit:560};
-      for(const pin of (isFan?[20,21,22,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]:[16,17,18,19,20,21,22,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15])){
-        const candidate={...template,pin};
-        while(next.some(p=>p.id===candidate.id))candidate.id+='_';
-        while(next.some(p=>p.name===candidate.name))candidate.name+=' 2';
-        try{PicoBlocks.validateParts([...next,candidate]);component=candidate;break;}catch(_){}
-      }
-      if(!component)throw Error(template.name+'用の空きピンがありません。部品設定を確認してください。');
-      next.push(component);const state=PicoBlocks.examples[example]();
-      function remapComponent(value){if(!value||typeof value!=='object')return;if(value.fields?.PART===template.id)value.fields.PART=component.id;Object.values(value).forEach(remapComponent);}remapComponent(state);
-      const edits={...fileStore.edits};delete edits['main.py'];delete edits['parts.py'];loadWorkspace(state,true,next,edits);return;
-    }if(['peripherals','pixels'].includes($('example').value)){const edits={...fileStore.edits};delete edits['main.py'];delete edits['parts.py'];const name=$('example').value;loadWorkspace(PicoBlocks.examples[name](),true,PicoBlocks.peripheralParts().filter(p=>name!=='pixels'||p.kind==='ssd1306'),edits);return;}const state=PicoBlocks.examples[$('example').value]();const mapping={send_button:'button',status_led:'led',infrared:'infrared',fan:'pwm'};function remap(value){if(!value||typeof value!=='object')return;const id=value.fields?.PART;if(id&&!parts.some(p=>p.id===id)){const replacement=parts.find(p=>p.kind===mapping[id]);if(replacement)value.fields.PART=replacement.id;}Object.values(value).forEach(remap);}remap(state);const edits={...fileStore.edits};delete edits['main.py'];loadWorkspace(state,true,parts,edits);}catch(error){notify(error.message);}});
-  $('project-save').addEventListener('click',()=>{download('pico-blocks.json',JSON.stringify(project(),null,2),'application/json');dirty=false;});
+  function restoreProject(data,ask=true){
+    if(data.format==='pico-blocks-1')data=PicoBlocks.migrate(data.workspace);
+    if(!['pico-blocks-2','pico-blocks-3','pico-blocks-4','pico-blocks-5'].includes(data.format)||!data.workspace)throw Error('Pico Studioのプロジェクトを選んでください。');
+    if(data.format==='pico-blocks-5'&&!data.files)throw Error('プロジェクトのファイルがありません。');
+    return loadWorkspace(data.workspace,ask,data.parts,data.edits||{},data.fileWorkspaces||{},data.format==='pico-blocks-5'?data.files:null);
+  }
+  $('example-load').addEventListener('click',()=>{try{loadSample($('example').value);}catch(error){notify(error.message);}});
+  $('project-save').addEventListener('click',()=>{download('pico-studio-project.json',JSON.stringify(project(),null,2),'application/json');dirty=false;});
   $('python-save').addEventListener('click',()=>{if(codeValid)download(activeFile.split('/').pop(),files[activeFile],'text/x-python');});
   $('project-load').addEventListener('click',()=>$('project-file').click());
   $('project-file').addEventListener('change',async()=>{
     const file=$('project-file').files[0];if(!file)return;
-    try{if(file.size>1048576)throw Error('ブロックのファイルは1MB以内にしてください。');let data=JSON.parse(await file.text());if(data.format==='pico-blocks-1')data=PicoBlocks.migrate(data.workspace);if(!['pico-blocks-2','pico-blocks-3','pico-blocks-4'].includes(data.format)||!data.workspace)throw Error('このツールで保存したブロックを選んでください。');loadWorkspace(data.workspace,true,data.parts,data.edits||{},data.fileWorkspaces||{});}
+    try{if(file.size>1048576)throw Error('プロジェクトは1MB以内にしてください。');restoreProject(JSON.parse(await file.text()));}
     catch(error){notify(error.message);}finally{$('project-file').value='';}
   });
   $('program-connect').addEventListener('click',async()=>{
@@ -586,9 +589,9 @@
   $('terminal-surface').addEventListener('click',event=>{if(event.target.id!=='console-input'&&!window.getSelection()?.toString())$('console-input').focus();});
   try {
     const saved=localStorage.getItem('pico-blocks-project-2'),legacy=localStorage.getItem('pico-blocks-workspace-1');
-    const data=saved?JSON.parse(saved):legacy?PicoBlocks.migrate(JSON.parse(legacy)):project();
-    loadWorkspace(saved||legacy?data.workspace:PicoBlocks.examples.send(),false,data.parts,data.edits||{},data.fileWorkspaces||{});
-  }catch(error){loadWorkspace(PicoBlocks.examples.send(),false,PicoBlocks.defaults(),{});notify('保存されていた内容を読み込めなかったため、サンプルを表示しました。');}
+    if(saved||legacy)restoreProject(saved?JSON.parse(saved):PicoBlocks.migrate(JSON.parse(legacy)),false);
+    else loadSample('send',false);
+  }catch(error){loadSample('send',false);notify('保存されていた内容を読み込めなかったため、サンプルを表示しました。');}
   updateDevice();
   if(location.hash==='#analyzer')showPanel('analyzer');
 })();

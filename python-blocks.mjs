@@ -1,3 +1,4 @@
+import {nativeStatement} from './python-native.mjs';
 import {parser} from '@lezer/python';
 
 function hasError(tree){let bad=false;tree.iterate({enter(node){if(node.type.isError)bad=true;}});return bad;}
@@ -23,7 +24,7 @@ function importCode(block){
   if(block.type==='pico_from_import')return `from ${module} import ${block.getFieldValue('NAMES')}`;
   return `import ${module}`+(block.type==='pico_import_as'?` as ${block.getFieldValue('ALIAS')}`:'');
 }
-function parse(source){
+function parse(source,parts=null){
   const tree=parser.parse(source);
   if(hasError(tree))return source.trim()?[raw(source)]:[];
   const blocks=[];let end=0,pending='';
@@ -37,7 +38,13 @@ function parse(source){
   for(let node=tree.topNode.firstChild;node;node=node.nextSibling){
     appendRaw(source.slice(end,node.from));
     const text=source.slice(node.from,node.to),body=node.getChild('Body');
+    function bodyBlock(body){
+      const content=source.slice(body.from+1,body.to),newline=content.match(/^([^\S\r\n]*\r?\n)([ \t]+)/);
+      return newline?chain(parse(indentSource(content.slice(newline[1].length),newline[2],true),parts)):null;
+    }
+    const native=parts?nativeStatement(node,source,parts,bodyBlock):null;
     const imported=node.name==='ImportStatement'&&!text.includes('\n')?importState(text):null;
+    if(native){append(native);end=node.to;continue;}
     if(imported&&(node.to===source.length||/^[\r\n]/.test(source.slice(node.to)))){
       const eol=source.slice(node.to).match(/^\r?\n/)?.[0]||'';
       append({...imported,extraState:{eol,importCode:text,importFields:imported.fields}});
@@ -48,7 +55,7 @@ function parse(source){
       const content=source.slice(body.from+1,node.to),newline=content.match(/^([^\S\r\n]*\r?\n)([ \t]+)/);
       if(match&&newline){
         const indent=newline[2],bodySource=indentSource(content.slice(newline[1].length),indent,true);
-        const children=chain(parse(bodySource));
+        const children=chain(parse(bodySource,parts));
         append({type:match[1]==='class'?'pico_class':'pico_def',fields:{HEADER:match[2]},extraState:{original:text,header:match[2],body:bodySource,indent},...(children?{inputs:{DO:{block:children}}}:{})});
       }else appendRaw(text);
     }else appendRaw(text);
@@ -64,7 +71,7 @@ function positionRoots(blocks){
   for(const block of blocks){block.x=24;block.y=y;y+=48*count(block)+32;}
   return blocks;
 }
-export function fromSource(source){return {blocks:{languageVersion:0,blocks:positionRoots(parse(source))}};}
+export function fromSource(source,parts=null){const blocks=parse(source,parts);if(parts)for(const block of blocks)block.data='pico-source-root';return {blocks:{languageVersion:0,blocks:positionRoots(blocks)}};}
 export function upgrade(state){
   const copy=structuredClone(state);
   function clean(first){
@@ -113,7 +120,7 @@ export function configure(B,g,editRaw){
   B.Blocks.pico_python={
     init(){this.appendDummyInput().appendField(new B.FieldLabelSerializable('pass'),'LABEL');this.setPreviousStatement(true);this.setNextStatement(true);this.setColour(210);this.pythonCode='pass\n';},
     saveExtraState(){return {code:this.pythonCode};},
-    loadExtraState(state){if(typeof state.code!=='string')throw Error('Pythonブロックの内容が不正です。');this.pythonCode=state.code;this.setFieldValue(state.code.split('\n').find(s=>s.trim())?.trim().slice(0,80)||'空行','LABEL');this.setTooltip(state.code);},
+    loadExtraState(state){if(typeof state.code!=='string')throw Error('Pythonブロックの内容が不正です。');this.pythonCode=state.code;const lines=state.code.split('\n').filter(line=>line.trim());this.setFieldValue(lines[0]?.slice(0,100)||'空行','LABEL');for(const row of [...this.inputList].slice(1))this.removeInput(row.name);for(const [i,line] of lines.slice(1,8).entries())this.appendDummyInput('RAW'+i).appendField(line.slice(0,100));if(lines.length>8)this.appendDummyInput('MORE').appendField('…');this.setTooltip(state.code);},
     setCode(code){const before=JSON.stringify(this.saveExtraState());B.Events.disable();try{this.loadExtraState({...this.saveExtraState(),code});}finally{B.Events.enable();}B.Events.fire(new B.Events.BlockChange(this,'mutation',null,before,JSON.stringify(this.saveExtraState())));},
     customContextMenu(options){options.push({text:'Pythonを編集…',enabled:true,callback:()=>editRaw(this)});}
   };
@@ -146,16 +153,21 @@ export function configure(B,g,editRaw){
   return {generate(workspace,parts=[],path='main.py'){
     B.Events.disable();
     try{
-      for(const block of workspace.getAllBlocks(false)){const root=block.getRootBlock(),manual=block.hasDisabledReason('MANUALLY_DISABLED');block.setDisabledReason(!rootTypes.includes(root.type),'PICO_UNCONNECTED');if(manual)block.setDisabledReason(true,'MANUALLY_DISABLED');}
+      for(const block of workspace.getAllBlocks(false)){const root=block.getRootBlock(),manual=block.hasDisabledReason('MANUALLY_DISABLED');block.setDisabledReason(!rootTypes.includes(root.type)&&root.data!=='pico-source-root','PICO_UNCONNECTED');if(manual)block.setDisabledReason(true,'MANUALLY_DISABLED');}
       g.init(workspace);
       let code='';const roots=workspace.getTopBlocks(false).sort((a,b)=>{const p=a.getRelativeToSurfaceXY(),q=b.getRelativeToSurfaceXY();return p.y-q.y||p.x-q.x;});
       for(const block of roots)if(block.isEnabled()){const text=sequence(block,g);if(code&&!code.endsWith('\n')&&text&&!/^[\r\n]/.test(text))code+='\n';code+=text;}
       const imports=[];
       const enabled=workspace.getAllBlocks(false).filter(b=>b.isEnabled()&&!b.getInheritedDisabled());
       const used=parts.filter(p=>enabled.some(b=>b.getFieldValue('PART')===p.id));
-      if(used.length&&path!=='parts.py')imports.push('from parts import '+used.map(p=>p.id).join(', '));
-      if(enabled.some(b=>b.type==='pico_wait')&&!/^import time\s*$/m.test(code))imports.push('import time');
-      const definitions=Object.values(g.definitions_||{}).filter(text=>!code.includes(text));
+      const present=[...code.matchAll(/^from parts import ([^\r\n]+)/gm)].flatMap(match=>match[1].split(',').map(name=>name.trim()));
+      const missing=used.filter(p=>!present.includes(p.id)&&!present.includes('*'));
+      if(missing.length&&path!=='parts.py')imports.push('from parts import '+missing.map(p=>p.id).join(', '));
+      if(enabled.some(b=>['pico_wait','pico_time_us','pico_time_diff'].includes(b.type))&&!/^import time\s*$/m.test(code))imports.push('import time');
+      if(enabled.some(b=>b.type==='pico_bootsel')&&!/^import rp2\s*$/m.test(code))imports.push('import rp2');
+      if(enabled.some(b=>['pico_decode_bits','pico_bits_text','pico_text_bits','pico_bits_int','pico_int_bits'].includes(b.type))&&!/^import ir_data\s*$/m.test(code))imports.push('import ir_data');
+      const parsed=workspace.getTopBlocks(false).some(block=>block.data==='pico-source-root');
+      const definitions=Object.entries(g.definitions_||{}).filter(([key,text])=>!(parsed&&key==='variables')&&!code.includes(text)).map(([,text])=>text);
       return [...imports,...definitions].map(text=>text+'\n').join('')+code;
     }finally{B.Events.enable();}
   }};

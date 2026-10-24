@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Picoスタジオ｜赤外線通信教材</title>
+  <title>Pico Studio｜赤外線通信教材</title>
   <link rel="stylesheet" href="style.css?v=e50109bd6cca">
   <link rel="stylesheet" href="block-studio.css?v=3150f1d55055">
-  <link rel="stylesheet" href="live-analyzer.css?v=ccf66910c052">
+  <link rel="stylesheet" href="live-analyzer.css?v=49cfe401eda8">
   <script src="vendor/blockly/blockly_compressed.js?v=cc761aa447e0" defer></script>
   <script src="vendor/blockly/blocks_compressed.js?v=4f0b3d4079fe" defer></script>
   <script src="vendor/blockly/python_compressed.js?v=7d880e1763a1" defer></script>
@@ -17,25 +17,25 @@
   <script src="pico-repl.js?v=24fce0bfb042" defer></script>
   <script src="pico-devices.js?v=a8577b05ef8e" defer></script>
   <script src="pico-project.js?v=2500a4b1d394" defer></script>
-  <script src="vendor/codemirror/editor.js?v=c882b65500b4" defer></script>
+  <script src="vendor/codemirror/editor.js?v=f93e4b65381e" defer></script>
   <script src="studio-files.js?v=1ae19f45e0dd" defer></script>
-  <script src="pico-sources.js?v=11fdfd637d6a" defer></script>
+  <script src="pico-sources.js?v=4d1530b25a2c" defer></script>
   <script src="live-core.js?v=d47659fb5907" defer></script>
   <script src="live-view.js?v=9952c6dd9b68" defer></script>
-  <script src="live-analyzer.js?v=012fddc3be12" defer></script>
-  <script src="block-studio.js?v=26ce1d664704" defer></script>
+  <script src="live-analyzer.js?v=595c632f4571" defer></script>
+  <script src="block-studio.js?v=0abc5bffcd44" defer></script>
 </head>
 <body class="block-studio">
 <header><a href="index.html">← 教材へ</a><a href="analyzer.html">配列から解析</a></header>
 <main>
-  <h1>Picoスタジオ</h1>
+  <h1>Pico Studio</h1>
   <section class="card shared-connection" aria-label="USB接続">
     <div class="bar"><select id="program-device" aria-label="このタブで使うPico"></select><span id="program-state" role="status">USB未接続</span><button id="program-connect">USB接続する</button><button id="program-disconnect" class="secondary" disabled>USBを切断する</button></div>
   </section>
   <div class="studio-tabs" role="tablist" aria-label="作業"><button id="program-tab" role="tab" aria-selected="true" aria-controls="program-panel">プログラム</button><button id="analyzer-tab" role="tab" aria-selected="false" aria-controls="observer-panel" tabindex="-1">ロジアナ</button></div>
   <div id="program-panel" role="tabpanel" aria-labelledby="program-tab">
   <section class="editor-section" aria-label="プログラム編集">
-    <div class="bar project-bar"><label for="example">サンプル</label><select id="example"><option value="send">赤外線を1回送信</option><option value="button_send">ボタンで赤外線送信</option><option value="bootsel">BOOTSELで38 kHzを送信</option><option value="fan">BOOTSELで扇風機を回す</option><option value="receive">受信してビット・整数に変換</option><option value="receive_custom">受信の判定を自分で書く</option><option value="binary">2進数・配列の練習</option><option value="blink">LED点滅</option><option value="button">ボタンでLED</option><option value="pixels">ピクセルで斜線を描く</option><option value="console">コンソールで入出力</option><option value="modules">自作モジュールをimport</option><option value="peripherals">画面・音・DIPスイッチ</option></select><button id="example-load" class="secondary">読み込む</button><button id="project-save" class="secondary">プロジェクトを保存</button><button id="project-load" class="secondary">開く</button><input id="project-file" type="file" accept=".json,application/json" hidden></div>
+    <div class="bar project-bar"><label for="example">サンプルプロジェクト</label><select id="example"><option value="send">赤外線を1回送信</option><option value="button_send">ボタンで赤外線送信</option><option value="bootsel">BOOTSELで38 kHzを送信</option><option value="fan">BOOTSELで扇風機を回す</option><option value="receive">受信してビット・整数に変換</option><option value="receive_custom">受信の判定を自分で書く</option><option value="binary">2進数・配列の練習</option><option value="blink">LED点滅</option><option value="button">ボタンでLED</option><option value="pixels">ピクセルで斜線を描く</option><option value="console">コンソールで入出力</option><option value="modules">自作モジュールをimport</option><option value="peripherals">画面・音・DIPスイッチ</option></select><button id="example-load" class="secondary">読み込む</button><button id="project-save" class="secondary">プロジェクトを保存</button><button id="project-load" class="secondary">開く</button><input id="project-file" type="file" accept=".json,application/json" hidden></div>
     <details class="card parts-settings"><summary>部品設定</summary>
       <table><thead><tr><th>名前</th><th>部品</th><th>接続（GP）</th><th>設定</th><th></th></tr></thead><tbody id="parts-rows"></tbody></table>
       <div class="bar"><select id="new-part-kind" aria-label="追加する部品"><option value="led">LED</option><option value="button">ボタン</option><option value="infrared">赤外線送信</option><option value="receiver">赤外線受信</option><option value="ssd1306">SSD1306（I²C）</option><option value="speaker">圧電スピーカー</option><option value="pwm">PWM出力</option><option value="dip">8連DIPスイッチ</option></select><button id="part-add" class="secondary">部品を追加</button><button id="parts-apply">設定を反映</button></div>
@@ -80,22 +80,7 @@
 
   </div>
   <section id="observer-panel" class="analyzer live-analyzer" role="tabpanel" aria-labelledby="analyzer-tab" hidden></section>
-  <details class="card help"><summary>使い方・配線</summary>
-    <table><thead><tr><th>試すこと</th><th>操作</th></tr></thead><tbody>
-      <tr><td>変換を見る</td><td>ブロックの数値や接続を変更すると、MicroPythonが更新されます。</td></tr>
-      <tr><td>コードを編集</td><td>ファイル一覧から選んで編集できます。F12で定義へ移動、Ctrl+F / ⌘Fで検索。「生成に戻す」で、そのファイルの編集を取り消します。直接編集したファイルは、クラス・関数・importとPythonブロックに再構成します。Pythonブロックは右クリックの「Pythonを編集…」から編集できます。</td></tr>
-      <tr><td>REPL</td><td>プログラム用PicoへUSB接続し、コンソールの入力行でEnterを押すと実行します。Shift+Enterで改行、Ctrl+Cで停止します。</td></tr>
-      <tr><td>ピクセルを描く</td><td>左上が(0, 0)。ピクセル値は0＝消灯、1＝点灯。「ピクセルを〜にする」「全体のピクセル」「座標に描く」で準備し、「変更を反映」で表示します。</td></tr>
-      <tr><td>コンソール入出力</td><td>「コンソール」カテゴリのブロックで表示・入力できます。実行中のinput()には、コンソールの入力行からEnterで送信します。</td></tr>
-      <tr><td>1行ずつ実行</td><td>main.pyを文ごとに実機で実行します。「次へ」で進みます。複数行の式やimport先の処理はまとめて実行します。停止には■を使います。</td></tr>
-      <tr><td>書き込み・実行</td><td>PicoをUSB接続して▶を押します。上書き前のファイルは退避し、成功分は直近1回分、失敗時の復旧データは保持します。main.pyは電源を入れ直したときにも実行されます。</td></tr>
-      <tr><td>実機で観測</td><td>「ロジアナ」に切り替え、観測用PicoをUSB接続します。受信ピンを選んで「受信開始」を押します。</td></tr>
-      <tr><td>ファイル・フォルダ</td><td>ファイル一覧のアイコンから作成・名前変更できます。フォルダには__init__.pyを作成します。名前を変えたらimport文も変更してください。main.py・parts.py・付属ライブラリの名前は固定です。</td></tr>
-      <tr><td>作業を残す</td><td>ブロック・部品設定・編集したPythonは、プロジェクトのJSONで保存できます。各ファイルは個別に保存できます。編集中の内容はこのブラウザにも自動保存します。</td></tr>
-    </tbody></table>
-    <p>ピン番号は「部品設定」で変更できます。観測用Picoの受信ピンは「ロジアナ」で選びます（初期値GP15）。</p>
-    <p>USBは1つのプログラムだけが接続できます。別のエディタで書き込む場合は、この画面の「USBを切断する」を押してから、エディタ側で接続してください。</p>
-    <p class="hint">USB接続はPC版Chromeで使用してください。GPIOへの5V入力は避け、部品に適した抵抗・駆動回路を使ってください。</p>
+  <details class="libraries"><summary>ライブラリ</summary>
     <p class="hint"><a href="https://docs.blockly.com/">Blockly 13.4.0</a> / <a href="vendor/blockly/LICENSE">Apache-2.0</a> · <a href="programs/SSD1306-LICENSE.txt">SSD1306 driver / MIT</a> · <a href="https://codemirror.net/">CodeMirror</a> / <a href="vendor/codemirror/LICENSES.txt">MIT</a></p>
   </details>
 

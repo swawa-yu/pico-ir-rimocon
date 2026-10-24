@@ -357,8 +357,8 @@ function renderHistory(){
     const binary=decoded.bits.join('').match(/.{1,8}/g)?.join(' ')||'—';
     let time='—';if(frame.recordedAt!==undefined&&frame.recordedAt!==null)time=new Date(frame.recordedAt).toLocaleTimeString('ja-JP',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3});
     const name=document.createElement('button');name.textContent=frame.name||`信号 ${frame.id}`;name.className='history-name';name.title=`#${frame.id} · ${frame.source}`;
-    const values=[name,kind,`${(frame.durations.reduce((a,b)=>a+b,0)/1000).toFixed(2)} ms`,kind==='リピート候補'?'—':String(decoded.bits.length),hex||'—',frame.intervalUs==null?'—':`${(frame.intervalUs/1000).toFixed(2)} ms`,time,binary];
-    values.forEach((value,index)=>{const cell=document.createElement('td');if(index===7)cell.className='history-binary';if(typeof value==='string'){cell.textContent=value;cell.title=value;}else cell.append(value);row.append(cell);});
+    const values=[name,kind,`${(frame.durations.reduce((a,b)=>a+b,0)/1000).toFixed(2)} ms`,kind==='リピート候補'?'—':String(decoded.bits.length),hex||'—',binary,time,frame.intervalUs==null?'—':`${(frame.intervalUs/1000).toFixed(2)} ms`];
+    values.forEach((value,index)=>{const cell=document.createElement('td');if(index===5)cell.className='history-binary';if(typeof value==='string'){cell.textContent=value;cell.title=value;}else cell.append(value);row.append(cell);});
     row.addEventListener('click',()=>{selected=frame;capture.protectedId=frame.id;armed=false;updateArm();$('selection').textContent='';drawCapture();locateSelected();renderHistory();});
     rows.append(row);
   }

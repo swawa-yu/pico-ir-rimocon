@@ -54,7 +54,7 @@ button:disabled{opacity:.45;cursor:default}
 #history-table{width:100%;min-width:920px;table-layout:fixed;border-collapse:collapse;font-size:.8rem}
 #history-table th{position:sticky;top:0;background:#f4f7f9;z-index:1;color:#667d89;font-weight:500}
 #history-table th,#history-table td{padding:9px 10px;text-align:left;border-bottom:1px solid #e1e8ed;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#history-table th:nth-child(1){width:180px}#history-table th:nth-child(2){width:125px}#history-table th:nth-child(3){width:90px}#history-table th:nth-child(4){width:65px}#history-table th:nth-child(5){width:160px}#history-table th:nth-child(6){width:95px}#history-table th:nth-child(7){width:120px}
+#history-table th:nth-child(1){width:180px}#history-table th:nth-child(2){width:125px}#history-table th:nth-child(3){width:90px}#history-table th:nth-child(4){width:65px}#history-table th:nth-child(5){width:160px}#history-table th:nth-child(7){width:120px}#history-table th:nth-child(8){width:150px}
 #history-table td{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums}
 #history-table td:first-child,#history-table td:nth-child(2){font-family:inherit}
 #history-table tr[aria-selected=true]{background:#e5f0f6}

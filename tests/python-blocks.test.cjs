@@ -121,3 +121,19 @@ test('previously inactive detached Python remains disabled during migration',()=
   assert.equal(api.generate(ws),'');
  }finally{ws.dispose();}
 });
+
+test('supported source statements become blocks without dropping unsupported code or creating globals',()=>{
+ const source='def answer():\n    bits = [0, 1]\n    for i in range(2):\n        bits.append(i)\n    return bits\n\nprint("prefix: " + str(answer()))\nprint(len("abc"))\n';
+ const ws=new B.Workspace(),copy=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource(source,[]),ws);
+  assert(ws.getAllBlocks(false).some(b=>b.type==='variables_set'));
+  assert(ws.getAllBlocks(false).some(b=>b.type==='pico_python'&&b.pythonCode.includes('bits.append(i)')));
+  const code=api.generate(ws);
+  assert.doesNotMatch(code,/bits = None/);
+  const result=spawnSync('python3',['-c',code],{encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'prefix: [0, 1, 0, 1]\n3\n');
+  B.serialization.workspaces.load(B.serialization.workspaces.save(ws),copy);
+  assert.equal(api.generate(copy),code);
+ }finally{ws.dispose();copy.dispose();}
+});

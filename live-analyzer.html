@@ -49,21 +49,10 @@
   </section>
   <section class="card history-card" aria-label="受信履歴">
     <div class="section-bar"><h2>履歴 <span id="history-count">0</span></h2><div class="actions"><button id="save" class="secondary" disabled>保存</button><button id="load" class="secondary">開く</button><input type="file" id="history-file" accept=".json,application/json" hidden></div></div>
-    <div id="history-list"><p id="history-empty" class="hint">受信履歴はありません。</p><table id="history-table" hidden><thead><tr><th>名前</th><th>種類</th><th>長さ</th><th>ビット数</th><th>HEX</th><th title="直前の信号の開始からの時間">開始間隔</th><th>記録時刻</th><th class="history-binary">バイナリ</th></tr></thead><tbody id="history-rows"></tbody></table></div>
+    <div id="history-list"><p id="history-empty" class="hint">受信履歴はありません。</p><table id="history-table" hidden><thead><tr><th>名前</th><th>種類</th><th>長さ</th><th>ビット数</th><th>HEX</th><th class="history-binary">バイナリ</th><th>記録時刻</th><th title="直前の信号の開始からの時間">前の信号からの時間</th></tr></thead><tbody id="history-rows"></tbody></table></div>
     <p class="hint history-limit">履歴は2,000件・合計262,144区間、ライブは262,144変化まで。古い記録から更新します。保存にはライブの変化時刻も含みます。</p>
   </section>
-  <details class="card help"><summary>Picoの準備・判定ルール</summary>
-    <ol><li>MicroPython導入済みの観測用PicoをUSB接続します。</li><li>受信ピンを選び、「受信開始」を押します。受信プログラムはRAM上で実行します。</li></ol>
-    <p>受信モジュールは、赤外線検出時にLOWになるものを使います。<a href="programs/live_receiver.py" download>受信プログラム</a></p>
-    <table><thead><tr><th>項目</th><th>設定・動作</th></tr></thead><tbody>
-      <tr><td>入力</td><td>受信ピンで選んだGPIO。初期値はGP15</td></tr>
-      <tr><td>終了</td><td>OFFが直前のONの8倍以上。終了待ちのOFFは固定波形から除外</td></tr>
-      <tr><td>表示の停止・固定</td><td>USB受信と履歴への追加は継続</td></tr>
-      <tr><td>ビット判定</td><td>OFF / ONが2未満 → 0、2以上 → 1</td></tr>
-      <tr><td>接続・再生の切替</td><td>途中の信号を破棄。固定波形と履歴は保持</td></tr>
-      <tr><td>測定方式</td><td>GPIO割り込みによる包絡線の記録。38kHzの搬送波は対象外。実機での精度確認は未実施</td></tr>
-    </tbody></table>
-  </details>
+
 </main>
 </body>
 </html>
