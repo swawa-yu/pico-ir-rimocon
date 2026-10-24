@@ -10,7 +10,7 @@ const {pythonGenerator:g}=require('../vendor/blockly/python_compressed.js');
 const dom=new JSDOM('');
 B.utils.xml.injectDependencies({document:dom.window.document,DOMParser:dom.window.DOMParser,XMLSerializer:dom.window.XMLSerializer});
 let api,fromSource,upgrade;
-before(async()=>{const module=await import('../python-blocks.mjs');fromSource=module.fromSource;upgrade=module.upgrade;api=module.configure(B,g,()=>{});});
+before(async()=>{const module=await import('../python-blocks.mjs');fromSource=module.fromSource;upgrade=module.upgrade;require('../pico-blocks.js').configure(B,g,()=>[]);api=module.configure(B,g,()=>{});});
 function workspace(source){const ws=new B.Workspace();B.serialization.workspaces.load(fromSource(source),ws);return ws;}
 
 test('opening and saving Python preserves every byte, including unsupported syntax and incomplete edits',()=>{
@@ -75,11 +75,13 @@ test('editing a class preserves multiline string contents, including unindented 
  }finally{ws.dispose();}
 });
 
-test('top-level definitions are independent and blank lines have no visible blocks',()=>{
+test('file statements and definitions form one connected sequence without blank blocks',()=>{
  const source='import time\n\ndef first():\n    pass\n\nclass Counter:\n    def value(self):\n        return 1\n\nprint(first())\n';
  const ws=workspace(source);
  try{
-  assert.deepEqual(ws.getTopBlocks(false).map(b=>b.type),['pico_import','pico_def','pico_class','pico_python']);
+  assert.equal(ws.getTopBlocks(false).length,1);
+  const types=[];for(let b=ws.getTopBlocks(false)[0];b;b=b.getNextBlock())types.push(b.type);
+  assert.deepEqual(types,['pico_import','pico_def','pico_class','pico_python']);
   assert(!ws.getAllBlocks(false).some(b=>b.type==='pico_module'||b.type==='pico_python'&&!b.pythonCode.trim()));
   assert.equal(ws.getAllBlocks(false).find(b=>b.type==='pico_def'&&b.getFieldValue('HEADER')==='value(self)').getSurroundParent().type,'pico_class');
   assert.equal(api.generate(ws),source);
@@ -128,7 +130,8 @@ test('supported source statements become blocks without dropping unsupported cod
  try{
   B.serialization.workspaces.load(fromSource(source,[]),ws);
   assert(ws.getAllBlocks(false).some(b=>b.type==='variables_set'));
-  assert(ws.getAllBlocks(false).some(b=>b.type==='pico_python'&&b.pythonCode.includes('bits.append(i)')));
+  assert(ws.getAllBlocks(false).some(b=>b.type==='controls_forEach'));
+  assert(ws.getAllBlocks(false).some(b=>b.type==='pico_call'&&b.getFieldValue('TARGET')==='bits.append'));
   const code=api.generate(ws);
   assert.doesNotMatch(code,/bits = None/);
   const result=spawnSync('python3',['-c',code],{encoding:'utf8'});
@@ -136,4 +139,68 @@ test('supported source statements become blocks without dropping unsupported cod
   B.serialization.workspaces.load(B.serialization.workspaces.save(ws),copy);
   assert.equal(api.generate(copy),code);
  }finally{ws.dispose();copy.dispose();}
+});
+
+test('receiver code becomes connected statements, nested conditions, variables and function calls',()=>{
+ const source='def decode_signal(times):\n    return len(times)\n\ntimes = [10, 20]\nwhile times:\n    bits = decode_signal(times)\n    if not bits:\n        break\n    elif bits == 2:\n        print("bits:", bits)\n    else:\n        print("other")\n    times = []\nprint("done")\n';
+ const ws=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource(source,[]),ws);
+  assert.equal(ws.getTopBlocks(false).length,1);
+  const blocks=ws.getAllBlocks(false);
+  for(const type of ['pico_def','pico_return','variables_set','controls_whileUntil','controls_if','pico_call','pico_call_value','pico_flow'])assert(blocks.some(b=>b.type===type),type);
+  assert(!blocks.some(b=>b.type==='pico_python'));
+  const call=blocks.find(b=>b.type==='pico_call_value');assert.equal(call.getFieldValue('TARGET'),'decode_signal');
+  assert.equal(call.getInputTargetBlock('ARG0').type,'variables_get');
+  const branch=blocks.find(b=>b.type==='controls_if');assert(branch.getInput('IF1'));assert(branch.getInput('ELSE'));
+  const result=spawnSync('python3',['-c',api.generate(ws)],{encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'bits: 2\ndone\n');
+ }finally{ws.dispose();}
+});
+
+test('unsupported statements remain separate and unknown expressions stay editable within assignment blocks',()=>{
+ const ws=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource('a, b = (1, 2)\nassert a < b\nvalue = {"a": a}["a"]\nprint(value)\n',[]),ws);
+  const raw=ws.getAllBlocks(false).filter(b=>b.type==='pico_python');assert.equal(raw.length,2);
+  assert(raw.every(b=>b.pythonCode.trim().split('\n').length===1));
+  const expression=ws.getAllBlocks(false).find(b=>b.type==='pico_expression');expression.setFieldValue('b + 5','CODE');
+  const result=spawnSync('python3',['-c',api.generate(ws)],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'7\n');
+ }finally{ws.dispose();}
+});
+
+test('cached raw source migrates into connected structured blocks and retains disabled content',()=>{
+ const state={blocks:{languageVersion:0,blocks:[{type:'pico_import',fields:{MODULE:'time'},extraState:{eol:'\n'},x:24,y:24},{type:'pico_python',extraState:{code:'while True:\n    result = decode(42)\n    if result:\n        break\n'},x:24,y:80},{type:'pico_python',extraState:{code:'print("disabled")\n'},disabledReasons:['MANUALLY_DISABLED'],x:24,y:200}]}};
+ const ws=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(upgrade(state,[]),ws);
+  assert.equal(ws.getTopBlocks(false).length,1);
+  assert(ws.getAllBlocks(false).some(b=>b.type==='controls_whileUntil'));
+  const disabled=ws.getAllBlocks(false).find(b=>b.type==='text_print');
+  assert(disabled.hasDisabledReason('MANUALLY_DISABLED'));
+  assert.doesNotMatch(api.generate(ws),/disabled/);
+ }finally{ws.dispose();}
+});
+
+
+test('function parameters, keyword arguments and generator expressions preserve their Python meaning',()=>{
+ const source='def f(input):\n    result = max(input, 1)\n    print(result, end="!")\n    return sum(x for x in range(result))\nprint(f(4))\n';
+ const ws=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource(source,[]),ws);
+  const code=api.generate(ws),result=spawnSync('python3',['-c',code],{encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'4!6\n');
+ }finally{ws.dispose();}
+});
+
+
+test('all bundled Python files still parse after conversion into structured blocks',()=>{
+ for(const name of fs.readdirSync('programs').filter(name=>name.endsWith('.py'))){
+  const ws=new B.Workspace();
+  try{
+   B.serialization.workspaces.load(fromSource(fs.readFileSync('programs/'+name,'utf8'),[]),ws);
+   const result=spawnSync('python3',['-c','import ast,sys;ast.parse(sys.stdin.read())'],{input:api.generate(ws,[],'lib/'+name),encoding:'utf8'});
+   assert.equal(result.status,0,name+': '+result.stderr);
+  }finally{ws.dispose();}
+ }
 });

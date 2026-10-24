@@ -33,7 +33,8 @@ function parse(source,parts=null){
     if(!code)return;
     if(!code.trim()){const last=blocks.at(-1),newline=code.match(/^\r?\n/)?.[0];if(last?.type==='pico_python'&&newline&&!last.extraState.code.endsWith('\n')){last.extraState.code+=newline;code=code.slice(newline.length);}pending+=code;return;}
     const last=blocks.at(-1);
-    if(last?.type==='pico_python'){last.extraState.code+=pending+code;pending='';}else append(raw(code));
+    if(last?.type==='pico_python'&&!/[\r\n]$/.test(last.extraState.code)&&!/[\r\n]/.test(pending)) {last.extraState.code+=pending+code;pending='';}
+    else append(raw(code));
   }
   for(let node=tree.topNode.firstChild;node;node=node.nextSibling){
     appendRaw(source.slice(end,node.from));
@@ -71,8 +72,8 @@ function positionRoots(blocks){
   for(const block of blocks){block.x=24;block.y=y;y+=48*count(block)+32;}
   return blocks;
 }
-export function fromSource(source,parts=null){const blocks=parse(source,parts);if(parts)for(const block of blocks)block.data='pico-source-root';return {blocks:{languageVersion:0,blocks:positionRoots(blocks)}};}
-export function upgrade(state){
+export function fromSource(source,parts=null){const first=chain(parse(source,parts));if(first&&parts)first.data='pico-source-root';return {blocks:{languageVersion:0,blocks:positionRoots(first?[first]:[])}};}
+export function upgrade(state,parts=null){
   const copy=structuredClone(state);
   function clean(first){
     const result=[];let gap='';
@@ -85,19 +86,24 @@ export function upgrade(state){
         if(imported){block.type=imported.type;block.fields=imported.fields;block.extraState={...block.extraState,importCode:code,importFields:imported.fields};}
         else{block.type='pico_python';delete block.fields;block.extraState={...block.extraState,code:code+(block.extraState?.eol??'\n')};}
       }
+      if(parts&&block.type==='pico_python'&&block.extraState?.code?.trim()){
+        if(gap){block.extraState.before=gap+(block.extraState.before||'');gap='';}
+        const parsed=parse(block.extraState.code,parts);
+        if(parsed.length){for(const item of parsed){if(block.disabledReasons)item.disabledReasons=[...block.disabledReasons];}parsed[0].extraState={...parsed[0].extraState,before:(block.extraState.before||'')+(parsed[0].extraState?.before||'')};parsed.at(-1).extraState={...parsed.at(-1).extraState,after:(parsed.at(-1).extraState?.after||'')+(block.extraState.after||'')};result.push(...parsed);block=next;continue;}
+      }
       if(gap){block.extraState={...block.extraState,before:gap+(block.extraState?.before||'')};gap='';}
       result.push(block);block=next;
     }
     if(gap&&result.length)result.at(-1).extraState={...result.at(-1).extraState,after:(result.at(-1).extraState?.after||'')+gap};
     return result;
   }
-  const roots=[];let unwrapped=false;
+  const roots=[];
   for(const root of copy.blocks?.blocks||[]){
     if(['pico_class','pico_def','pico_import','pico_import_as','pico_from_import','pico_python'].includes(root.type)&&root.disabledReasons?.includes('PICO_UNCONNECTED'))root.disabledReasons=[...new Set([...root.disabledReasons,'MANUALLY_DISABLED'])];
-    if(root.type==='pico_module'){const body=clean(root.inputs?.DO?.block);for(const block of body){delete block.x;delete block.y;const reasons=(root.disabledReasons||[]).filter(reason=>reason!=='PICO_UNCONNECTED');if(reasons.length)block.disabledReasons=[...new Set([...(block.disabledReasons||[]),...reasons])];}roots.push(...body);unwrapped=true;}
+    if(root.type==='pico_module'){const body=clean(root.inputs?.DO?.block);for(const block of body){delete block.x;delete block.y;const reasons=(root.disabledReasons||[]).filter(reason=>reason!=='PICO_UNCONNECTED');if(reasons.length)block.disabledReasons=[...new Set([...(block.disabledReasons||[]),...reasons])];}roots.push(...body);}
     else{const list=clean(root);if(list.length)roots.push(chain(list));}
   }
-  if(copy.blocks)copy.blocks.blocks=unwrapped?positionRoots(roots):roots;
+  if(copy.blocks){const first=chain(roots);if(first&&parts)first.data='pico-source-root';copy.blocks.blocks=positionRoots(first?[first]:[]);}
   return copy;
 }
 export function layout(workspace){
@@ -117,6 +123,20 @@ export function configure(B,g,editRaw){
     {type:'pico_class',message0:'クラス %1 %2 %3',args0:[{type:'field_input',name:'HEADER',text:'MyClass'},{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,colour:215},
     {type:'pico_def',message0:'関数 %1 %2 %3',args0:[{type:'field_input',name:'HEADER',text:'my_function()'},{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,colour:290}
   ]);
+  B.defineBlocksWithJsonArray([
+    {type:'pico_expression',message0:'%1',args0:[{type:'field_input',name:'CODE',text:'value'}],output:null,colour:210},
+    {type:'pico_return',message0:'return %1',args0:[{type:'input_value',name:'VALUE'}],previousStatement:null,nextStatement:null,colour:290},
+    {type:'pico_flow',message0:'%1',args0:[{type:'field_dropdown',name:'CODE',options:[['continue','continue'],['break','break'],['pass','pass']]}],previousStatement:null,nextStatement:null,colour:120}
+  ]);
+  for(const type of ['pico_call','pico_call_value'])B.Blocks[type]={
+    init(){this.appendDummyInput('TARGET').appendField(new B.FieldTextInput('my_function'),'TARGET');this.argumentCount=0;this.setColour(290);if(type==='pico_call_value')this.setOutput(true);else{this.setPreviousStatement(true);this.setNextStatement(true);}this.setInputsInline(true);},
+    saveExtraState(){return {argumentCount:this.argumentCount};},
+    loadExtraState(state){for(let i=0;i<this.argumentCount;i++)this.removeInput('ARG'+i);this.argumentCount=state.argumentCount||0;for(let i=0;i<this.argumentCount;i++)this.appendValueInput('ARG'+i).appendField(i?',':'(');if(this.getInput('END'))this.removeInput('END');this.appendDummyInput('END').appendField(this.argumentCount?')':'()');}
+  };
+  g.forBlock.pico_expression=block=>[block.getFieldValue('CODE'),g.ORDER_NONE];
+  for(const type of ['pico_call','pico_call_value'])g.forBlock[type]=(block,g)=>{const args=Array.from({length:block.argumentCount},(_,i)=>g.valueToCode(block,'ARG'+i,g.ORDER_NONE)||'None');const code=block.getFieldValue('TARGET')+'('+args.join(', ')+')';return type==='pico_call_value'?[code,g.ORDER_FUNCTION_CALL]:code+'\n';};
+  g.forBlock.pico_return=(block,g)=>'return'+(block.getInputTargetBlock('VALUE')?' '+g.valueToCode(block,'VALUE',g.ORDER_NONE):'')+'\n';
+  g.forBlock.pico_flow=block=>block.getFieldValue('CODE')+'\n';
   B.Blocks.pico_python={
     init(){this.appendDummyInput().appendField(new B.FieldLabelSerializable('pass'),'LABEL');this.setPreviousStatement(true);this.setNextStatement(true);this.setColour(210);this.pythonCode='pass\n';},
     saveExtraState(){return {code:this.pythonCode};},
@@ -151,6 +171,8 @@ export function configure(B,g,editRaw){
   }if(one)break;const next=block.getNextBlock();if(next&&code&&!code.endsWith('\n')&&!(/^[\r\n]/.test(next.pythonBefore||'')||next.type==='pico_python'&&/^[\r\n]/.test(next.pythonCode)))code+='\n';block=next;}return code;}
   for(const type of ['pico_module','pico_class','pico_def','pico_import','pico_import_as','pico_from_import','pico_python'])g.forBlock[type]=(block,g)=>sequence(block,g,true);
   return {generate(workspace,parts=[],path='main.py'){
+    const getVariableName=g.getVariableName;
+    g.getVariableName=id=>workspace.getVariableMap().getVariableById(id)?.name||id;
     B.Events.disable();
     try{
       for(const block of workspace.getAllBlocks(false)){const root=block.getRootBlock(),manual=block.hasDisabledReason('MANUALLY_DISABLED');block.setDisabledReason(!rootTypes.includes(root.type)&&root.data!=='pico-source-root','PICO_UNCONNECTED');if(manual)block.setDisabledReason(true,'MANUALLY_DISABLED');}
@@ -169,6 +191,6 @@ export function configure(B,g,editRaw){
       const parsed=workspace.getTopBlocks(false).some(block=>block.data==='pico-source-root');
       const definitions=Object.entries(g.definitions_||{}).filter(([key,text])=>!(parsed&&key==='variables')&&!code.includes(text)).map(([,text])=>text);
       return [...imports,...definitions].map(text=>text+'\n').join('')+code;
-    }finally{B.Events.enable();}
+    }finally{g.getVariableName=getVariableName;B.Events.enable();}
   }};
 }

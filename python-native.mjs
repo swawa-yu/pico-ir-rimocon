@@ -2,11 +2,18 @@
 export function nativeStatement(node,source,parts,parseBody){
   const text=n=>source.slice(n.from,n.to);
   const children=n=>{const values=[];for(let c=n?.firstChild;c;c=c.nextSibling)values.push(c);return values;};
-  const args=n=>children(n.getChild('ArgList')).filter(c=>!['(',')',','].includes(c.name));
+  const args=n=>{
+    const items=children(n.getChild('ArgList')).filter(c=>!['(',')'].includes(c.name));
+    if(items.some(c=>c.name==='for'))return [{name:'RawExpression',from:items[0].from,to:items.at(-1).to}];
+    const result=[];let group=[];
+    function append(){if(group.length)result.push(group.length===1?group[0]:{name:'RawExpression',from:group[0].from,to:group.at(-1).to});group=[];}
+    for(const child of children(n.getChild('ArgList'))){if(child.name===',')append();else if(!['(',')'].includes(child.name))group.push(child);}
+    append();return result;
+  };
   const input=block=>({block});
   const number=n=>({type:'math_number',fields:{NUM:n}});
   const variable=name=>({type:'variables_get',fields:{VAR:{name}}});
-  const outputType=b=>!b?null:b.type==='variables_get'?null:['text','pico_char','pico_bits_text'].includes(b.type)?'String':['lists_create_with','pico_receive','pico_int_bits','pico_text_bits','pico_decode_bits'].includes(b.type)?'Array':b.type.startsWith('logic_')||['pico_bootsel','pico_ir_level','pico_button'].includes(b.type)?'Boolean':'Number';
+  const outputType=b=>!b?null:['variables_get','pico_expression','pico_call_value'].includes(b.type)?null:['text','pico_char','pico_bits_text'].includes(b.type)?'String':['lists_create_with','pico_receive','pico_int_bits','pico_text_bits','pico_decode_bits'].includes(b.type)?'Array':b.type.startsWith('logic_')||['pico_bootsel','pico_ir_level','pico_button'].includes(b.type)?'Boolean':'Number';
   const checks={math_arithmetic:'Number',pico_time_diff:'Number',pico_wait:'Number',pico_pwm:'Number',pico_send:'Number',pico_speaker_on:'Number',pico_receive:'Number',pico_char:'Number',pico_ord:'String',pico_int_bits:'Number',pico_text_bits:'String',pico_bits_text:'Array',pico_bits_int:'Array',pico_decode_bits:null,lists_length:'Array',text_length:'String',logic_negate:'Boolean'};
   function values(type,names,items,fields={}){
     if(!items.every(Boolean))return null;
@@ -16,7 +23,7 @@ export function nativeStatement(node,source,parts,parseBody){
     }
     return {type,fields,inputs:Object.fromEntries(names.map((name,i)=>[name,input(items[i])]))};
   }
-  function expression(n){
+  function recognizedExpression(n){
     if(!n)return null;
     const value=text(n),cs=children(n);
     if(n.name==='Number'&&Number.isFinite(Number(value))&&(!Number.isInteger(Number(value))||Number.isSafeInteger(Number(value))))return number(Number(value));
@@ -48,8 +55,15 @@ export function nativeStatement(node,source,parts,parseBody){
       if(part?.kind==='receiver'&&action==='receive'&&arguments_.length<=1)return values('pico_receive',['TIMEOUT'],arguments_.length?converted:[number(1000)],{PART:id});
       if(part&&['button','receiver'].includes(part.kind)&&['is_pressed','is_on'].includes(action)&&!arguments_.length)return {type:part.kind==='receiver'?'pico_ir_level':'pico_button',fields:{PART:id}};
     }
+    if(n.name==='CallExpression')return callBlock(n,true);
     return null;
   }
+  function expression(n){return n?(recognizedExpression(n)||{type:'pico_expression',fields:{CODE:text(n)}}):null;}
+  function callBlock(n,output=false){
+    const arguments_=args(n),target=text(n.firstChild);
+    return {type:output?'pico_call_value':'pico_call',fields:{TARGET:target},extraState:{argumentCount:arguments_.length},inputs:Object.fromEntries(arguments_.map((arg,i)=>['ARG'+i,input(expression(arg))]))};
+  }
+  function condition(n){const block=expression(n);return outputType(block)&&outputType(block)!=='Boolean'?{type:'pico_expression',fields:{CODE:text(n)}}:block;}
   const cs=children(node);
   if(node.name==='AssignStatement'&&cs.length===3&&cs[0].name==='VariableName'&&text(cs[1])==='='&&text(cs[0])!=='None')return values('variables_set',['VALUE'],[expression(cs[2])],{VAR:{name:text(cs[0])}});
   if(node.name==='ExpressionStatement'&&cs[0]?.name==='CallExpression'){
@@ -69,14 +83,28 @@ export function nativeStatement(node,source,parts,parseBody){
       if(part.kind==='speaker'&&action==='on'&&arguments_.length===1)return values('pico_speaker_on',['HZ'],converted,fields);
       if(part.kind==='speaker'&&action==='off'&&!arguments_.length)return {type:'pico_speaker_off',fields};
     }
+    return callBlock(call);
   }
+  if(node.name==='ReturnStatement')return {type:'pico_return',inputs:cs[1]?{VALUE:input(expression(cs[1]))}:{}};
+  if(['BreakStatement','ContinueStatement','PassStatement'].includes(node.name))return {type:'pico_flow',fields:{CODE:text(node)}};
   if(node.name==='WhileStatement'&&cs.length===3){
-    const condition=expression(cs[1]),body=parseBody(cs[2]);
-    if(condition&&(!outputType(condition)||outputType(condition)==='Boolean')&&body)return {type:'controls_whileUntil',fields:{MODE:'WHILE'},inputs:{BOOL:input(condition),DO:input(body)}};
+    const test=condition(cs[1]),body=parseBody(cs[2]);
+    if(test&&body)return {type:'controls_whileUntil',fields:{MODE:'WHILE'},inputs:{BOOL:input(test),DO:input(body)}};
   }
-  if(node.name==='IfStatement'&&[3,5].includes(cs.length)&&(!cs[3]||cs[3].name==='else')){
-    const condition=expression(cs[1]),body=parseBody(cs[2]),otherwise=cs[4]?parseBody(cs[4]):null;
-    if(condition&&(!outputType(condition)||outputType(condition)==='Boolean')&&body&&(!cs[4]||otherwise))return {type:'controls_if',extraState:{hasElse:Boolean(otherwise)},inputs:{IF0:input(condition),DO0:input(body),...(otherwise?{ELSE:input(otherwise)}:{})}};
+  if(node.name==='ForStatement'&&cs.length===5&&cs[1].name==='VariableName'){
+    const items=expression(cs[3]),body=parseBody(cs[4]);
+    if(body)return {type:'controls_forEach',fields:{VAR:{name:text(cs[1])}},inputs:{LIST:input(items),DO:input(body)}};
+  }
+  if(node.name==='IfStatement'){
+    const inputs={};let branches=0,otherwise=null;
+    for(let i=0;i<cs.length;){
+      if(['if','elif'].includes(cs[i].name)){
+        const test=condition(cs[i+1]),body=parseBody(cs[i+2]);if(!test||!body)return null;
+        inputs['IF'+branches]=input(test);inputs['DO'+branches]=input(body);branches++;i+=3;
+      }else if(cs[i].name==='else'){otherwise=parseBody(cs[i+1]);if(!otherwise)return null;inputs.ELSE=input(otherwise);i+=2;}
+      else return null;
+    }
+    if(branches)return {type:'controls_if',extraState:{elseIfCount:branches-1,hasElse:Boolean(otherwise)},inputs};
   }
   return null;
 }

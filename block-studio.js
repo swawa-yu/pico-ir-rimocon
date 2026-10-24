@@ -184,7 +184,7 @@
     if(!fileWorkspaceDirty&&JSON.stringify(fileModels[fileWorkspacePath]?.state)===JSON.stringify(state))return;
     try{
       const source=pythonBlocks.generate(fileWorkspace,parts,fileWorkspacePath);
-      fileModels[fileWorkspacePath]={source,version:2,state:Blockly.serialization.workspaces.save(fileWorkspace)};
+      fileModels[fileWorkspacePath]={source,version:3,state:Blockly.serialization.workspaces.save(fileWorkspace)};
       fileStore.edit(fileWorkspacePath,source);files=fileStore.regenerate(generatedProject());fileWorkspaceDirty=false;
       if(activeFile===fileWorkspacePath)editor.setFile(activeFile,source);
       codeValid=true;renderFiles();renderPicoFiles();saveProject();notify();updateDevice();
@@ -200,13 +200,13 @@
       Blockly.Events.disable();
       try{
         const cached=model?.source===source;
-        const state=cached?(model.version===2?model.state:PicoEditor.blocks.upgrade(model.state)):PicoEditor.blocks.fromSource(source,parts);
+        const state=cached?(model.version===3?model.state:PicoEditor.blocks.upgrade(model.state,parts)):PicoEditor.blocks.fromSource(source,parts);
         Blockly.serialization.workspaces.load(state,fileWorkspace);
-        if(!cached||model.version!==2)PicoEditor.blocks.layout(fileWorkspace);
+        if(!cached||model.version!==3)PicoEditor.blocks.layout(fileWorkspace);
         fileWorkspace.clearUndo();
       }finally{Blockly.Events.enable();}
       fileWorkspacePath=activeFile;fileWorkspaceDirty=false;
-      fileModels[activeFile]={source,version:2,state:Blockly.serialization.workspaces.save(fileWorkspace)};
+      fileModels[activeFile]={source,version:3,state:Blockly.serialization.workspaces.save(fileWorkspace)};
     }
     Blockly.svgResize(fileWorkspace);
   }
@@ -369,7 +369,7 @@
     const snapshot=projectFiles===null?null:StudioFiles.validateEdits(projectFiles);
     if(snapshot&&['main.py','parts.py','lib/pico_parts.py'].some(path=>!Object.hasOwn(snapshot,path)))throw Error('プロジェクトのファイルが不足しています。');
     if(!nextModels||typeof nextModels!=='object'||Array.isArray(nextModels)||Object.entries(nextModels).some(([path,model])=>!StudioFiles.validPath(path)||typeof model?.source!=='string'||!model.state))throw Error('ファイルのブロック形式が不正です。');
-    for(const model of Object.values(nextModels)){const check=new Blockly.Workspace();try{Blockly.serialization.workspaces.load(model.version===2?model.state:PicoEditor.blocks.upgrade(model.state),check);}finally{check.dispose();}}
+    for(const model of Object.values(nextModels)){const check=new Blockly.Workspace();try{Blockly.serialization.workspaces.load(model.version===3?model.state:PicoEditor.blocks.upgrade(model.state,nextParts),check);}finally{check.dispose();}}
     const previous=Blockly.serialization.workspaces.save(workspace),oldParts=parts;parts=nextParts;
     generator.addReservedWords(parts.map(p=>p.id).join(','));
     Blockly.Events.disable();
