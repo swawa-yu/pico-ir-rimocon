@@ -118,7 +118,7 @@ test('additional GPIO outputs are injected before reception and locked until it 
   await context.connect();
   context.addAuxiliaryPin(2,1);context.addAuxiliaryPin(5,0);
   await context.startReceiver();
-  assert.match(device.code,/AUXILIARY_OUTPUTS = \[\[2,1\],\[5,0\]\]/);
+  assert.match(device.code,/AUXILIARY_OUTPUTS = \[\[14,1\],\[2,1\],\[5,0\]\]/);
   assert(elements.get('auxiliary-add').disabled);
   for(const row of elements.get('auxiliary-pins').children)assert(row.children.every(field=>field.disabled));
   await context.stopReceiver();
@@ -128,13 +128,25 @@ test('additional GPIO outputs are injected before reception and locked until it 
 });
 
 test('duplicate output pins and conflicts with the receiver are rejected before starting hardware',async()=>{
-  for(const pins of [[15],[2,2]]){
+  for(const pins of [[13],[14],[2,2]]){
     const device=serialPort(),{context,elements}=page({requestPort:async()=>device.port});
     await context.connect();for(const pin of pins)context.addAuxiliaryPin(pin,1);
     await context.startReceiver();assert.equal(device.code,'');
     assert.match(elements.get('status').textContent,/重複しないGPIO/);
     await context.disconnect();
   }
+});
+
+test('default analyzer settings select GP13 input and GP14 HIGH without applying them until reception starts',async()=>{
+  const device=serialPort(),{context,elements}=page({requestPort:async()=>device.port});
+  assert.equal(elements.get('receiver-pin').value,'13');
+  const row=elements.get('auxiliary-pins').children[0];
+  assert.equal(row.children[0].value,'14');assert.equal(row.children[1].value,'1');
+  assert.equal(device.code,'');await context.connect();assert.equal(device.code,'');
+  await context.startReceiver();
+  assert.match(device.code,/RECEIVER_PIN = 13/);
+  assert.match(device.code,/AUXILIARY_OUTPUTS = \[\[14,1\]\]/);
+  await context.stopReceiver();await context.disconnect();
 });
 
 test('history selection locates the imported recording, and zoom and pan retain microsecond precision',async()=>{

@@ -23,7 +23,7 @@ const receiverOptions={
 const receiver=window.PicoDevices?window.PicoDevices.forRole('observer',receiverOptions):new PicoREPL(receiverOptions);
 if(window.PicoDevices)window.PicoDevices.bindSelect($('observer-device'),'observer');
 for(let pin=0;pin<=22;pin++){const option=document.createElement('option');option.value=pin;option.textContent=`GP${pin}`;$('receiver-pin').append(option);}
-$('receiver-pin').value='15';
+$('receiver-pin').value='13';
 const auxiliaryOutputs=[],auxiliaryControls=[];
 function addAuxiliaryPin(pin=null,level=1){
   if(receiver.busy||receiver.running)return;
@@ -501,6 +501,7 @@ $("history-file").addEventListener("change",async()=>{
 });
 setInterval(()=>{if(port){controls();if(lastPacketAt!==null&&performance.now()-lastPacketAt>3000)scheduleDraw();}},250);
 window.addEventListener("resize",()=>{scheduleDraw();drawCapture();});
+addAuxiliaryPin(14,1);
 controls();scheduleDraw();
 
 window.LiveAnalyzer={
