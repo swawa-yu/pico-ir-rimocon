@@ -45,7 +45,7 @@ test('malformed, overflowing and excessive inputs fail without guessing a conver
 });
 
 function page(embedded=false){
- const dom=new JSDOM(fs.readFileSync(embedded?'index.html':'live-analyzer.html','utf8'),{runScripts:'outside-only',url:'https://example.test/'}),w=dom.window,draws=[];
+ const dom=new JSDOM(fs.readFileSync(embedded?'studio.html':'live-analyzer.html','utf8'),{runScripts:'outside-only',url:'https://example.test/'}),w=dom.window,draws=[];
  w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;
  if(embedded){w.PicoSources=require('../pico-sources.js');w.eval(fs.readFileSync('live-view.js','utf8'));}
  w.LiveAnalyzer={currentCapture:()=>null,drawSignal(canvas,width,times,result,focused){draws.push({times,result,focused});return times.map((d,i)=>({a:i*10,b:(i+1)*10,index:i}));}};

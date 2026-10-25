@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pico Studio</title>
+  <link rel="stylesheet" href="style.css?v=e50109bd6cca">
+  <link rel="stylesheet" href="block-studio.css?v=25c10f86c6bf">
+  <link rel="stylesheet" href="live-analyzer.css?v=20711674071d">
+  <script src="vendor/blockly/blockly_compressed.js?v=cc761aa447e0" defer></script>
+  <script src="vendor/blockly/blocks_compressed.js?v=4f0b3d4079fe" defer></script>
+  <script src="vendor/blockly/python_compressed.js?v=7d880e1763a1" defer></script>
+  <script src="vendor/blockly/msg/ja.js?v=81647ef6b769" defer></script>
+  <script src="pico-blocks.js?v=431c742b19d9" defer></script>
+  <script src="pico-repl.js?v=24fce0bfb042" defer></script>
+  <script src="pico-devices.js?v=8ba4281b6af8" defer></script>
+  <script src="pico-project.js?v=2500a4b1d394" defer></script>
+  <script src="vendor/codemirror/editor.js?v=c2af0b84e48f" defer></script>
+  <script src="studio-files.js?v=1ae19f45e0dd" defer></script>
+  <script src="pico-sources.js?v=fa657b873719" defer></script>
+  <script src="live-core.js?v=d47659fb5907" defer></script>
+  <script src="live-view.js?v=301b075e40c9" defer></script>
+  <script src="live-analyzer.js?v=d30740dcf758" defer></script>
+  <script src="signal-conversion.js?v=dcb5b429ce1d" defer></script>
+  <script src="signal-converter.js?v=655f9a027ef8" defer></script>
+  <script src="studio-samples.js?v=c44eda60f47d" defer></script>
+  <script src="studio-layout.js?v=655fbdfc2fe8" defer></script>
+  <script src="block-studio.js?v=537e2e82447c" defer></script>
+</head>
+<body class="block-studio">
+<main>
+  <header class="studio-header"><h1>Pico Studio</h1><a class="docs-link" href="./">ホーム</a><a class="docs-link" href="docs.html" target="_blank" rel="noopener">Docs</a>
+  <section class="shared-connection" aria-label="USB接続">
+    <div class="bar"><select id="program-device" aria-label="このタブで使うPico"></select><span id="program-state" role="status" hidden></span><button id="program-connect">USB接続する</button><button id="program-disconnect" class="secondary" disabled>USBを切断する</button></div>
+  </section></header>
+  <div class="studio-tabs" role="tablist" aria-label="作業"><button id="program-tab" role="tab" aria-selected="true" aria-controls="program-panel">プログラム</button><button id="analyzer-tab" role="tab" aria-selected="false" aria-controls="observer-panel" tabindex="-1">ロジアナ</button><button id="conversion-tab" role="tab" aria-selected="false" aria-controls="conversion-panel" tabindex="-1">データ変換</button></div>
+  <div id="program-panel" role="tabpanel" aria-labelledby="program-tab">
+  <section class="editor-section" aria-label="プログラム編集">
+    <div class="bar project-bar"><button id="project-save" class="secondary">ローカルにプロジェクトを保存</button></div>
+    <div id="project-tabs" class="project-tabs" role="tablist" aria-label="開いているプロジェクト"></div>
+    <details class="card parts-settings"><summary>部品設定</summary>
+      <p id="parts-empty" hidden>部品は未設定です</p>
+      <table><thead><tr><th>変数名</th><th>部品</th><th>接続（GP）</th><th>設定</th><th></th></tr></thead><tbody id="parts-rows"></tbody></table>
+      <div class="bar"><select id="new-part-kind" aria-label="追加する部品"><option value="receiver">赤外線センサー</option><option value="infrared">赤外線LED</option><option value="button">デジタル入力</option><option value="pwm">PWM出力</option><option value="speaker">圧電スピーカー</option><option value="dip">8連DIPスイッチ</option><option value="led">デジタル出力</option><option value="rgb">フルカラーLED（RGB）</option><option value="ssd1306">SSD1306（I²C）</option></select><button id="part-add" class="secondary">部品を追加</button><button id="parts-apply">設定を反映</button></div>
+    </details>
+    <section class="program-workspace" aria-label="ブロックとコードの編集・実行">
+      <div class="workspace-toolbar" role="toolbar" aria-label="プログラムの実行">
+        <button id="write-only" class="icon-button secondary" aria-label="書き込みのみ" title="書き込みのみ（実行しない）" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg></button>
+        <button id="run" class="icon-button" aria-label="書き込み・実行" title="書き込み・実行" disabled><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16l14-8z" fill="currentColor"/></svg></button>
+        <button id="stop" class="icon-button secondary" aria-label="停止" title="停止" disabled><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="1" fill="currentColor"/></svg></button>
+        <button id="step-start" class="icon-button secondary" aria-label="1行ずつ実行" title="1行ずつ実行（main.py）" disabled><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14l10-7z" fill="currentColor"/><path d="M18 5v14" stroke="currentColor" stroke-width="2"/></svg></button>
+        <button id="step-next" class="secondary" disabled hidden>次へ</button><span id="step-position" role="status"></span>
+        <p id="studio-status" role="status" aria-live="polite"></p>
+      </div>
+    <div class="editor-grid">
+      <div class="card code-panel">
+        <div class="editor-shell">
+          <aside class="file-sidebar" aria-label="ファイル一覧"><div class="file-actions"><button id="file-create" class="secondary" title="ファイルを作成" aria-label="ファイルを作成"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M14 3H5v18h14V8zM14 3v5h5M8 14h8M12 10v8"/></svg></button><button id="folder-create" class="secondary" title="フォルダを作成" aria-label="フォルダを作成"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 6h7l2 3h9v12H3zM8 15h8M12 11v8"/></svg></button><button id="file-rename" class="secondary" title="名前を変更" aria-label="名前を変更"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m4 16 12-12 4 4L8 20H4zM13 7l4 4"/></svg></button></div><nav id="file-tree" aria-label="プロジェクトのファイル"></nav><details class="outline" open><summary>関数</summary><nav id="file-outline" aria-label="関数一覧"></nav></details></aside>
+          <div id="code-editor"></div>
+        </div>
+      </div>
+      <div class="card blocks-panel"><div id="blockly" aria-label="ブロック編集エリア"></div><div id="file-blockly" aria-label="ファイルのブロック編集エリア" hidden></div></div>
+    </div>
+
+    </section>
+    <details class="card pico-files" id="pico-files-panel">
+      <summary>Pico内のファイル・比較</summary>
+      <div class="bar pico-files-bar"><nav id="pico-directory" aria-label="Pico内のフォルダ"></nav><span id="pico-files-state" role="status">USB未接続</span><button id="pico-files-refresh" class="secondary" disabled>一覧を取得</button></div>
+      <div class="pico-files-grid">
+        <div class="file-pane-headings"><h3>PC（編集中）</h3><h3>Pico内</h3></div><div class="file-panes"><nav id="pc-file-tree" aria-label="PCのファイル一覧"></nav><nav id="pico-file-tree" aria-label="Pico内のファイル一覧"></nav></div>
+        <section class="pico-comparison" aria-label="ファイルの比較"><div class="bar"><h2 id="pico-file-title"></h2><span id="pico-file-status"></span></div><p id="pico-file-message" role="status"></p><div class="diff-scroll"><table id="pico-diff" hidden><thead><tr><th>編集中</th><th>Pico内</th></tr></thead><tbody id="pico-diff-rows"></tbody></table></div></section>
+      </div>
+    </details>
+
+  </section>
+
+  </div>
+  <section id="observer-panel" class="analyzer live-analyzer" role="tabpanel" aria-labelledby="analyzer-tab" hidden></section>
+  <section id="conversion-panel" class="analyzer live-analyzer" role="tabpanel" aria-labelledby="conversion-tab" hidden></section>
+
+
+</main>
+<section class="output" id="console-panel" aria-labelledby="console-title">
+  <div class="console-header"><h2 id="console-title">コンソール</h2><span id="console-state" role="status">USB未接続</span></div>
+  <div class="terminal-surface" id="terminal-surface"><pre id="output" role="log" aria-live="polite">—</pre><div class="terminal-line"><span id="console-prompt" aria-hidden="true">&gt;&gt;&gt;</span><textarea id="console-input" rows="1" spellcheck="false" aria-label="コンソール入力" title="Enterで送信・Shift+Enterで改行・Ctrl+Cで停止" disabled></textarea></div></div>
+</section>
+<dialog id="project-add-dialog" aria-labelledby="project-add-title"><form method="dialog"><h2 id="project-add-title">プロジェクトを追加</h2><div class="bar"><button id="project-new" type="button">新規プロジェクト</button><button id="project-load" type="button" class="secondary">ローカルファイルを開く</button><button id="project-reopen" type="button" class="secondary" hidden>閉じたプロジェクトを戻す</button></div><div class="sample-picker"><label for="example">サンプルプロジェクト</label><select id="example">
+  <optgroup label="赤外線を送る">
+    <option value="beginner_zero32">0を32ビットずつ送る</option>
+    <option value="beginner_continuous">BOOTSELで0・1を32ビットずつ送る</option>
+    <option value="beginner_times">時間配列を手打ちして送信する</option>
+    <option value="beginner_button_times">BOOTSELで時間配列を送信する</option>
+    <option value="beginner_one_bit">1ビットを送る（リーダ部なし）</option>
+    <option value="beginner_byte">8ビットを送る（リーダ部なし）</option>
+    <option value="beginner_long">32ビットを送る（リーダ部なし）</option>
+    <option value="beginner_carrier">BOOTSELで赤外線LEDをON・OFF</option>
+  </optgroup>
+  <optgroup label="赤外線を受ける">
+    <option value="beginner_receive_times">受信した時間配列を表示する</option>
+    <option value="beginner_receive_byte">8ビットを受信して0・1を表示する</option>
+    <option value="beginner_receive">受信した0・1の配列を表示する</option>
+  </optgroup>
+  <optgroup label="メッセージをやり取りする">
+    <option value="message_ascii_send">ASCIIの文を送る（コンソール入力）</option>
+    <option value="message_ascii_receive">ASCIIの文を受け取る（コンソール表示）</option>
+    <option value="message_ascii_display">ASCIIの文を受け取る（SSD1306表示）</option>
+  </optgroup>
+  <optgroup label="部品を動かす">
+    <option value="display">文字を表示（SSD1306）</option>
+    <option value="beginner_fan">BOOTSELで扇風機を回す</option>
+    <option value="beginner_fan_receive">受信した数値で扇風機の風量を変える</option>
+    <option value="beginner_rgb">フルカラーLEDの色を変える</option>
+    <option value="beginner_console">変数の値を表示する</option>
+    <option value="blink">LED点滅</option>
+    <option value="button">ボタンでLED</option>
+  </optgroup>
+  <optgroup label="UTF-8（発展）">
+    <option value="message_utf8_send">UTF-8の文を送る</option>
+    <option value="message_utf8_receive">UTF-8の文を受け取る</option>
+  </optgroup>
+  <optgroup label="1. 時間と波形">
+    <option value="beginner_receive_one">1ビットの時間配列を受信する</option>
+  </optgroup>
+  <optgroup label="2. 0・1の配列">
+    <option value="beginner_receive_long">長い信号を受信してビット数を調べる</option>
+    <option value="beginner_send">0・1の配列を送信する</option>
+    <option value="beginner_button_send">BOOTSELで0・1の配列を送信する</option>
+  </optgroup>
+  <optgroup label="3. 変換を試す">
+    <option value="beginner_binary">0・1の配列を文字列にする</option>
+    <option value="beginner_number">0・1の配列を数値にする</option>
+  </optgroup>
+  <optgroup label="仕組みを読む：main.pyだけで試す">
+    <option value="basic_console">変数の値を表示</option>
+    <option value="basic_bits">ビット配列を数値にする</option>
+    <option value="basic_button">BOOTSELの値を読む</option>
+    <option value="basic_carrier">38 kHzをON・OFF</option>
+    <option value="basic_pwm">BOOTSELで扇風機の強さを変える</option>
+    <option value="basic_level">受信ピンの値を読む</option>
+    <option value="basic_times">受信を時間配列にする</option>
+    <option value="basic_decode">時間配列を解読する</option>
+    <option value="basic_send">ビット配列を送信する</option>
+    <option value="basic_receive">受信して解読する</option>
+  </optgroup>
+  <optgroup label="関数・ライブラリで整理する">
+    <option value="organized_send">ビット配列を送信する（関数に分ける）</option>
+    <option value="organized_receive">受信して解読する（関数に分ける）</option>
+    <option value="send">赤外線を1回送信（部品ライブラリ）</option>
+    <option value="button_send">ボタンで赤外線送信（部品ライブラリ）</option>
+    <option value="bootsel">BOOTSELで38 kHzを送信（部品ライブラリ）</option>
+    <option value="fan">BOOTSELで扇風機を回す（部品ライブラリ）</option>
+    <option value="receive">受信してビット・整数に変換（部品ライブラリ）</option>
+    <option value="receive_custom">受信の判定を自分で書く</option>
+    <option value="binary">2進数・配列の練習</option>
+    <option value="modules">自作モジュールをimport</option>
+  </optgroup>
+  <optgroup label="追加で試す">
+    <option value="pixels">ピクセルで斜線を描く</option>
+    <option value="console">コンソールで入出力</option>
+    <option value="peripherals">画面・音・DIPスイッチ</option>
+  </optgroup>
+</select><button id="example-load" type="button" class="secondary">サンプルを開く</button></div><div class="bar"><button value="cancel" class="secondary">キャンセル</button></div></form></dialog>
+<input id="project-file" type="file" accept=".json,application/json" hidden>
+<div id="project-menu" class="project-menu" role="menu" aria-label="プロジェクトの操作" hidden><button role="menuitem" id="project-menu-save">ローカルに保存</button><button role="menuitem" id="project-save-as">別名でローカルに保存…</button><button role="menuitem" id="project-duplicate">複製…</button><button role="menuitem" id="project-menu-close">閉じる</button></div>
+<dialog id="project-close-dialog" aria-labelledby="project-close-title"><form method="dialog"><h2 id="project-close-title">ローカル未保存の変更があります</h2><p id="project-close-name"></p><div class="bar"><button type="button" id="project-save-close">ローカルに保存して閉じる</button><button type="button" class="secondary" id="project-discard-close">保存せず閉じる</button><button value="cancel" class="secondary">キャンセル</button></div></form></dialog>
+<dialog id="project-dialog"><form method="dialog"><h2 id="project-dialog-title">新規プロジェクト</h2><label for="project-name-input">名前</label><input id="project-name-input" required maxlength="80" autocomplete="off"><div class="bar"><button id="project-apply" type="button">作成</button><button value="cancel" class="secondary" formnovalidate>キャンセル</button></div></form></dialog>
+<dialog id="file-dialog" aria-labelledby="file-dialog-title"><form method="dialog"><h2 id="file-dialog-title"></h2><label for="file-path-input">パス</label><input id="file-path-input" required spellcheck="false" autocomplete="off"><p id="file-dialog-message" role="status"></p><div class="bar"><button id="file-dialog-apply" type="button">作成</button><button value="cancel" class="secondary" formnovalidate>キャンセル</button></div></form></dialog>
+<dialog id="python-block-dialog" aria-labelledby="python-block-title">
+  <form method="dialog"><h2 id="python-block-title">Python</h2><textarea id="python-block-code" spellcheck="false" aria-label="Pythonブロックのコード"></textarea><div class="bar"><button id="python-block-apply" value="apply">反映</button><button value="cancel" class="secondary">キャンセル</button></div></form>
+</dialog>
+<dialog id="function-dialog"><form method="dialog"><h2>ブロックの文章</h2><label for="function-phrase">文章</label><input id="function-phrase" placeholder="{value} を2倍にする"><p id="function-parameters"></p><p id="function-message" role="status"></p><div class="bar"><button id="function-apply" type="button">反映</button><button value="cancel" class="secondary">キャンセル</button></div></form></dialog>
+<dialog id="function-help-dialog"><form method="dialog"><h2 id="function-help-title"></h2><pre id="function-help-text"></pre><button>閉じる</button></form></dialog>
+</body>
+</html>
