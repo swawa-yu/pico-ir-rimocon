@@ -14,6 +14,7 @@ import micropython
 import time
 
 RECEIVER_PIN = 15
+AUXILIARY_OUTPUTS = []
 REPORT_INTERVAL_MS = 20
 BUFFER_SIZE = 2048
 BUFFER_MASK = BUFFER_SIZE - 1
@@ -94,15 +95,24 @@ class Recorder:
 
 def run():
     micropython.alloc_emergency_exception_buf(100)
-    recorder = Recorder()
+    recorder = None
+    outputs = []
     sequence = 0
     try:
+        for pin, level in AUXILIARY_OUTPUTS:
+            outputs.append(Pin(pin, Pin.OUT, value=level))
+        recorder = Recorder()
         while True:
             print(json.dumps(recorder.packet(sequence)))
             sequence += 1
             time.sleep_ms(REPORT_INTERVAL_MS)
     finally:
-        recorder.close()
+        try:
+            if recorder is not None:
+                recorder.close()
+        finally:
+            for output in outputs:
+                output.init(Pin.IN, pull=None)
 
 
 if __name__ == "__main__":

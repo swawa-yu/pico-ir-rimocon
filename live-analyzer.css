@@ -39,6 +39,9 @@ button:disabled{opacity:.45;cursor:default}
 .receiver-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0}
 .receiver-controls label{font-size:.8rem;font-weight:400;color:#667d89}
 .receiver-controls select{width:auto;padding:6px;font-size:.85rem}
+.auxiliary-settings{margin:12px 0;font-size:.85rem}
+.auxiliary-pin{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}
+.auxiliary-pin select{width:auto;padding:6px;font-size:.85rem}
 #receiver-state{font-size:.8rem;color:#445e6c}
 .live-empty{display:grid;place-items:center;min-height:140px;padding:20px;text-align:center;color:#667d89;background:#f5f7f9;border-radius:6px;font-size:.9rem}
 #signal-state{font-variant-numeric:tabular-nums;font-weight:600}

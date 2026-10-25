@@ -85,6 +85,44 @@ class ReceiverTests(unittest.TestCase):
         self.recorder.close()
         self.assertIsNone(self.recorder.pin.options['handler'])
 
+    def test_auxiliary_outputs_start_before_recording_and_release_on_stop_or_failure(self):
+        for failure in ('packet', 'constructor', 'close'):
+            with self.subTest(failure=failure):
+                events = []
+
+                class Output:
+                    IN, OUT = 0, 1
+
+                    def __init__(self, pin, mode, value):
+                        self.pin = pin
+                        events.append(('output', pin, value))
+
+                    def init(self, mode, pull):
+                        events.append(('release', self.pin, mode, pull))
+
+                class Recording:
+                    def __init__(self):
+                        events.append(('record',))
+                        if failure == 'constructor':
+                            raise MemoryError('startup failed')
+
+                    def packet(self, sequence):
+                        raise KeyboardInterrupt
+
+                    def close(self):
+                        events.append(('close',))
+                        if failure == 'close':
+                            raise OSError('close failed')
+
+                with patch.object(self.module, 'Pin', Output), \
+                     patch.object(self.module, 'Recorder', Recording), \
+                     patch.object(self.module, 'AUXILIARY_OUTPUTS', [(2, 1), (5, 0)]), \
+                     patch.object(self.module, 'micropython', types.SimpleNamespace(alloc_emergency_exception_buf=lambda size: None)):
+                    with self.assertRaises((KeyboardInterrupt, MemoryError, OSError)):
+                        self.module.run()
+                self.assertEqual(events[:3], [('output', 2, 1), ('output', 5, 0), ('record',)])
+                self.assertEqual(events[-2:], [('release', 2, 0, None), ('release', 5, 0, None)])
+
 
 if __name__=='__main__':
     unittest.main()

@@ -24,6 +24,25 @@ const receiver=window.PicoDevices?window.PicoDevices.forRole('observer',receiver
 if(window.PicoDevices)window.PicoDevices.bindSelect($('observer-device'),'observer');
 for(let pin=0;pin<=22;pin++){const option=document.createElement('option');option.value=pin;option.textContent=`GP${pin}`;$('receiver-pin').append(option);}
 $('receiver-pin').value='15';
+const auxiliaryOutputs=[],auxiliaryControls=[];
+function addAuxiliaryPin(pin=null,level=1){
+  if(receiver.busy||receiver.running)return;
+  const used=new Set([Number($('receiver-pin').value),...auxiliaryOutputs.map(output=>output.pin)]);
+  if(pin===null)pin=Array.from({length:23},(_,i)=>i).find(value=>!used.has(value));
+  if(pin===undefined){status('追加できるGPIOがありません。');return;}
+  const output={pin,level};auxiliaryOutputs.push(output);
+  const row=document.createElement('div');row.className='auxiliary-pin';
+  const gpio=document.createElement('select');gpio.setAttribute('aria-label','追加出力のGPIO');
+  for(let number=0;number<=22;number++){const option=document.createElement('option');option.value=number;option.textContent=`GP${number}`;gpio.append(option);}gpio.value=String(pin);
+  const state=document.createElement('select');state.setAttribute('aria-label','受信中の出力レベル');
+  for(const [value,label] of [['1','HIGH（1）'],['0','LOW（0）']]){const option=document.createElement('option');option.value=value;option.textContent=label;state.append(option);}state.value=String(level);
+  const remove=document.createElement('button');remove.className='secondary';remove.textContent='削除';
+  const fields=[gpio,state,remove];auxiliaryControls.push(fields);
+  gpio.addEventListener('change',()=>{output.pin=Number(gpio.value);});state.addEventListener('change',()=>{output.level=Number(state.value);});
+  remove.addEventListener('click',()=>{auxiliaryOutputs.splice(auxiliaryOutputs.indexOf(output),1);auxiliaryControls.splice(auxiliaryControls.indexOf(fields),1);row.remove();});
+  row.append(gpio,state,remove);$('auxiliary-pins').append(row);controls();
+}
+$('auxiliary-add').addEventListener('click',()=>addAuxiliaryPin());
 function receiveText(text){
   serialBuffer+=text;
   if(serialBuffer.length>262144){serialBuffer='';status('受信行が長すぎます。受信プログラムを確認してください。');return;}
@@ -51,6 +70,8 @@ function controls() {
   $('receiver-start').disabled=!port||receiver.busy||receiver.running||connecting||disconnecting;
   $('receiver-stop').disabled=!port||receiver.busy||(!receiver.running&&lastPacketAt===null)||disconnecting;
   $('receiver-pin').disabled=receiver.busy||receiver.running;
+  $('auxiliary-add').disabled=receiver.busy||receiver.running;
+  for(const fields of auxiliaryControls)for(const field of fields)field.disabled=receiver.busy||receiver.running;
   $('observer-device').disabled=receiver.busy;
   updateLiveState();
   $("connection-state").textContent = connecting ? "USB接続中…" : disconnecting ? "USB切断中…" : sourceState;
@@ -119,8 +140,14 @@ async function disconnect(){
 async function startReceiver(){
   const pin=Number($('receiver-pin').value);
   if(!Number.isInteger(pin)||pin<0||pin>22){status('受信ピンをGP0〜GP22から選んでください。');return;}
+  const used=new Set([pin]);
+  for(const output of auxiliaryOutputs){
+    if(!Number.isInteger(output.pin)||output.pin<0||output.pin>22||![0,1].includes(output.level)){status('追加出力はGP0〜GP22とHIGH／LOWを指定してください。');return;}
+    if(used.has(output.pin)){status('受信ピンと追加出力には、重複しないGPIOを指定してください。');return;}
+    used.add(output.pin);
+  }
   startStream('USB');serialBuffer='';receiverError='';observedPin=pin;
-  try{await receiver.run(PicoSources.receiver.replace('RECEIVER_PIN = 15',`RECEIVER_PIN = ${pin}`));}
+  try{await receiver.run(PicoSources.receiver.replace('RECEIVER_PIN = 15',`RECEIVER_PIN = ${pin}`).replace('AUXILIARY_OUTPUTS = []',`AUXILIARY_OUTPUTS = ${JSON.stringify(auxiliaryOutputs.map(output=>[output.pin,output.level]))}`));}
   catch(error){status(error.message);}
   controls();
 }

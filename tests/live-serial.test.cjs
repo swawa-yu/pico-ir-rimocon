@@ -113,6 +113,30 @@ test('a previously running receiver can be interrupted without reopening USB',as
   assert.equal(device.trace.filter(x=>x==='open').length,1);await context.disconnect();
 });
 
+test('additional GPIO outputs are injected before reception and locked until it stops',async()=>{
+  const device=serialPort(),{context,elements}=page({requestPort:async()=>device.port});
+  await context.connect();
+  context.addAuxiliaryPin(2,1);context.addAuxiliaryPin(5,0);
+  await context.startReceiver();
+  assert.match(device.code,/AUXILIARY_OUTPUTS = \[\[2,1\],\[5,0\]\]/);
+  assert(elements.get('auxiliary-add').disabled);
+  for(const row of elements.get('auxiliary-pins').children)assert(row.children.every(field=>field.disabled));
+  await context.stopReceiver();
+  assert.equal(elements.get('auxiliary-add').disabled,false);
+  for(const row of elements.get('auxiliary-pins').children)assert(row.children.every(field=>!field.disabled));
+  await context.disconnect();
+});
+
+test('duplicate output pins and conflicts with the receiver are rejected before starting hardware',async()=>{
+  for(const pins of [[15],[2,2]]){
+    const device=serialPort(),{context,elements}=page({requestPort:async()=>device.port});
+    await context.connect();for(const pin of pins)context.addAuxiliaryPin(pin,1);
+    await context.startReceiver();assert.equal(device.code,'');
+    assert.match(elements.get('status').textContent,/重複しないGPIO/);
+    await context.disconnect();
+  }
+});
+
 test('history selection locates the imported recording, and zoom and pan retain microsecond precision',async()=>{
   const {context,elements,blobs}=page();
   elements.get('window').options=[1000,2000,5000,10000,20000,50000,100000,200000,500000,1000000,5000000].map(n=>({value:String(n)}));

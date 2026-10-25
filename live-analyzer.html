@@ -22,6 +22,7 @@
     <div class="connection-row"><select id="observer-device" aria-label="ロジアナで使うPico"></select><span id="connection-state" role="status">USB未接続</span><button id="connect">USB接続する</button><button id="disconnect" class="secondary" disabled>USBを切断する</button></div>
     <p class="hint">1台なら両タブで同じPicoを選びます。別のエディタで使うときはUSBを切断してください。</p>
     <div class="receiver-controls"><label for="receiver-pin">受信ピン</label><select id="receiver-pin"></select><button id="receiver-start" disabled>受信開始</button><button id="receiver-stop" class="secondary" disabled>受信停止</button><span id="receiver-state" role="status">未接続</span></div>
+    <details class="auxiliary-settings"><summary>追加のピン設定</summary><div id="auxiliary-pins"></div><button id="auxiliary-add" type="button" class="secondary">＋ デジタル出力</button></details>
     <div class="actions samples"><button id="demo-fast" class="secondary">通常再生</button><button id="demo-slow" class="secondary">ゆっくり再生</button><button id="demo-stop" class="secondary" hidden>再生を止める</button><span>サンプル</span></div>
     <p id="status" role="status" aria-live="polite"></p>
   </section>
