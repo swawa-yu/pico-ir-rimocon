@@ -534,11 +534,11 @@ test('conversion deep links open the conversion panel after restoring the progra
  finally{s.close();}
 });
 
-test('fresh pages start with the continuous BOOTSEL sender and restoring a saved project preserves its code',()=>{
+test('fresh pages start with the button-free zero sender and restoring a saved project preserves its code',()=>{
  const s=studio(async()=>JSON.stringify({changed:0}));let restored;
  try{
   const project=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
-  assert.equal(project.name,'無題');assert.equal(project.files['main.py'],s.window.StudioSamples.beginner('continuous').files['main.py']);
+  assert.equal(project.name,'無題');assert.equal(project.files['main.py'],s.window.StudioSamples.beginner('zero32').files['main.py']);
   s.window.editorCallbacks.onChange('main.py','print("my saved program")\n');
   const stored=Object.fromEntries(['pico-studio-tabs-1','pico-blocks-project-2'].map(key=>[key,s.window.localStorage.getItem(key)]));
   restored=studio(async()=>JSON.stringify({changed:0}),stored);
@@ -546,28 +546,28 @@ test('fresh pages start with the continuous BOOTSEL sender and restoring a saved
  }finally{restored?.close();s.close();}
 });
 
-test('only the untouched untitled 65 sender is upgraded on startup, preserving pins, libraries and custom files',()=>{
+test('untouched untitled 65 and BOOTSEL starters are upgraded on startup, preserving pins, libraries and custom files',()=>{
  const initial=studio(async()=>JSON.stringify({changed:0}));let cases=[];
  try{
   const base=JSON.parse(initial.window.localStorage.getItem('pico-blocks-project-2'));
   base.name='無題';base.files['main.py']='from parts import infrared\n\ninfrared.send(65)\n';base.fileWorkspaces={};
   base.parts[0].pin=20;base.files['parts.py']=base.files['parts.py'].replace('Infrared(16,','Infrared(20,');
   base.files['notes.py']='print("keep")\n';base.files['lib/pico_parts.py']+='\nUSER_MARKER = 1\n';
-  for(const [name,source,upgrades] of [['無題',base.files['main.py'],true],['自作送信',base.files['main.py'],false],['無題',base.files['main.py']+'print("edited")\n',false]]){
+  for(const [name,source,upgrades] of [['無題',initial.window.StudioSamples.beginner('continuous').files['main.py'],true],['無題',base.files['main.py'],true],['自作送信',base.files['main.py'],false],['無題',base.files['main.py']+'print("edited")\n',false]]){
    const data=structuredClone(base);data.name=name;data.files['main.py']=source;
    const s=studio(async()=>JSON.stringify({changed:0}),{'pico-blocks-project-2':JSON.stringify(data)});cases.push(s);
    const restored=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
    assert.equal(restored.parts[0].pin,20);assert.equal(restored.files['notes.py'],base.files['notes.py']);assert.equal(restored.files['lib/pico_parts.py'],base.files['lib/pico_parts.py']);
-   if(upgrades){assert.match(restored.files['main.py'],/bootsel_button/);assert.doesNotMatch(restored.files['main.py'],/send\(65\)/);}
+   if(upgrades){assert.match(restored.files['main.py'],/send_bits\(\[0\] \* 32, leader=False\)/);assert.doesNotMatch(restored.files['main.py'],/send\(65\)/);}
    else assert.equal(restored.files['main.py'],source);
   }
  }finally{for(const s of cases)s.close();initial.close();}
 });
 
-test('legacy untitled starter workspaces also open as continuous BOOTSEL senders',()=>{
+test('legacy untitled starter workspaces also open as button-free zero senders',()=>{
  const data={format:'pico-blocks-2',parts:require('../pico-blocks.js').defaults(),workspace:require('../pico-blocks.js').examples.send()};
  const s=studio(async()=>JSON.stringify({changed:0}),{'pico-blocks-project-2':JSON.stringify(data)});
- try{const restored=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));assert.equal(restored.name,'無題');assert.match(restored.files['main.py'],/bootsel_button/);}
+ try{const restored=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));assert.equal(restored.name,'無題');assert.match(restored.files['main.py'],/send_bits\(\[0\] \* 32, leader=False\)/);}
  finally{s.close();}
 });
 
@@ -579,7 +579,7 @@ test('updating the old starter supplies time-array support and preserves an inco
   data.files['lib/pico_parts.py']='OLD_RUNTIME_MARKER = 1\n';data.files['lib/pico_parts_previous.py']='USER_FILE = 1\n';
   restored=studio(async()=>JSON.stringify({changed:0}),{'pico-blocks-project-2':JSON.stringify(data)});
   const files=JSON.parse(restored.window.localStorage.getItem('pico-blocks-project-2')).files;
-  assert.match(files['main.py'],/bootsel_button/);assert.equal(files['lib/pico_parts.py'],restored.window.PicoSources.parts);
+  assert.match(files['main.py'],/send_bits\(\[0\] \* 32, leader=False\)/);assert.equal(files['lib/pico_parts.py'],restored.window.PicoSources.parts);
   assert.equal(files['lib/pico_parts_previous.py'],'USER_FILE = 1\n');assert.equal(files['lib/pico_parts_previous_2.py'],'OLD_RUNTIME_MARKER = 1\n');
  }finally{restored?.close();original.close();}
 });

@@ -95,6 +95,7 @@ finally:
     const receiver = [{id:'receiver',name:'赤外線受信',kind:'receiver',pin:15}];
     const receiveBits = 'from parts import receiver\nimport ir_data\n\nwhile True:\n    時間 = receiver.receive(1000)\n    if 時間:\n        信号 = ir_data.durations_to_bits(時間, 0, 2)\n        print(信号)\n';
     const examples = {
+      zero32: {parts:sender,code:'from parts import infrared\nimport time\n\nwhile True:\n    infrared.send_bits([0] * 32, leader=False)\n    time.sleep(0.5)\n'},
       one_bit: {parts:sender,code:'from parts import infrared\n\ninfrared.send_times([560, 1680, 560])\n'},
       byte: {parts:sender,code:'from parts import infrared\n\n信号 = [0, 1, 0, 0, 0, 0, 0, 1]\ninfrared.send_bits(信号, leader=False)\n'},
       long: {parts:sender,code:'from parts import infrared\n\n信号 = [\n    0, 1, 0, 0, 0, 0, 0, 1,\n    0, 0, 1, 0, 1, 0, 1, 0,\n    1, 1, 1, 1, 0, 0, 0, 0,\n    0, 0, 0, 0, 1, 1, 1, 1,\n]\ninfrared.send_bits(信号, leader=False)\n'},

@@ -607,6 +607,26 @@ close()
 `,runtime);
 });
 
+test('the first sender repeats 32 zeros, and editing zero to one changes all 32 bits without a button',()=>{
+ const source=require('../studio-samples.js').beginner('zero32').files['main.py'];
+ assert(!source.includes('rp2'));assert(!source.includes('bootsel'));
+ for(const bit of [0,1])python(`import sys,types
+frames=[];pauses=[]
+class Finished(Exception):pass
+class Transmitter:
+ def send_bits(self,bits,leader=True):frames.append((bits,leader))
+def wait(seconds):
+ pauses.append(seconds)
+ if len(pauses)==2:raise Finished
+sys.modules['parts']=types.SimpleNamespace(infrared=Transmitter())
+sys.modules['time']=types.SimpleNamespace(sleep=wait)
+try:exec(${JSON.stringify(source.replace('[0]','['+bit+']'))},{})
+except Finished:pass
+assert frames==[([${bit}]*32,False)]*2
+assert pauses==[0.5,0.5]
+`,'');
+});
+
 test('BOOTSEL sends 32 data bits without a leader and waits half a second after each frame',()=>{
  const source=require('../studio-samples.js').beginner('continuous').files['main.py'];
  python(`import sys,types

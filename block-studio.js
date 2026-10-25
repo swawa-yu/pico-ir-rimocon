@@ -692,17 +692,17 @@
   try {
     const tabs=JSON.parse(localStorage.getItem('pico-studio-tabs-1')||'null');
     if(tabs&&Array.isArray(tabs.projects)&&tabs.projects.length&&Number.isInteger(tabs.active)&&tabs.projects[tabs.active]?.data){lastClosedProject=tabs.closed||null;openedProjects=tabs.projects.map(entry=>Object.hasOwn(entry,'savedSignature')?entry:{...entry,savedSignature:null,dirty:true});activeProject=tabs.active;restoreProject(openedProjects[activeProject].data,false);dirty=Boolean(openedProjects[activeProject].dirty);openFile(Object.hasOwn(files,openedProjects[activeProject].file)?openedProjects[activeProject].file:'main.py');}
-    else{const saved=localStorage.getItem('pico-blocks-project-2'),legacy=localStorage.getItem('pico-blocks-workspace-1');if(saved||legacy)restoreProject(saved?JSON.parse(saved):PicoBlocks.migrate(JSON.parse(legacy)),false);else{loadSample('beginner_continuous',false);projectName='無題';dirty=true;}}
-  }catch(error){openedProjects=[];activeProject=0;loadSample('beginner_continuous',false);projectName='無題';notify('保存されていた内容を読み込めませんでした。保存ファイルから開いてください。');}
+    else{const saved=localStorage.getItem('pico-blocks-project-2'),legacy=localStorage.getItem('pico-blocks-workspace-1');if(saved||legacy)restoreProject(saved?JSON.parse(saved):PicoBlocks.migrate(JSON.parse(legacy)),false);else{loadSample('beginner_zero32',false);projectName='無題';dirty=true;}}
+  }catch(error){openedProjects=[];activeProject=0;loadSample('beginner_zero32',false);projectName='無題';notify('保存されていた内容を読み込めませんでした。保存ファイルから開いてください。');}
   if(projectName==='無題'){
     const compact=(files['main.py']||'').replace(/\s/g,'');
-    const infrared=parts.find(part=>part.kind==='infrared'&&compact===`frompartsimport${part.id}${part.id}.send(65)`);
+    const infrared=parts.find(part=>part.kind==='infrared'&&(compact===`frompartsimport${part.id}${part.id}.send(65)`||compact===StudioSamples.beginner('continuous').files['main.py'].replace(/\binfrared\b/g,part.id).replace(/\s/g,'')));
     if(infrared){
-      if(!/def send_times\s*\(/.test(files['lib/pico_parts.py']||'')){
+      if(!/def send_bits\s*\(\s*self\s*,\s*bits\s*,\s*leader\s*=/.test(files['lib/pico_parts.py']||'')){
         let previous='lib/pico_parts_previous.py',number=2;while(Object.hasOwn(files,previous))previous=`lib/pico_parts_previous_${number++}.py`;
         fileStore.edit(previous,files['lib/pico_parts.py']);fileStore.edit('lib/pico_parts.py',PicoSources.parts);delete fileModels['lib/pico_parts.py'];
       }
-      fileStore.edit('main.py',StudioSamples.beginner('continuous').files['main.py'].replace(/\binfrared\b/g,infrared.id));
+      fileStore.edit('main.py',StudioSamples.beginner('zero32').files['main.py'].replace(/\binfrared\b/g,infrared.id));
       delete fileModels['main.py'];fileWorkspacePath=null;fileWorkspaceDirty=false;activeFile='main.py';refresh();dirty=true;
     }
   }
