@@ -417,14 +417,19 @@ test('save-and-close waits if the targeted project Pico is busy without replacin
 test('beginner projects include editable hardware and binary helpers for writing to a Pico',async()=>{
  const s=studio(async()=>JSON.stringify({changed:0}));
  try{
-  for(const name of ['times','binary','send','receive','rgb']){
+  for(const name of ['times','binary','send','receive','rgb','fan_receive']){
    s.$('example').value='beginner_'+name;s.$('example-load').click();
    s.$('write-only').click();await new Promise(resolve=>setImmediate(resolve));
    const files=s.calls.filter(c=>c[0]==='write').at(-1)[1];
    assert.equal(files['main.py'],s.window.StudioSamples.beginner(name).files['main.py']);
-   if(['binary','receive'].includes(name))assert.equal(files['lib/ir_data.py'],s.window.PicoSources.irData);
+   if(['binary','receive','fan_receive'].includes(name))assert.equal(files['lib/ir_data.py'],s.window.PicoSources.irData);
    else assert.equal(files['lib/ir_data.py'],undefined);
    if(name==='send')assert.match(files['parts.py'],/infrared = Infrared\(16, unit=560\)/);
+   if(name==='fan_receive'){
+    assert.match(files['parts.py'],/赤外線センサー = InfraredReceiver\(13\)/);
+    assert.match(files['parts.py'],/扇風機 = PWMOutput\(20, frequency=25000\)/);
+    assert.equal(files['lib/live_receiver.py'],s.window.PicoSources.receiver);
+   }
    if(name==='receive'){
     assert.match(files['parts.py'],/receiver = InfraredReceiver\(15\)/);
     assert.equal(files['lib/live_receiver.py'],s.window.PicoSources.receiver);

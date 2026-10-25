@@ -114,7 +114,8 @@ finally:
       button_send: {parts:sender,code:'from parts import infrared\nimport rp2\nimport time\n\n'+binary+'while True:\n    if rp2.bootsel_button():\n        infrared.send_bits(信号)\n    time.sleep(0.1)\n'},
       receive: {parts:receiver,code:'from parts import receiver\n\nwhile True:\n    信号 = receiver.receive_bits(1000)\n    if 信号:\n        print(信号)\n'},
       carrier: {parts:sender,code:'from parts import infrared\nimport rp2\nimport time\n\nwhile True:\n    if rp2.bootsel_button():\n        infrared.on()\n    else:\n        infrared.off()\n    time.sleep(0.01)\n'},
-      fan: {parts:[{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:25000}],code:'from parts import fan\nimport rp2\nimport time\n\n強さ = 60\nwhile True:\n    if rp2.bootsel_button():\n        fan.set(強さ)\n    else:\n        fan.set(0)\n    time.sleep(0.01)\n'}
+      fan: {parts:[{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:25000}],code:'from parts import fan\nimport rp2\nimport time\n\n強さ = 60\nwhile True:\n    if rp2.bootsel_button():\n        fan.set(強さ)\n    else:\n        fan.set(0)\n    time.sleep(0.01)\n'},
+      fan_receive: {parts:[{id:'receiver',name:'赤外線センサー',variable:'赤外線センサー',kind:'receiver',pin:13},{id:'fan',name:'扇風機',variable:'扇風機',kind:'pwm',pin:20,frequency:25000}],code:'from parts import 赤外線センサー, 扇風機\nimport ir_data\n\ntry:\n    while True:\n        信号 = 赤外線センサー.receive_bits(1000)\n        if len(信号) == 8:\n            風量 = ir_data.bits_to_int(信号)\n            if 0 <= 風量 <= 100:\n                扇風機.set(風量)\n                print(風量)\nfinally:\n    扇風機.set(0)\n'}
     };
     const sample=examples[name];
     if(!sample)throw Error('サンプルがありません。');
