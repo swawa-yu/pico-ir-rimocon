@@ -369,7 +369,7 @@
     $('console-input').placeholder=deploying&&current.id===device.id?'書き込み中…':!link.port?'USB接続してください':link.busy?'処理中…':current.task==='observer'&&link.running?'ロジアナで観測中':debugSession?.paused?'「次へ」で進めてください':'';
     $('project-save').disabled=partsDirty;
     $('project-save-as').disabled=partsDirty;
-    for(const id of ['project-new','project-load','example-load','example','sample-topic'])$(id).disabled=projectLocked();
+    for(const id of ['project-new','project-load','example-load','example'])$(id).disabled=projectLocked();
     renderProjectTabs();
     $('pico-files-refresh').disabled=!device.port||connecting||deploying||browsing||device.busy;
     $('pico-files-refresh').textContent=browsing?'取得中…':device.running?'停止して一覧を更新':picoSnapshot?'一覧を更新':'一覧を取得';
@@ -448,18 +448,6 @@
     }
     if(!loadWorkspace(state,ask,nextParts,edits,{},null,$('example').querySelector(`option[value="${name}"]`)?.textContent||name))return false;openFile('main.py');return true;
   }
-  function filterSamples(topic){
-    for(const group of $('example').querySelectorAll('optgroup'))group.hidden=group.dataset.topic!==topic;
-  }
-  $('sample-topic').addEventListener('change',()=>{
-    const topic=$('sample-topic').value;filterSamples(topic);
-    $('example').value=$('example').querySelector(`optgroup[data-topic="${topic}"] option`).value;
-  });
-  $('example').addEventListener('change',()=>{
-    $('sample-topic').value=$('example').selectedOptions[0].parentElement.dataset.topic;
-    filterSamples($('sample-topic').value);
-  });
-  filterSamples($('sample-topic').value);
   function restoreProject(data,ask=true){
     if(data.format==='pico-blocks-1')data=PicoBlocks.migrate(data.workspace);
     if(!['pico-blocks-2','pico-blocks-3','pico-blocks-4','pico-blocks-5'].includes(data.format)||!data.workspace)throw Error('Pico Studioのプロジェクトを選んでください。');

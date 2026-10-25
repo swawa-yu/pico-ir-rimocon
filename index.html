@@ -25,7 +25,7 @@
   <script src="signal-converter.js?v=655f9a027ef8" defer></script>
   <script src="studio-samples.js?v=5d904f4f05d4" defer></script>
   <script src="studio-layout.js?v=655fbdfc2fe8" defer></script>
-  <script src="block-studio.js?v=5ff98761d18b" defer></script>
+  <script src="block-studio.js?v=537e2e82447c" defer></script>
 </head>
 <body class="block-studio">
 <main>
@@ -84,8 +84,8 @@
   <div class="console-header"><h2 id="console-title">コンソール</h2><span id="console-state" role="status">USB未接続</span></div>
   <div class="terminal-surface" id="terminal-surface"><pre id="output" role="log" aria-live="polite">—</pre><div class="terminal-line"><span id="console-prompt" aria-hidden="true">&gt;&gt;&gt;</span><textarea id="console-input" rows="1" spellcheck="false" aria-label="コンソール入力" title="Enterで送信・Shift+Enterで改行・Ctrl+Cで停止" disabled></textarea></div></div>
 </section>
-<dialog id="project-add-dialog" aria-labelledby="project-add-title"><form method="dialog"><h2 id="project-add-title">プロジェクトを追加</h2><div class="bar"><button id="project-new" type="button">新規プロジェクト</button><button id="project-load" type="button" class="secondary">ローカルファイルを開く</button><button id="project-reopen" type="button" class="secondary" hidden>閉じたプロジェクトを戻す</button></div><div class="sample-picker"><label for="sample-topic">課題</label><select id="sample-topic"><option value="send">赤外線を送る</option><option value="receive">赤外線を受ける</option><option value="message">メッセージをやり取りする</option><option value="parts">部品を動かす</option><option value="advanced">発展・仕組みを読む</option></select><label for="example">サンプルプロジェクト</label><select id="example">
-  <optgroup label="赤外線を送る" data-topic="send">
+<dialog id="project-add-dialog" aria-labelledby="project-add-title"><form method="dialog"><h2 id="project-add-title">プロジェクトを追加</h2><div class="bar"><button id="project-new" type="button">新規プロジェクト</button><button id="project-load" type="button" class="secondary">ローカルファイルを開く</button><button id="project-reopen" type="button" class="secondary" hidden>閉じたプロジェクトを戻す</button></div><div class="sample-picker"><label for="example">サンプルプロジェクト</label><select id="example">
+  <optgroup label="赤外線を送る">
     <option value="beginner_zero32">0を32ビットずつ送る</option>
     <option value="beginner_continuous">BOOTSELで0・1を32ビットずつ送る</option>
     <option value="beginner_times">時間配列を手打ちして送信する</option>
@@ -95,17 +95,17 @@
     <option value="beginner_long">32ビットを送る（リーダ部なし）</option>
     <option value="beginner_carrier">BOOTSELで赤外線LEDをON・OFF</option>
   </optgroup>
-  <optgroup label="赤外線を受ける" data-topic="receive">
+  <optgroup label="赤外線を受ける">
     <option value="beginner_receive_times">受信した時間配列を表示する</option>
     <option value="beginner_receive_byte">8ビットを受信して0・1を表示する</option>
     <option value="beginner_receive">受信した0・1の配列を表示する</option>
   </optgroup>
-  <optgroup label="メッセージをやり取りする" data-topic="message">
+  <optgroup label="メッセージをやり取りする">
     <option value="message_ascii_send">ASCIIの文を送る（コンソール入力）</option>
     <option value="message_ascii_receive">ASCIIの文を受け取る（コンソール表示）</option>
     <option value="message_ascii_display">ASCIIの文を受け取る（SSD1306表示）</option>
   </optgroup>
-  <optgroup label="部品を動かす" data-topic="parts">
+  <optgroup label="部品を動かす">
     <option value="display">文字を表示（SSD1306）</option>
     <option value="beginner_fan">BOOTSELで扇風機を回す</option>
     <option value="beginner_rgb">フルカラーLEDの色を変える</option>
@@ -113,23 +113,23 @@
     <option value="blink">LED点滅</option>
     <option value="button">ボタンでLED</option>
   </optgroup>
-  <optgroup label="UTF-8（発展）" data-topic="advanced">
+  <optgroup label="UTF-8（発展）">
     <option value="message_utf8_send">UTF-8の文を送る</option>
     <option value="message_utf8_receive">UTF-8の文を受け取る</option>
   </optgroup>
-  <optgroup label="1. 時間と波形" data-topic="advanced">
+  <optgroup label="1. 時間と波形">
     <option value="beginner_receive_one">1ビットの時間配列を受信する</option>
   </optgroup>
-  <optgroup label="2. 0・1の配列" data-topic="advanced">
+  <optgroup label="2. 0・1の配列">
     <option value="beginner_receive_long">長い信号を受信してビット数を調べる</option>
     <option value="beginner_send">0・1の配列を送信する</option>
     <option value="beginner_button_send">BOOTSELで0・1の配列を送信する</option>
   </optgroup>
-  <optgroup label="3. 変換を試す" data-topic="advanced">
+  <optgroup label="3. 変換を試す">
     <option value="beginner_binary">0・1の配列を文字列にする</option>
     <option value="beginner_number">0・1の配列を数値にする</option>
   </optgroup>
-  <optgroup label="仕組みを読む：main.pyだけで試す" data-topic="advanced">
+  <optgroup label="仕組みを読む：main.pyだけで試す">
     <option value="basic_console">変数の値を表示</option>
     <option value="basic_bits">ビット配列を数値にする</option>
     <option value="basic_button">BOOTSELの値を読む</option>
@@ -141,11 +141,7 @@
     <option value="basic_send">ビット配列を送信する</option>
     <option value="basic_receive">受信して解読する</option>
   </optgroup>
-  <optgroup label="仕組みを読む：日本語名" data-topic="advanced">
-    <option value="infrared_send_jp">赤外線の送信（日本語名）</option>
-    <option value="infrared_jp">赤外線の受信・解読（日本語名）</option>
-  </optgroup>
-  <optgroup label="関数・ライブラリで整理する" data-topic="advanced">
+  <optgroup label="関数・ライブラリで整理する">
     <option value="organized_send">ビット配列を送信する（関数に分ける）</option>
     <option value="organized_receive">受信して解読する（関数に分ける）</option>
     <option value="send">赤外線を1回送信（部品ライブラリ）</option>
@@ -157,7 +153,7 @@
     <option value="binary">2進数・配列の練習</option>
     <option value="modules">自作モジュールをimport</option>
   </optgroup>
-  <optgroup label="追加で試す" data-topic="advanced">
+  <optgroup label="追加で試す">
     <option value="pixels">ピクセルで斜線を描く</option>
     <option value="console">コンソールで入出力</option>
     <option value="peripherals">画面・音・DIPスイッチ</option>

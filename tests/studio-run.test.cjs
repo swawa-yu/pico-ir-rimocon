@@ -494,13 +494,16 @@ test('a new display defaults to SDA4 and SCL3 without changing existing parts',(
  }finally{s.close();}
 });
 
-test('sample topics expose ASCII messaging separately from advanced UTF-8 and open runnable projects',()=>{
+test('one grouped sample selector offers ASCII and UTF-8 projects without separate topics or Japanese-name variants',()=>{
  const s=studio(async()=>JSON.stringify({changed:0}));
  try{
-  s.$('sample-topic').value='message';s.$('sample-topic').dispatchEvent(new s.window.Event('change'));
-  const groups=[...s.$('example').querySelectorAll('optgroup')].filter(group=>!group.hidden);
-  assert.equal(groups.length,1);assert.equal(groups[0].querySelectorAll('option').length,3);
-  assert(!groups[0].textContent.includes('UTF-8'));
+  assert.equal(s.$('sample-topic'),null);
+  const groups=[...s.$('example').querySelectorAll('optgroup')];
+  assert(groups.every(group=>!group.hidden));
+  const messages=groups.find(group=>group.label==='メッセージをやり取りする');
+  assert.equal(messages.querySelectorAll('option').length,3);
+  assert(!messages.textContent.includes('UTF-8'));
+  assert(!s.$('example').textContent.includes('日本語名'));
   for(const mode of ['ascii_send','ascii_receive','ascii_display','utf8_send','utf8_receive']){
    s.$('example').value='message_'+mode;s.$('example').dispatchEvent(new s.window.Event('change'));s.$('example-load').click();
    const saved=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));
@@ -509,7 +512,6 @@ test('sample topics expose ASCII messaging separately from advanced UTF-8 and op
    if(mode==='ascii_display')assert(saved.files['lib/ssd1306.py']);
    if(mode.endsWith('receive')||mode==='ascii_display')assert(saved.files['lib/live_receiver.py']);
   }
-  assert.equal(s.$('sample-topic').value,'advanced');
  }finally{s.close();}
 });
 
