@@ -1,6 +1,7 @@
 export * as blocks from './python-blocks.mjs';
 export * as symbols from './python-symbols.mjs';
 export * as step from './pico-step.mjs';
+export * as definitions from './python-definitions.mjs';
 import {basicSetup} from 'codemirror';
 import {EditorState, StateEffect, StateField, Compartment} from '@codemirror/state';
 import {EditorView, keymap, Decoration} from '@codemirror/view';
@@ -23,7 +24,13 @@ export function create(parent,{onChange,onDefinition,onSave}){
   const setErrors=StateEffect.define();
   const errors=StateField.define({create:()=>Decoration.none,update(value,tr){if(tr.docChanged)value=Decoration.none;for(const effect of tr.effects)if(effect.is(setErrors))value=Decoration.set(effect.value.filter(()=>tr.state.doc.length>0).map(e=>{const from=Math.max(0,Math.min(e.from,tr.state.doc.length-1));return Decoration.mark({class:'cm-source-error',attributes:{title:e.message}}).range(from,Math.min(tr.state.doc.length,Math.max(from+1,e.to)));}),true);return value;},provide:field=>EditorView.decorations.from(field)});
   const extensions=[basicSetup,python(),access.of([]),indentUnit.of('    '),highlights,errors,
-    keymap.of([indentWithTab,{key:'F12',run:()=>{onDefinition();return true;}},{key:'Mod-s',run:()=>{onSave();return true;}}]),
+    keymap.of([indentWithTab,{key:'F12',run:()=>{onDefinition(view.state.selection.main.head);return true;}},{key:'Mod-s',run:()=>{onSave();return true;}}]),
+    EditorView.domEventHandlers({mousedown(event,view){
+      if(event.button!==0||!event.metaKey&&!event.ctrlKey)return false;
+      const position=view.posAtCoords({x:event.clientX,y:event.clientY});
+      if(position===null)return false;
+      event.preventDefault();onDefinition(position);return true;
+    }}),
     EditorView.contentAttributes.of({'aria-label':'MicroPythonエディタ'}),
     EditorView.updateListener.of(update=>{if(update.docChanged&&!changing&&active){documents.set(active,update.state);onChange(active,update.state.doc.toString());}}),
     EditorView.theme({'&':{height:'100%',fontSize:'13px'},'.cm-scroller':{overflow:'auto',fontFamily:'ui-monospace, SFMono-Regular, Consolas, monospace'},'.cm-content':{padding:'12px 0'},'.cm-gutters':{backgroundColor:'#f5f7f9',border:'none'},'.cm-block-source':{backgroundColor:'#fff0bf',boxShadow:'inset 3px 0 #d19a21'}})
@@ -39,7 +46,11 @@ export function create(parent,{onChange,onDefinition,onSave}){
       active=path;documents.set(path,state);view.setState(state);const scroll=scrollPositions.get(path);view.scrollDOM.scrollTop=scroll?.top||0;view.scrollDOM.scrollLeft=scroll?.left||0;
     }finally{changing=false;}
   }
-  return {setFile,
+  function goTo(position){
+    const anchor=Math.max(0,Math.min(position,view.state.doc.length));
+    view.dispatch({selection:{anchor}});view.scrollDOM.scrollTop=Math.max(0,view.lineBlockAt(anchor).top-view.scrollDOM.clientHeight/2);view.focus();
+  }
+  return {setFile,goTo,cursor:()=>view.state.selection.main.head,
     setErrors(issues){const request=++errorRequest;queueMicrotask(()=>{if(request===errorRequest)view.dispatch({effects:setErrors.of(issues)});});},
     setReadOnly(value){view.dispatch({effects:access.reconfigure([EditorState.readOnly.of(value),EditorView.editable.of(!value)])});},
     highlightLines(range){
@@ -47,7 +58,7 @@ export function create(parent,{onChange,onDefinition,onSave}){
       const effects=[setHighlight.of(lines)];
       view.dispatch({effects});
     },
-    goLine(number){const line=view.state.doc.line(Math.max(1,Math.min(number,view.state.doc.lines)));view.dispatch({selection:{anchor:line.from}});view.scrollDOM.scrollTop=Math.max(0,view.lineBlockAt(line.from).top-view.scrollDOM.clientHeight/2);view.focus();},
+    goLine(number){goTo(view.state.doc.line(Math.max(1,Math.min(number,view.state.doc.lines))).from);},
     word(){const {from,to}=view.state.selection.main;if(from!==to)return view.state.sliceDoc(from,to);const line=view.state.doc.lineAt(from),offset=from-line.from;const before=line.text.slice(0,offset).match(/[\p{L}\p{N}_]+$/u)?.[0]||'';const after=line.text.slice(offset).match(/^[\p{L}\p{N}_]+/u)?.[0]||'';return before+after;}
   };
 }

@@ -9,6 +9,7 @@
   runtime=PicoSources.parts;
   const fileStore=new StudioFiles.Files();let activeFile='main.py';
   const sourceMap=new Map();
+  const definitionHistory=[];
   let debugSession=null,debugStarting=false,debugStopping=false,debugLocked=[];
   let treeSelection='main.py',fileOperation=null;
   const consoleHistory=[];let consoleHistoryIndex=0,consoleDraft='';
@@ -18,6 +19,14 @@
     editingPythonBlock=block;$('python-block-code').value=block.pythonCode;
     $('python-block-dialog').showModal();$('python-block-code').focus({preventScroll:true});
   },{getFiles:()=>files,getPath:()=>activeFile,editFunction:block=>{editingFunctionBlock=block;const info=PicoEditor.symbols.headerInfo(block.getFieldValue('HEADER'));$('function-phrase').value=block.pythonSentence||'';$('function-parameters').textContent=info?.params.map(n=>'{'+n+'}').join(' · ')||'引数なし';$('function-message').textContent='';$('function-dialog').showModal();},showHelp:fn=>{$('function-help-title').textContent=fn.target||fn.name;$('function-help-text').textContent=fn.help+(fn.returns===undefined?'':fn.returns?'\n値を返します。':'\n値を返さない関数です。');$('function-help-dialog').showModal();}});
+  for(const [type,definition] of Object.entries(Blockly.Blocks))if(type.startsWith('pico_')){
+    const previous=definition.customContextMenu;
+    definition.customContextMenu=function(options){
+      previous?.call(this,options);
+      const reference=blockReference(this);
+      if(reference)options.push({text:'定義へ移動',enabled:Boolean(reference.destination),callback:()=>navigateDefinition(reference.destination,reference.position)});
+    };
+  }
   $('function-apply').addEventListener('click',()=>{try{editingFunctionBlock.setSentence($('function-phrase').value.trim());$('function-dialog').close();commitFileBlocks();}catch(error){$('function-message').textContent=error.message;}});
   const number=value=>({shadow:{type:'math_number',fields:{NUM:value}}});
   const toolbox={kind:'categoryToolbox',contents:[
@@ -248,13 +257,38 @@
     for(const def of StudioFiles.definitions(files[activeFile]||'')){const button=document.createElement('button');button.textContent=def.label;button.title=`${activeFile}:${def.line}`;button.addEventListener('click',()=>editor.goLine(def.line));outline.append(button);}
     outline.parentElement.hidden=!outline.childElementCount;
   }
-  function goDefinition(){
-    const word=editor.word();if(!word)return;
-    const paths=[activeFile,...Object.keys(files).filter(p=>p!==activeFile)];
-    for(const path of paths){const def=StudioFiles.definitions(files[path]||'').find(d=>d.name===word);if(def){openFile(path,def.line);return;}}
-    if(/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(word))for(const path of paths){const line=(files[path]||'').split('\n').findIndex(text=>new RegExp('^'+word+'\\s*=').test(text));if(line>=0){openFile(path,line+1);return;}}
-    notify('定義が見つかりません。ライブラリのファイルから関数を選べます。');
+  function blockReference(block){
+    if(block.workspace.isFlyout)return null;
+    const methods={pico_send:'send',pico_send_bits:'send_bits',pico_send_times:'send_times',pico_receive:'receive',pico_receive_bits:'receive_bits',pico_ir_level:'is_on',pico_button:'is_pressed',pico_pwm:'set',pico_rgb:'set',pico_rgb_off:'off',pico_speaker_on:'on',pico_speaker_off:'off',pico_tone:'tone',pico_display_text:'text',pico_display_clear:'clear',pico_display_pixel:'pixel',pico_display_get_pixel:'pixel',pico_display_fill:'fill',pico_display_text_at:'text_at',pico_display_show:'show',pico_dip_on:'is_on',pico_dip_value:'value'};
+    const conversions={pico_new_bits:'new_bits',pico_set_bits:'set_bits',pico_int_bits:'int_to_bits',pico_text_bits:'text_to_bits',pico_bits_text:'bits_to_text',pico_bits_int:'bits_to_int',pico_decode_bits:'durations_to_bits'};
+    let target=['pico_call','pico_call_value'].includes(block.type)?block.getFieldValue('TARGET'):null;
+    const part=parts.find(part=>part.id===block.getFieldValue('PART'));
+    const method=['pico_led','pico_carrier'].includes(block.type)?block.getFieldValue('ON')==='1'?'on':'off':methods[block.type];
+    if(part&&method)target=PicoBlocks.variableFor(part)+'.'+method;
+    if(conversions[block.type])target='ir_data.'+conversions[block.type];
+    if(!target)return null;
+    const owners=[];
+    for(let parent=block.getSurroundParent();parent;parent=parent.getSurroundParent())if(['pico_def','pico_class'].includes(parent.type))owners.unshift(parent.getFieldValue('HEADER').match(/^[\p{L}_][\p{L}\p{N}_]*/u)?.[0]);
+    const positions=PicoEditor.definitions.callPositions(files[activeFile]||'',target,owners);
+    const matches=positions.map(position=>({position,destination:PicoEditor.definitions.findDefinition(files,activeFile,position,target)}));
+    const destinations=new Set(matches.map(item=>item.destination?item.destination.path+':'+item.destination.from:'?'));
+    const first=matches[0];
+    return {position:first?.position??editor.cursor?.()??0,destination:destinations.size===1?first?.destination:null};
   }
+  function navigateDefinition(destination,position){
+    if(!destination){notify('このプロジェクト内に定義が見つかりません。');return;}
+    definitionHistory.push({path:activeFile,position});$('definition-back').disabled=false;
+    openFile(destination.path,destination.line);editor.highlightLines?.({from:destination.line,to:destination.line});notify();
+  }
+  function goDefinition(position=editor.cursor?.()??0){
+    commitFileBlocks();
+    navigateDefinition(PicoEditor.definitions.findDefinition(files,activeFile,position),position);
+  }
+  $('go-definition').addEventListener('click',()=>goDefinition());
+  $('definition-back').addEventListener('click',()=>{
+    const origin=definitionHistory.pop();$('definition-back').disabled=!definitionHistory.length;
+    if(origin&&Object.hasOwn(files,origin.path)){openFile(origin.path);editor.goTo?.(origin.position);notify();}
+  });
   function clearPicoFiles(){
     picoSnapshot=null;picoSelected=null;picoContents.clear();
     $('pico-file-tree').replaceChildren();$('pico-directory').replaceChildren();$('pico-diff').hidden=true;
@@ -413,6 +447,7 @@
     }
     catch(error){parts=oldParts;Blockly.serialization.workspaces.load(previous,workspace);throw error;}
     finally {Blockly.Events.enable();}
+    definitionHistory.length=0;$('definition-back').disabled=true;
     projectName=nextName;clearTimeout(fileRefreshTimer);fileWorkspaceDirty=false;fileWorkspacePath=null;fileModels=structuredClone(nextModels);fileStore.restore(restoredEdits);workspace.scrollCenter();selectedId=null;dirty=false;partsDirty=false;renderParts();refresh();return true;
   }
   function download(name,text,type){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}

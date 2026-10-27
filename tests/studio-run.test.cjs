@@ -36,7 +36,7 @@ function studio(exec,stored={},hash=''){
 
   w.eval(fs.readFileSync('docs/vendor/codemirror/editor.js','utf8'));
   w.structuredClone=global.structuredClone;
-  w.PicoEditor={blocks:w.PicoEditor.blocks,step:w.PicoEditor.step,create:(_element,callbacks)=>{w.editorCallbacks=callbacks;return {setFile(){},setReadOnly(value){calls.push(['readonly',value]);},highlightLines(range){calls.push(['highlight',range]);},goLine(line){calls.push(['line',line]);}};}};
+  w.PicoEditor={definitions:w.PicoEditor.definitions,symbols:w.PicoEditor.symbols,blocks:w.PicoEditor.blocks,step:w.PicoEditor.step,create:(_element,callbacks)=>{w.editorCallbacks=callbacks;return {setFile(){},cursor(){return w.editorPosition||0;},goTo(position){calls.push(['position',position]);},setReadOnly(value){calls.push(['readonly',value]);},highlightLines(range){calls.push(['highlight',range]);},goLine(line){calls.push(['line',line]);}};}};
   w.LiveAnalyzer={show(){}};w.SignalConverter={show(){calls.push(['conversion-show']);}};
   w.ResizeObserver=class{observe(){}};
   w.HTMLElement.prototype.scrollIntoView=function(){calls.push(['scroll',this.id]);};
@@ -589,4 +589,55 @@ test('updating the old starter supplies time-array support and preserves an inco
   assert.match(files['main.py'],/send_bits\(\[0\] \* 32, leader=False\)/);assert.equal(files['lib/pico_parts.py'],restored.window.PicoSources.parts);
   assert.equal(files['lib/pico_parts_previous.py'],'USER_FILE = 1\n');assert.equal(files['lib/pico_parts_previous_2.py'],'OLD_RUNTIME_MARKER = 1\n');
  }finally{restored?.close();original.close();}
+});
+
+test('definition navigation follows an imported alias and returns to the call without changing program files',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.$('file-create').click();s.$('file-path-input').value='tools.py';s.$('file-dialog-apply').click();
+  const helper='# helper\ndef twice(value):\n    return value * 2\n';
+  s.window.editorCallbacks.onChange('tools.py',helper);
+  [...s.$('file-tree').querySelectorAll('button')].find(b=>b.title==='main.py').click();
+  const source='from tools import twice as double\nprint(double(2))\n';
+  s.window.editorCallbacks.onChange('main.py',source);
+  s.window.editorPosition=source.lastIndexOf('double')+2;
+  const before=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files;
+  s.$('go-definition').click();
+  assert.equal(s.$('file-tree').querySelector('[aria-current=true]').title,'tools.py');
+  assert(s.calls.some(call=>call[0]==='line'&&call[1]===2));
+  assert.equal(s.$('definition-back').disabled,false);
+  s.$('definition-back').click();
+  assert.equal(s.$('file-tree').querySelector('[aria-current=true]').title,'main.py');
+  assert(s.calls.some(call=>call[0]==='position'&&call[1]===s.window.editorPosition));
+  const after=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files;
+  assert.equal(after['main.py'],before['main.py']);assert.equal(after['tools.py'],before['tools.py']);
+  assert.equal(s.calls.filter(call=>call[0]==='scroll').length,0);
+ }finally{s.close();}
+});
+
+test('a component block context menu opens its library method and project switches clear reference history',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.window.editorCallbacks.onChange('main.py','from parts import infrared\ninfrared.send(65)\n');
+  const block=s.workspaces[1].getAllBlocks(false).find(b=>b.type==='pico_send');assert(block);
+  const options=[];block.customContextMenu(options);
+  const reference=options.find(item=>item.text==='定義へ移動');assert(reference?.enabled);reference.callback();
+  assert.equal(s.$('file-tree').querySelector('[aria-current=true]').title,'lib/pico_parts.py');
+  const line=s.window.PicoSources.parts.slice(0,s.window.PicoSources.parts.indexOf('    def send(self, value)')).split('\n').length;
+  assert(s.calls.some(call=>call[0]==='line'&&call[1]===line));
+  assert.equal(s.$('definition-back').disabled,false);
+  s.$('example').value='beginner_times';s.$('example-load').click();
+  assert.equal(s.$('definition-back').disabled,true);
+ }finally{s.close();}
+});
+
+test('unavailable builtin definitions leave the active file and reference history alone',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.window.editorCallbacks.onChange('main.py','print(7)\n');
+  s.window.editorCallbacks.onDefinition(2);
+  assert.equal(s.$('file-tree').querySelector('[aria-current=true]').title,'main.py');
+  assert.equal(s.$('definition-back').disabled,true);
+  assert.match(s.$('studio-status').textContent,/このプロジェクト内に定義が見つかりません/);
+ }finally{s.close();}
 });
