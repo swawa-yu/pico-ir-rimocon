@@ -680,6 +680,15 @@ test('a connected disabled block shows a comment mark in its first field',async(
  }finally{s.close();}
 });
 
+test('commenting out code creates the corresponding disabled block with a comment mark',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.window.editorCallbacks.onChange('main.py','# print(1)\nprint(2)\n');
+  const block=s.workspaces[1].getAllBlocks(false).find(b=>b.type==='text_print'&&b.hasDisabledReason('MANUALLY_DISABLED'));
+  assert(block);assert.equal(block.getField('PICO_DISABLED_MARK')?.getText(),'#');assert.equal(block.getInputTargetBlock('TEXT').getFieldValue('NUM'),1);
+ }finally{s.close();}
+});
+
 test('a block preview flips to the left when the right edge lacks space',async()=>{
  const s=studio(async()=>JSON.stringify({changed:0}));
  try{

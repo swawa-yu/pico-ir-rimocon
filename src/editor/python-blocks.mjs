@@ -37,8 +37,28 @@ function parse(source,parts=null){
     if(last?.type==='pico_python'&&!/[\r\n]$/.test(last.extraState.code)&&!/[\r\n]/.test(pending)) {last.extraState.code+=pending+code;pending='';}
     else append(raw(code));
   }
+  function commentedCode(first){
+    if(!parts||source.slice(source.lastIndexOf('\n',first.from-1)+1,first.from).trim())return null;
+    let current=first,decoded='',best=null;
+    while(current?.name==='Comment'){
+      decoded+=source.slice(current.from+1,current.to).replace(/^ /,'')+'\n';
+      const tree=parser.parse(decoded);
+      if(!hasError(tree)&&tree.topNode.firstChild&&tree.topNode.firstChild.name!=='Comment'){
+        const converted=parse(decoded,parts);
+        if(converted.length&&converted.every(block=>block.type!=='pico_python'))best={blocks:converted,last:current};
+      }
+      const next=current.nextSibling;
+      if(next?.name!=='Comment'||!/^\r?\n[ \t]*$/.test(source.slice(current.to,next.from)))break;
+      current=next;
+    }
+    return best;
+  }
   for(let node=tree.topNode.firstChild;node;node=node.nextSibling){
     appendRaw(source.slice(end,node.from));
+    if(node.name==='Comment'){
+      const commented=commentedCode(node);
+      if(commented){for(const block of commented.blocks){block.disabledReasons=[...new Set([...(block.disabledReasons||[]),'MANUALLY_DISABLED'])];append(block);}node=commented.last;end=node.to;continue;}
+    }
     const text=source.slice(node.from,node.to),body=node.getChild('Body');
     function bodyBlock(body){
       const content=source.slice(body.from+1,body.to),newline=content.match(/^([^\S\r\n]*\r?\n)([ \t]+)/);

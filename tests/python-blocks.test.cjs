@@ -242,6 +242,26 @@ test('disabled multi-line blocks are fully commented while later statements stil
  }finally{ws.dispose();}
 });
 
+test('commented Python statements become disabled blocks and ordinary comments remain comments',()=>{
+ const source='# 説明\n# value = 2\n# print(value)\nprint("active")\n',ws=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource(source,[]),ws);
+  const blocks=ws.getAllBlocks(false),value=blocks.find(b=>b.type==='variables_set'),print=blocks.find(b=>b.type==='text_print'&&b.hasDisabledReason('MANUALLY_DISABLED'));
+  assert(value?.hasDisabledReason('MANUALLY_DISABLED'));assert(print);assert(blocks.some(b=>b.type==='pico_python'&&b.pythonCode.includes('説明')));
+  let code=api.generate(ws),run=spawnSync('python3',['-c',code],{encoding:'utf8'});assert.equal(run.status,0,run.stderr);assert.equal(run.stdout,'active\n');
+  value.setDisabledReason(false,'MANUALLY_DISABLED');print.setDisabledReason(false,'MANUALLY_DISABLED');code=api.generate(ws);
+  run=spawnSync('python3',['-c',code],{encoding:'utf8'});assert.equal(run.status,0,run.stderr);assert.equal(run.stdout,'2\nactive\n');
+ }finally{ws.dispose();}
+});
+
+test('commented nested control blocks and inline comments preserve execution',()=>{
+ const source='# if True:\n#     print("hidden")\nprint("active")  # note\n',ws=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource(source,[]),ws);const condition=ws.getAllBlocks(false).find(b=>b.type==='controls_if');assert(condition?.hasDisabledReason('MANUALLY_DISABLED'));
+  const code=api.generate(ws);assert.match(code,/# note/);const run=spawnSync('python3',['-c',code],{encoding:'utf8'});assert.equal(run.status,0,run.stderr);assert.equal(run.stdout,'active\n');
+ }finally{ws.dispose();}
+});
+
 
 test('function parameters, keyword arguments and generator expressions preserve their Python meaning',()=>{
  const source='def f(input):\n    result = max(input, 1)\n    print(result, end="!")\n    return sum(x for x in range(result))\nprint(f(4))\n';
