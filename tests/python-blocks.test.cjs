@@ -150,7 +150,7 @@ test('old file containers migrate without losing native blocks, whitespace or ma
   assert(!ws.getAllBlocks(false).some(b=>b.type==='pico_module'));assert(ws.getAllBlocks(false).some(b=>b.type==='text_print'));
   assert.equal(api.generate(ws),"from math import sqrt\n\ndef hello():\n    print('hello')\n");
   old.blocks.blocks[0].disabledReasons=['MANUALLY_DISABLED'];
-  ws.clear();B.serialization.workspaces.load(upgrade(old),ws);assert.equal(api.generate(ws),'');
+  ws.clear();B.serialization.workspaces.load(upgrade(old),ws);assert.match(api.generate(ws),/^# from math import sqrt/m);
  }finally{ws.dispose();}
 });
 
@@ -218,7 +218,27 @@ test('cached raw source migrates into connected structured blocks and retains di
   assert(ws.getAllBlocks(false).some(b=>b.type==='pico_forever'));
   const disabled=ws.getAllBlocks(false).find(b=>b.type==='text_print');
   assert(disabled.hasDisabledReason('MANUALLY_DISABLED'));
-  assert.doesNotMatch(api.generate(ws),/disabled/);
+  assert.match(api.generate(ws),/# print\(['"]disabled['"]\)/);
+ }finally{ws.dispose();}
+});
+
+test('disabled connected statements stay visible as comments and can be re-enabled',()=>{
+ const source='if True:\n    print("hidden")\nprint("shown")\n',ws=new B.Workspace(),copy=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource(source,[]),ws);const hidden=ws.getAllBlocks(false).find(b=>b.type==='text_print'&&b.getInputTargetBlock('TEXT').getFieldValue('TEXT')==='hidden');
+  hidden.setDisabledReason(true,'MANUALLY_DISABLED');const code=api.generate(ws);assert.match(code,/# print\(['"]hidden['"]\)/);
+  let run=spawnSync('python3',['-c',code],{encoding:'utf8'});assert.equal(run.status,0,run.stderr);assert.equal(run.stdout,'shown\n');
+  B.serialization.workspaces.load(B.serialization.workspaces.save(ws),copy);const restored=copy.getAllBlocks(false).find(b=>b.type==='text_print'&&b.hasDisabledReason('MANUALLY_DISABLED'));assert(restored);
+  restored.setDisabledReason(false,'MANUALLY_DISABLED');run=spawnSync('python3',['-c',api.generate(copy)],{encoding:'utf8'});assert.equal(run.status,0,run.stderr);assert.equal(run.stdout,'hidden\nshown\n');
+ }finally{ws.dispose();copy.dispose();}
+});
+
+test('disabled multi-line blocks are fully commented while later statements still run',()=>{
+ const ws=new B.Workspace();try{
+  B.serialization.workspaces.load(fromSource('if True:\n    print("hidden")\nprint("shown")\n',[]),ws);
+  ws.getAllBlocks(false).find(b=>b.type==='controls_if').setDisabledReason(true,'MANUALLY_DISABLED');
+  const code=api.generate(ws);assert.match(code,/# if True:/);assert.match(code,/#\s+print\(['"]hidden['"]\)/);
+  const run=spawnSync('python3',['-c',code],{encoding:'utf8'});assert.equal(run.status,0,run.stderr);assert.equal(run.stdout,'shown\n');
  }finally{ws.dispose();}
 });
 

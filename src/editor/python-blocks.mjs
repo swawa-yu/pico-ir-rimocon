@@ -111,7 +111,7 @@ export function upgrade(state,parts=null,path='main.py'){
   }
   const roots=[];
   for(const root of copy.blocks?.blocks||[]){
-    if(root.disabledReasons?.includes('PICO_UNCONNECTED'))root.disabledReasons=[...new Set([...root.disabledReasons,'MANUALLY_DISABLED'])];
+    if(root.disabledReasons?.includes('PICO_UNCONNECTED')){root.data='pico-migrated-detached';root.disabledReasons=[...new Set([...root.disabledReasons,'MANUALLY_DISABLED'])];}
     if(['pico_module','pico_start'].includes(root.type)){const body=clean(root.inputs?.DO?.block);for(const block of body){delete block.x;delete block.y;const reasons=(root.disabledReasons||[]).filter(reason=>reason!=='PICO_UNCONNECTED');if(reasons.length)block.disabledReasons=[...new Set([...(block.disabledReasons||[]),...reasons])];}roots.push(...body);}
     else{const list=clean(root);if(list.length)roots.push(chain(list));}
   }
@@ -190,7 +190,8 @@ export function configure(B,g,editRaw,options={}){
     definition.saveExtraState=function(){return {...save.call(this),...(this.pythonBefore?{before:this.pythonBefore}:{}),...(this.pythonAfter?{after:this.pythonAfter}:{})};};
     definition.loadExtraState=function(state){const {before='',after='',...rest}=state;this.pythonBefore=before;this.pythonAfter=after;load.call(this,rest);};
   }
-  function sequence(block,g,one=false){let code='';while(block){if(block.isEnabled()&&!block.getInheritedDisabled()){
+  function sequence(block,g,one=false){let code='';while(block){if(block.hasDisabledReason('MANUALLY_DISABLED')&&!block.getInheritedDisabled()&&block.previousConnection&&block.data!=='pico-migrated-detached'){code+=g.blockToCode(block,true);}
+  else if(block.isEnabled()&&!block.getInheritedDisabled()){
     code+=block.pythonBefore||'';
     if(['pico_module','pico_start'].includes(block.type))code+=sequence(block.getInputTargetBlock('DO'),g);
     else if(block.type==='pico_python')code+=block.pythonCode;
@@ -199,7 +200,7 @@ export function configure(B,g,editRaw,options={}){
       if(block.type==='pico_def'&&block.pythonSentence)code+='# ブロック: '+block.pythonSentence+'\n';
       let body=sequence(block.getInputTargetBlock('DO'),g),header=block.getFieldValue('HEADER');const original=block.originalPython;
       if(original&&body===original.body){const prefix=block.type==='pico_class'?'class ':'def ';code+=prefix+header+original.original.slice(prefix.length+original.header.length);}
-      else{if(!body.trim())body='pass\n';const indent=original?.indent||'    ';code+=(block.type==='pico_class'?'class ':'def ')+header+':\n'+indentSource(body,indent);if(!code.endsWith('\n'))code+='\n';}
+      else{if(!body.split('\n').some(line=>line.trim()&&!line.trim().startsWith('#')))body+=(body&&!body.endsWith('\n')?'\n':'')+'pass\n';const indent=original?.indent||'    ';code+=(block.type==='pico_class'?'class ':'def ')+header+':\n'+indentSource(body,indent);if(!code.endsWith('\n'))code+='\n';}
     }else{const value=g.blockToCode(block,true);code+=Array.isArray(value)?value[0]+'\n':value;}
   code+=block.pythonAfter||'';
   }if(one)break;const next=block.getNextBlock();if(next&&code&&!code.endsWith('\n')&&!(/^[\r\n]/.test(next.pythonBefore||'')||next.type==='pico_python'&&/^[\r\n]/.test(next.pythonCode)))code+='\n';block=next;}return code;}
@@ -213,11 +214,21 @@ export function configure(B,g,editRaw,options={}){
     finally{g.getVariableName=getVariableName;}
   },generate(workspace,parts=[],path='main.py'){
     const getVariableName=g.getVariableName;
+    const blockToCode=g.blockToCode,statementToCode=g.statementToCode;
     g.getVariableName=id=>workspace.getVariableMap().getVariableById(id)?.name||id;
     B.Events.disable();
     try{
       for(const block of workspace.getAllBlocks(false)){const root=block.getRootBlock(),manual=block.hasDisabledReason('MANUALLY_DISABLED');block.setDisabledReason(!rootTypes.includes(root.type),'PICO_UNCONNECTED');if(manual)block.setDisabledReason(true,'MANUALLY_DISABLED');}
       g.init(workspace);
+      g.blockToCode=function(block,one){
+        if(!block||!block.previousConnection||!block.hasDisabledReason('MANUALLY_DISABLED')||block.getInheritedDisabled())return blockToCode.call(this,block,one);
+        const definitions={...this.definitions_};let rendered;
+        try{block.setDisabledReason(false,'MANUALLY_DISABLED');rendered=blockToCode.call(this,block,true);}
+        finally{block.setDisabledReason(true,'MANUALLY_DISABLED');this.definitions_=definitions;}
+        const code=(Array.isArray(rendered)?rendered[0]:rendered)||'',comment=code.split(/(?<=\n)/).filter(Boolean).map(line=>'# '+line).join('');
+        return comment+(one?'':this.blockToCode(block.getNextBlock()));
+      };
+      g.statementToCode=function(block,name){const code=statementToCode.call(this,block,name);return code&&!code.split('\n').some(line=>line.trim()&&!line.trim().startsWith('#'))?code+this.INDENT+'pass\n':code;};
       let code='';const roots=workspace.getTopBlocks(false).sort((a,b)=>{const p=a.getRelativeToSurfaceXY(),q=b.getRelativeToSurfaceXY();return p.y-q.y||p.x-q.x;});
       for(const block of roots)if(block.isEnabled()){const text=sequence(block,g);if(code&&!code.endsWith('\n')&&text&&!/^[\r\n]/.test(text))code+='\n';code+=text;}
       const imports=[];
@@ -240,6 +251,6 @@ export function configure(B,g,editRaw,options={}){
         root.getInput('DO').connection.connect(imported.previousConnection);
       }
       return [...imports,...definitions].map(text=>text+'\n').join('')+code;
-    }finally{g.getVariableName=getVariableName;B.Events.enable();}
+    }finally{g.getVariableName=getVariableName;g.blockToCode=blockToCode;g.statementToCode=statementToCode;B.Events.enable();}
   }};
 }
