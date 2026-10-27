@@ -158,7 +158,7 @@ const rootTypes=['pico_module','pico_start'];
 export function configure(B,g,editRaw,options={}){
   B.Blocks.logic_null={init(){this.jsonInit({message0:'None',output:null,colour:210,tooltip:'値がないことを表します。'});}};
   B.defineBlocksWithJsonArray([
-    {type:'pico_blank',message0:'空行',previousStatement:null,nextStatement:null,colour:210},
+    {type:'pico_blank',message0:'',previousStatement:null,nextStatement:null,colour:'#dce8ef',tooltip:'空行'},
     {type:'pico_module',message0:'読み込まれたとき %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],colour:45},
     {type:'pico_import',message0:'%1 を読み込む',args0:[{type:'field_input',name:'MODULE',text:'time'}],previousStatement:null,nextStatement:null,colour:165},
     {type:'pico_from_import',message0:'%1 から %2 を読み込む',args0:[{type:'field_input',name:'MODULE',text:'my_tools'},{type:'field_input',name:'NAMES',text:'Counter, twice'}],previousStatement:null,nextStatement:null,colour:165},
