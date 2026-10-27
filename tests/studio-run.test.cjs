@@ -668,6 +668,30 @@ test('a module import offers a preview and opens its project file',async()=>{
  }finally{s.close();}
 });
 
+test('a connected disabled block shows a non-interactive comment mark',async()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.window.editorCallbacks.onChange('main.py','print(1)\n');
+  const block=s.workspaces[1].getAllBlocks(false).find(b=>b.type==='text_print'),node=s.window.document.createElementNS('http://www.w3.org/2000/svg','g');
+  s.$('file-blockly').append(node);block.getSvgRoot=()=>node;
+  block.setDisabledReason(true,'MANUALLY_DISABLED');await new Promise(resolve=>setTimeout(resolve,30));
+  const mark=node.querySelector('.pico-disabled-mark');assert(mark);assert.equal(mark.textContent,'#');assert.equal(mark.getAttribute('pointer-events'),'none');
+  block.setDisabledReason(false,'MANUALLY_DISABLED');await new Promise(resolve=>setTimeout(resolve,30));assert.equal(node.querySelector('.pico-disabled-mark'),null);
+ }finally{s.close();}
+});
+
+test('a block preview flips to the left when the right edge lacks space',async()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.window.editorCallbacks.onChange('main.py','from parts import infrared\n');
+  const block=s.workspaces[1].getAllBlocks(false).find(b=>b.type==='pico_from_import'),node=s.window.document.createElementNS('http://www.w3.org/2000/svg','g');node.setAttribute('data-id',block.id);
+  node.getBoundingClientRect=()=>({left:700,right:1000,top:100,bottom:140});s.$('file-blockly').append(node);
+  const popup=s.window.document.querySelector('.block-definition-preview');Object.defineProperty(popup,'offsetWidth',{value:300});Object.defineProperty(popup,'offsetHeight',{value:200});
+  node.dispatchEvent(new s.window.MouseEvent('pointerover',{bubbles:true}));await new Promise(resolve=>setTimeout(resolve,450));
+  assert.equal(popup.hidden,false);assert.equal(parseFloat(popup.style.left)+300<=700,true);
+ }finally{s.close();}
+});
+
 function pointAtBlock(s,block,{shiftKey=false,button=0}={}){
  const node=s.window.document.createElementNS('http://www.w3.org/2000/svg','g');node.setAttribute('data-id',block.id);
  s.$('file-blockly').append(node);block.getSvgRoot=()=>node;

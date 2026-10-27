@@ -210,6 +210,22 @@
     }
     editingPythonBlock=null;
   });
+  function renderDisabledMarks(ws){
+    for(const block of ws.getAllBlocks(false)){
+      const root=block.getSvgRoot?.();if(!root)continue;
+      const visible=block.hasDisabledReason('MANUALLY_DISABLED')&&['pico_start','pico_module'].includes(block.getRootBlock().type);
+      let mark=root.querySelector(':scope > .pico-disabled-mark');
+      if(!visible){mark?.remove();continue;}
+      if(!mark){
+        mark=document.createElementNS('http://www.w3.org/2000/svg','g');mark.setAttribute('class','pico-disabled-mark');mark.setAttribute('pointer-events','none');
+        const background=document.createElementNS('http://www.w3.org/2000/svg','rect');background.setAttribute('width','18');background.setAttribute('height','18');background.setAttribute('rx','4');
+        const text=document.createElementNS('http://www.w3.org/2000/svg','text');text.setAttribute('x','9');text.setAttribute('y','13');text.setAttribute('text-anchor','middle');text.textContent='#';mark.append(background,text);root.append(mark);
+      }
+      const path=root.querySelector(':scope > .blocklyPath');let width=block.getHeightWidth?.().width||36;
+      try{if(path?.getBBox)width=path.getBBox().width;}catch(_){}
+      mark.setAttribute('transform',`translate(${Math.max(2,width-21)}, 2)`);
+    }
+  }
   function ensureFileWorkspace(){
     if(fileWorkspace)return;
     fileWorkspace=Blockly.inject('file-blockly',{toolbox,theme,renderer:'zelos',media:'vendor/blockly/media/',sounds:false,trashcan:true,zoom:{controls:true,wheel:true,startScale:.8,maxScale:2,minScale:.3}});
@@ -225,6 +241,7 @@
         return;
       }
       if(event.isUiEvent)return;
+      renderDisabledMarks(fileWorkspace);
       fileWorkspaceDirty=true;dirty=true;clearTimeout(fileRefreshTimer);fileRefreshTimer=setTimeout(commitFileBlocks,60);
     });
   }
@@ -257,7 +274,7 @@
       fileWorkspacePath=activeFile;fileWorkspaceDirty=false;
       fileModels[activeFile]={source,version:5,state:Blockly.serialization.workspaces.save(fileWorkspace)};
     }
-    Blockly.svgResize(fileWorkspace);diagnoseProgram();fileModels[activeFile].state=Blockly.serialization.workspaces.save(fileWorkspace);
+    Blockly.svgResize(fileWorkspace);renderDisabledMarks(fileWorkspace);diagnoseProgram();fileModels[activeFile].state=Blockly.serialization.workspaces.save(fileWorkspace);
   }
   function renderFiles(){
     const tree=$('file-tree'),treeScroll=tree.scrollTop,opened=new Map([...tree.querySelectorAll('details')].map(e=>[e.dataset.path,e.open]));tree.replaceChildren();
@@ -327,8 +344,14 @@
         const code=document.createElement('pre');code.textContent=info.text;
         const button=document.createElement('button');button.type='button';button.textContent='定義へ移動';button.addEventListener('click',()=>{closeBlockPreview();navigateDefinition(reference.destination,reference.position);});
         blockPreview.replaceChildren(title,code,button);blockPreview.hidden=false;
-        const rect=node.getBoundingClientRect(),width=blockPreview.offsetWidth,height=blockPreview.offsetHeight;
-        blockPreview.style.left=Math.max(0,Math.min(innerWidth-width,rect.right+8))+'px';blockPreview.style.top=Math.max(0,Math.min(innerHeight-height,rect.top))+'px';
+        const rect=node.getBoundingClientRect(),width=blockPreview.offsetWidth,height=blockPreview.offsetHeight,gap=8;
+        let left,top;
+        if(rect.right+gap+width<=innerWidth){left=rect.right+gap;top=rect.top;}
+        else if(rect.left-gap-width>=0){left=rect.left-gap-width;top=rect.top;}
+        else if(rect.bottom+gap+height<=innerHeight){left=rect.left;top=rect.bottom+gap;}
+        else if(rect.top-gap-height>=0){left=rect.left;top=rect.top-gap-height;}
+        else{blockPreview.hidden=true;return;}
+        blockPreview.style.left=Math.max(0,Math.min(innerWidth-width,left))+'px';blockPreview.style.top=Math.max(0,Math.min(innerHeight-height,top))+'px';
       },400);
     });
     area.addEventListener('pointerout',event=>{if(!area.contains(event.relatedTarget))scheduleBlockPreviewClose();});

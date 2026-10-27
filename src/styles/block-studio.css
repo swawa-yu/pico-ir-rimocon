@@ -220,5 +220,7 @@
 .definition-preview pre{max-height:240px;overflow:auto;margin:6px 0;white-space:pre;font:12px/1.5 ui-monospace,monospace}
 .definition-preview button{font-size:12px;padding:4px 8px}
 .block-definition-preview{position:fixed;z-index:100;width:min(480px,45vw)}
+.pico-disabled-mark rect{fill:#fff;fill-opacity:.95}
+.pico-disabled-mark text{fill:#394b55;font:bold 15px ui-monospace,monospace}
 #extract-function-dialog input{margin-top:8px}
 #extract-function-error{color:#a32626}
