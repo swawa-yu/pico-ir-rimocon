@@ -26,6 +26,15 @@ test('list addition remains editable across Python and block conversion',()=>{
  }finally{ws.dispose();copy.dispose();}
 });
 
+test('while True uses the forever block and preserves code following a break',()=>{
+ const source='while True:\n    print(1)\n    break\nprint(2)\n',ws=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource(source,[]),ws);
+  const loop=ws.getAllBlocks(false).find(b=>b.type==='pico_forever');assert(loop);assert.equal(loop.getNextBlock().type,'text_print');
+  const result=spawnSync('python3',['-c',api.generate(ws)],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'1\n2\n');
+ }finally{ws.dispose();}
+});
+
 test('sample control flow and expressions retain their Python meaning',()=>{
  const samples=require('../docs/studio-samples.js');
  const groups={beginner:'zero32 one_bit byte long receive_one receive_byte receive_long continuous times button_times receive_times number rgb console binary send button_send receive carrier fan fan_receive',basic:'console bits button carrier pwm level times decode send receive',organized:'send receive',message:'ascii_send ascii_receive ascii_display utf8_send utf8_receive'};
@@ -206,7 +215,7 @@ test('cached raw source migrates into connected structured blocks and retains di
  try{
   B.serialization.workspaces.load(upgrade(state,[]),ws);
   assert.equal(ws.getTopBlocks(false).length,1);
-  assert(ws.getAllBlocks(false).some(b=>b.type==='controls_whileUntil'));
+  assert(ws.getAllBlocks(false).some(b=>b.type==='pico_forever'));
   const disabled=ws.getAllBlocks(false).find(b=>b.type==='text_print');
   assert(disabled.hasDisabledReason('MANUALLY_DISABLED'));
   assert.doesNotMatch(api.generate(ws),/disabled/);

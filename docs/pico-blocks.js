@@ -63,7 +63,7 @@
     const options=kind=>()=>getParts().filter(p=>p.kind===kind).map(p=>[`${variableFor(p)}（${pinsFor(p).map(pin=>'GP'+pin).join('・')}）`,p.id]).concat(getParts().some(p=>p.kind===kind)?[]:[['部品を設定','__missing']]);
     Blockly.defineBlocksWithJsonArray([
       {type:'pico_start',message0:'実行したとき %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],colour:45},
-      {type:'pico_forever',message0:'ずっと %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,colour:45},
+      {type:'pico_forever',message0:'ずっと %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,colour:45},
       {type:'pico_wait',message0:'%1 秒待つ',args0:[{type:'input_value',name:'SECONDS',check:'Number'}],previousStatement:null,nextStatement:null,colour:45},
       {type:'pico_time_us',message0:'現在の時刻（µs）',output:'Number',colour:45},
       {type:'pico_time_diff',message0:'時刻 %1 から時刻 %2 まで（µs）',args0:[{type:'input_value',name:'START',check:'Number'},{type:'input_value',name:'END',check:'Number'}],output:'Number',colour:45},

@@ -136,6 +136,7 @@ export function nativeStatement(node,source,parts,parseBody){
   if(['BreakStatement','ContinueStatement','PassStatement'].includes(node.name))return {type:'pico_flow',fields:{CODE:text(node)}};
   if(node.name==='WhileStatement'&&cs.length===3){
     const test=condition(cs[1]),body=parseBody(cs[2]);
+    if(text(cs[1])==='True'&&body)return {type:'pico_forever',inputs:{DO:input(body)}};
     if(test&&body)return {type:'controls_whileUntil',fields:{MODE:'WHILE'},inputs:{BOOL:input(test),DO:input(body)}};
   }
   if(node.name==='ForStatement'&&cs.length===5&&cs[1].name==='VariableName'){
