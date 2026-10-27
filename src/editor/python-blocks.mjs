@@ -32,6 +32,15 @@ function parse(source,parts=null){
   function append(block){if(pending){block.extraState={...block.extraState,before:pending};pending='';}blocks.push(block);}
   function appendRaw(code){
     if(!code)return;
+    if(parts&&blocks.length&&!code.trim()&&/\n/.test(code)){
+      const lines=(code.match(/\n/g)||[]).length,terminated=end>0&&source[end-1]==='\n';
+      const blanks=Math.max(0,lines-(terminated?0:1));
+      if(blanks){
+        const last=blocks.at(-1);if(last?.type==='pico_python'&&!last.extraState.code.endsWith('\n'))last.extraState.code+='\n';
+        for(let i=0;i<blanks;i++)append({type:'pico_blank'});
+        return;
+      }
+    }
     if(!code.trim()){const last=blocks.at(-1),newline=code.match(/^\r?\n/)?.[0];if(last?.type==='pico_python'&&newline&&!last.extraState.code.endsWith('\n')){last.extraState.code+=newline;code=code.slice(newline.length);}pending+=code;return;}
     const last=blocks.at(-1);
     if(last?.type==='pico_python'&&!/[\r\n]$/.test(last.extraState.code)&&!/[\r\n]/.test(pending)) {last.extraState.code+=pending+code;pending='';}
@@ -149,6 +158,7 @@ const rootTypes=['pico_module','pico_start'];
 export function configure(B,g,editRaw,options={}){
   B.Blocks.logic_null={init(){this.jsonInit({message0:'None',output:null,colour:210,tooltip:'値がないことを表します。'});}};
   B.defineBlocksWithJsonArray([
+    {type:'pico_blank',message0:'空行',previousStatement:null,nextStatement:null,colour:210},
     {type:'pico_module',message0:'読み込まれたとき %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],colour:45},
     {type:'pico_import',message0:'%1 を読み込む',args0:[{type:'field_input',name:'MODULE',text:'time'}],previousStatement:null,nextStatement:null,colour:165},
     {type:'pico_from_import',message0:'%1 から %2 を読み込む',args0:[{type:'field_input',name:'MODULE',text:'my_tools'},{type:'field_input',name:'NAMES',text:'Counter, twice'}],previousStatement:null,nextStatement:null,colour:165},
@@ -177,6 +187,7 @@ export function configure(B,g,editRaw,options={}){
     loadExtraState(state){for(let i=0;i<this.argumentCount;i++)this.removeInput('ARG'+i);this.argumentCount=state.argumentCount||0;for(let i=0;i<this.argumentCount;i++)this.appendValueInput('ARG'+i).appendField(i?',':'(');if(this.getInput('END'))this.removeInput('END');this.appendDummyInput('END').appendField((this.argumentCount?')':'()')+(type==='pico_call_value'?' を呼び出した結果':' を呼び出す'));}
   };
   g.forBlock.pico_expression=block=>[block.getFieldValue('CODE'),g.ORDER_NONE];
+  g.forBlock.pico_blank=()=>'\n';
   for(const type of ['pico_call','pico_call_value'])g.forBlock[type]=(block,g)=>{const args=Array.from({length:block.argumentCount},(_,i)=>g.valueToCode(block,'ARG'+i,g.ORDER_NONE)||'None');const code=block.getFieldValue('TARGET')+'('+args.join(', ')+')';return type==='pico_call_value'?[code,g.ORDER_FUNCTION_CALL]:code+'\n';};
   g.forBlock.pico_return=(block,g)=>'return'+(block.getInputTargetBlock('VALUE')?' '+g.valueToCode(block,'VALUE',g.ORDER_NONE):'')+'\n';
   g.forBlock.pico_flow=block=>block.getFieldValue('CODE')+'\n';

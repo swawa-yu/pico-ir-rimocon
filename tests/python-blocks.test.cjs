@@ -13,6 +13,29 @@ let api,fromSource,upgrade,testParts=[];
 before(async()=>{const module=await import('../src/editor/python-blocks.mjs');fromSource=module.fromSource;upgrade=module.upgrade;require('../docs/pico-blocks.js').configure(B,g,()=>testParts);api=module.configure(B,g,()=>{});});
 function workspace(source){const ws=new B.Workspace();B.serialization.workspaces.load(fromSource(source),ws);return ws;}
 
+test('blank lines become connected blocks and survive saving and regeneration',()=>{
+ const source='first = 1\n\nsecond = 2\n\n\nprint(first + second)\n',ws=new B.Workspace(),copy=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource(source,[]),ws);assert.equal(ws.getAllBlocks(false).filter(b=>b.type==='pico_blank').length,3);
+  let code=api.generate(ws);assert.equal(code,source);
+  B.serialization.workspaces.load(B.serialization.workspaces.save(ws),copy);assert.equal(api.generate(copy),source);
+  const restored=new B.Workspace();try{B.serialization.workspaces.load(fromSource(code,[]),restored);assert.equal(restored.getAllBlocks(false).filter(b=>b.type==='pico_blank').length,3);}finally{restored.dispose();}
+ }finally{ws.dispose();copy.dispose();}
+});
+
+test('blank line blocks inside a condition preserve Python behavior',()=>{
+ const source='if True:\n    first = 1\n\n    print(first)\n',ws=new B.Workspace();
+ try{B.serialization.workspaces.load(fromSource(source,[]),ws);assert.equal(ws.getAllBlocks(false).filter(b=>b.type==='pico_blank').length,1);const result=spawnSync('python3',['-c',api.generate(ws)],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'1\n');}finally{ws.dispose();}
+});
+
+test('deleting a blank line block can be undone without disconnecting surrounding code',async()=>{
+ const ws=new B.Workspace();try{
+  B.serialization.workspaces.load(fromSource('a = 1\n\nb = 2\n',[]),ws);await new Promise(resolve=>setTimeout(resolve,20));ws.clearUndo();
+  B.Events.setGroup(true);try{ws.getAllBlocks(false).find(b=>b.type==='pico_blank').dispose(true);}finally{B.Events.setGroup(false);}await new Promise(resolve=>setTimeout(resolve,20));assert.equal(api.generate(ws),'a = 1\nb = 2\n');
+  ws.undo(false);await new Promise(resolve=>setTimeout(resolve,20));assert.equal(api.generate(ws),'a = 1\n\nb = 2\n');
+ }finally{ws.dispose();}
+});
+
 test('list addition remains editable across Python and block conversion',()=>{
  const source='a = [1, 2]\nb = [3]\nresult = a + (b + [4])\nprint(result)\n',ws=new B.Workspace(),copy=new B.Workspace();
  try{

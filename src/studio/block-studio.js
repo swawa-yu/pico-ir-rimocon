@@ -30,7 +30,7 @@
   $('function-apply').addEventListener('click',()=>{try{editingFunctionBlock.setSentence($('function-phrase').value.trim());$('function-dialog').close();commitFileBlocks();}catch(error){$('function-message').textContent=error.message;}});
   const number=value=>({shadow:{type:'math_number',fields:{NUM:value}}});
   const toolbox={kind:'categoryToolbox',contents:[
-    {kind:'category',name:'Python',colour:210,contents:['pico_import','pico_from_import','pico_import_as','pico_class','pico_def','pico_attribute','pico_keyword','pico_add_assign','pico_unpack_two','pico_tuple_two','pico_generator','pico_python'].map(type=>({kind:'block',type}))},
+    {kind:'category',name:'Python',colour:210,contents:['pico_blank','pico_import','pico_from_import','pico_import_as','pico_class','pico_def','pico_attribute','pico_keyword','pico_add_assign','pico_unpack_two','pico_tuple_two','pico_generator','pico_python'].map(type=>({kind:'block',type}))},
     {kind:'category',name:'制御',colour:45,contents:[
       {kind:'block',type:'pico_start'},{kind:'block',type:'pico_module'},{kind:'block',type:'pico_forever'},
       {kind:'block',type:'controls_if'},{kind:'block',type:'controls_repeat_ext',inputs:{TIMES:number(10)}},
