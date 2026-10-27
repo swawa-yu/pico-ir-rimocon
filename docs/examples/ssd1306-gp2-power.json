@@ -1,0 +1,281 @@
+{
+  "format": "pico-blocks-5",
+  "name": "GP2給電でSSD1306に文字を表示",
+  "pico": "2",
+  "parts": [
+    {
+      "id": "display_power",
+      "name": "画面の電源",
+      "variable": "画面の電源",
+      "kind": "led",
+      "pin": 2
+    },
+    {
+      "id": "screen",
+      "name": "画面",
+      "variable": "画面",
+      "kind": "ssd1306",
+      "scl": 3,
+      "sda": 4,
+      "width": 128,
+      "height": 64,
+      "address": 60
+    }
+  ],
+  "files": {
+    "main.py": "from parts import 画面の電源, 画面\nimport time\n\n画面の電源.on()\ntime.sleep(0.1)\n画面.text('Hello, Pico!', 1)\nprint('SSD1306 ready')\nwhile True:\n  time.sleep(1)\n",
+    "parts.py": "from pico_parts import LED, Display\n\n画面の電源 = LED(2)\ndisplay_power = 画面の電源\n画面 = Display(4, 3, width=128, height=64, address=60)\nscreen = 画面\n",
+    "lib/pico_parts.py": "from machine import Pin, PWM\nimport time\n\n_outputs = []\n\n\nclass Button:\n    def __init__(self, pin):\n        self.pin = Pin(pin, Pin.IN, Pin.PULL_DOWN)\n\n    def is_pressed(self):\n        return self.pin.value() == 1\n\n\nclass LED:\n    def __init__(self, pin):\n        self.pin = Pin(pin, Pin.OUT, value=0)\n        _outputs.append(self)\n\n    def on(self):\n        self.pin.on()\n\n    def off(self):\n        self.pin.off()\n\n    def close(self):\n        self.off()\n\n\nclass PWMOutput:\n    def __init__(self, pin, frequency=1000):\n        if not isinstance(frequency, (int, float)) or not frequency > 0 or frequency != int(frequency):\n            raise ValueError(\"Frequency must be a positive integer\")\n        self.pwm = PWM(Pin(pin), freq=int(frequency), duty_u16=0)\n        _outputs.append(self)\n\n    def set(self, percent):\n        if not isinstance(percent, (int, float)) or not 0 <= percent <= 100:\n            raise ValueError(\"PWM output must be from 0 to 100 percent\")\n        self.pwm.duty_u16(int(percent * 65535 / 100 + 0.5))\n\n    def close(self):\n        self.pwm.duty_u16(0)\n        self.pwm.deinit()\n\n\nclass RGBLED:\n    def __init__(self, red, green, blue, common_anode=False, frequency=1000):\n        self.common_anode = common_anode\n        self.pins = []\n        self.outputs = []\n        try:\n            for number in (red, green, blue):\n                pin = Pin(number)\n                self.pins.append(pin)\n                self.outputs.append(PWM(pin, freq=frequency, duty_u16=65535 if common_anode else 0))\n        except BaseException:\n            self.close()\n            raise\n        _outputs.append(self)\n\n    def set(self, red, green, blue):\n        values = (red, green, blue)\n        if any(not isinstance(value, (int, float)) or not 0 <= value <= 100 for value in values):\n            raise ValueError(\"RGB brightness must be from 0 to 100 percent\")\n        for pwm, value in zip(self.outputs, values):\n            duty = int(value * 65535 / 100 + 0.5)\n            pwm.duty_u16(65535 - duty if self.common_anode else duty)\n\n    def off(self):\n        self.set(0, 0, 0)\n\n    def close(self):\n        for pwm, pin in zip(self.outputs, self.pins):\n            pwm.duty_u16(65535 if self.common_anode else 0)\n            pwm.deinit()\n            pin.init(Pin.OUT, value=1 if self.common_anode else 0)\n        self.outputs = []\n\n\nclass InfraredReceiver:\n    def __init__(self, pin):\n        self.pin = Pin(pin, Pin.IN, Pin.PULL_UP)\n        self.pin_number = pin\n        self.receiver = None\n        _outputs.append(self)\n\n    def is_on(self):\n        return self.pin.value() == 0\n\n    def receive(self, timeout_ms=1000):\n        if self.receiver is None:\n            from ir_data import Receiver\n            self.receiver = Receiver(self.pin_number)\n        try:\n            return self.receiver.receive(timeout_ms)\n        except BaseException:\n            self.close()\n            raise\n\n    def receive_bits(self, timeout_ms=1000):\n        from ir_data import durations_to_bits\n        return durations_to_bits(self.receive(timeout_ms))\n\n    def close(self):\n        if self.receiver is not None:\n            self.receiver.close()\n            self.receiver = None\n\n\nclass Infrared:\n    def __init__(self, pin, unit=560):\n        self.pwm = PWM(Pin(pin), freq=38000, duty_u16=0)\n        self.unit = unit\n        _outputs.append(self)\n\n    def on(self):\n        self.pwm.duty_u16(21845)\n\n    def off(self):\n        self.pwm.duty_u16(0)\n\n    def send(self, value):\n        if not isinstance(value, (int, float)) or not 0 <= value <= 255 or value != int(value):\n            raise ValueError(\"IR value must be an integer from 0 to 255\")\n        value = int(value)\n        self.send_bits([(value >> shift) & 1 for shift in range(7, -1, -1)])\n\n    def send_bits(self, bits, leader=True):\n        if not bits or any(bit not in (0, 1) for bit in bits):\n            raise ValueError(\"Expected a nonempty array of 0 and 1\")\n        unit = self.unit\n        signal = [8 * unit, 4 * unit] if leader else []\n        for bit in bits:\n            signal.extend([unit, (3 if bit else 1) * unit])\n        signal.append(unit)\n        self.send_times(signal)\n        time.sleep_us(8 * unit)\n\n    def send_times(self, times):\n        if not isinstance(times, (list, tuple)) or not times or any(\n                not isinstance(duration, (int, float)) or not 0 < duration < float('inf') or duration != int(duration)\n                for duration in times):\n            raise ValueError(\"Durations must be positive whole microseconds, alternating ON and OFF\")\n        try:\n            for i, duration in enumerate(times):\n                self.pwm.duty_u16(21845 if i % 2 == 0 else 0)\n                time.sleep_us(int(duration))\n        finally:\n            self.pwm.duty_u16(0)\n\n    def close(self):\n        self.pwm.duty_u16(0)\n        self.pwm.deinit()\n\n\nclass Speaker:\n    def __init__(self, pin):\n        self.pwm = PWM(Pin(pin), freq=440, duty_u16=0)\n        _outputs.append(self)\n\n    def on(self, frequency):\n        if not isinstance(frequency, (int, float)) or not frequency > 0 or frequency != int(frequency):\n            raise ValueError(\"Frequency must be a positive integer\")\n        self.pwm.duty_u16(0)\n        self.pwm.freq(int(frequency))\n        self.pwm.duty_u16(32768)\n\n    def tone(self, frequency, seconds):\n        if not seconds >= 0:\n            raise ValueError(\"Duration must be nonnegative\")\n        try:\n            if frequency:\n                self.on(frequency)\n            else:\n                self.off()\n            time.sleep(seconds)\n        finally:\n            self.off()\n\n    def off(self):\n        self.pwm.duty_u16(0)\n\n    def close(self):\n        self.off()\n        self.pwm.deinit()\n\n\nclass DIPSwitch:\n    def __init__(self, pins):\n        if len(pins) != 8 or len(set(pins)) != 8:\n            raise ValueError(\"DIP switch requires eight distinct GPIOs\")\n        self.pins = [Pin(pin, Pin.IN, Pin.PULL_UP) for pin in pins]\n\n    def is_on(self, number):\n        if number != int(number) or not 1 <= number <= 8:\n            raise ValueError(\"Switch number must be from 1 to 8\")\n        return self.pins[int(number) - 1].value() == 0\n\n    def value(self):\n        return sum((1 << i) for i, pin in enumerate(self.pins) if pin.value() == 0)\n\n\nclass Display:\n    def __init__(self, sda, scl, width=128, height=64, address=0x3c):\n        self.sda, self.scl = sda, scl\n        self.width, self.height, self.address = width, height, address\n        self.screen = None\n\n    def _screen(self):\n        if self.screen is None:\n            from machine import SoftI2C\n            from ssd1306 import SSD1306_I2C\n            bus = SoftI2C(sda=Pin(self.sda), scl=Pin(self.scl), freq=400000)\n            self.screen = SSD1306_I2C(self.width, self.height, bus, addr=self.address)\n        return self.screen\n\n    def text(self, value, line=1):\n        text = str(value)\n        if any(ord(c) < 32 or ord(c) > 126 for c in text):\n            raise ValueError(\"Display text supports ASCII characters\")\n        if line != int(line) or not 1 <= line <= self.height // 8:\n            raise ValueError(\"Display line is outside the screen\")\n        screen = self._screen()\n        y = (int(line) - 1) * 8\n        screen.fill_rect(0, y, self.width, 8, 0)\n        screen.text(text, 0, y, 1)\n        screen.show()\n\n    def clear(self):\n        screen = self._screen()\n        screen.fill(0)\n        screen.show()\n\n    def _point(self, x, y):\n        if not isinstance(x, (int, float)) or not isinstance(y, (int, float)) or x != int(x) or y != int(y) or not 0 <= x < self.width or not 0 <= y < self.height:\n            raise ValueError(\"Pixel coordinates are outside the screen\")\n        return int(x), int(y)\n\n    def _color(self, value):\n        if value not in (0, 1):\n            raise ValueError(\"Pixel value must be 0 or 1\")\n        return int(value)\n\n    def pixel(self, x, y, value=None):\n        x, y = self._point(x, y)\n        if value is None:\n            return self._screen().pixel(x, y)\n        value = self._color(value)\n        self._screen().pixel(x, y, value)\n\n    def fill(self, value):\n        value = self._color(value)\n        self._screen().fill(value)\n\n    def text_at(self, value, x, y):\n        x, y = self._point(x, y)\n        text = str(value)\n        if any(ord(c) < 32 or ord(c) > 126 for c in text):\n            raise ValueError(\"Display text supports ASCII characters\")\n        self._screen().text(text, x, y, 1)\n\n    def show(self):\n        self._screen().show()\n\n\ndef close():\n    while _outputs:\n        _outputs.pop().close()\n",
+    "lib/ssd1306.py": "# Source: https://github.com/micropython/micropython-lib/tree/master/micropython/drivers/display/ssd1306\n# The MIT License (MIT)\n# \n# Copyright (c) 2013, 2014 micropython-lib contributors\n# \n# Permission is hereby granted, free of charge, to any person obtaining a copy\n# of this software and associated documentation files (the \"Software\"), to deal\n# in the Software without restriction, including without limitation the rights\n# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n# copies of the Software, and to permit persons to whom the Software is\n# furnished to do so, subject to the following conditions:\n# \n# The above copyright notice and this permission notice shall be included in\n# all copies or substantial portions of the Software.\n# \n# THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\n# THE SOFTWARE.\n\n# MicroPython SSD1306 OLED driver, I2C and SPI interfaces\n\nfrom micropython import const\nimport framebuf\n\n\n# register definitions\nSET_CONTRAST = const(0x81)\nSET_ENTIRE_ON = const(0xA4)\nSET_NORM_INV = const(0xA6)\nSET_DISP = const(0xAE)\nSET_MEM_ADDR = const(0x20)\nSET_COL_ADDR = const(0x21)\nSET_PAGE_ADDR = const(0x22)\nSET_DISP_START_LINE = const(0x40)\nSET_SEG_REMAP = const(0xA0)\nSET_MUX_RATIO = const(0xA8)\nSET_IREF_SELECT = const(0xAD)\nSET_COM_OUT_DIR = const(0xC0)\nSET_DISP_OFFSET = const(0xD3)\nSET_COM_PIN_CFG = const(0xDA)\nSET_DISP_CLK_DIV = const(0xD5)\nSET_PRECHARGE = const(0xD9)\nSET_VCOM_DESEL = const(0xDB)\nSET_CHARGE_PUMP = const(0x8D)\n\n\n# Subclassing FrameBuffer provides support for graphics primitives\n# http://docs.micropython.org/en/latest/pyboard/library/framebuf.html\nclass SSD1306(framebuf.FrameBuffer):\n    def __init__(self, width, height, external_vcc):\n        self.width = width\n        self.height = height\n        self.external_vcc = external_vcc\n        self.pages = self.height // 8\n        self.buffer = bytearray(self.pages * self.width)\n        super().__init__(self.buffer, self.width, self.height, framebuf.MONO_VLSB)\n        self.init_display()\n\n    def init_display(self):\n        for cmd in (\n            SET_DISP,  # display off\n            # address setting\n            SET_MEM_ADDR,\n            0x00,  # horizontal\n            # resolution and layout\n            SET_DISP_START_LINE,  # start at line 0\n            SET_SEG_REMAP | 0x01,  # column addr 127 mapped to SEG0\n            SET_MUX_RATIO,\n            self.height - 1,\n            SET_COM_OUT_DIR | 0x08,  # scan from COM[N] to COM0\n            SET_DISP_OFFSET,\n            0x00,\n            SET_COM_PIN_CFG,\n            0x02 if self.width > 2 * self.height else 0x12,\n            # timing and driving scheme\n            SET_DISP_CLK_DIV,\n            0x80,\n            SET_PRECHARGE,\n            0x22 if self.external_vcc else 0xF1,\n            SET_VCOM_DESEL,\n            0x30,  # 0.83*Vcc\n            # display\n            SET_CONTRAST,\n            0xFF,  # maximum\n            SET_ENTIRE_ON,  # output follows RAM contents\n            SET_NORM_INV,  # not inverted\n            SET_IREF_SELECT,\n            0x30,  # enable internal IREF during display on\n            # charge pump\n            SET_CHARGE_PUMP,\n            0x10 if self.external_vcc else 0x14,\n            SET_DISP | 0x01,  # display on\n        ):  # on\n            self.write_cmd(cmd)\n        self.fill(0)\n        self.show()\n\n    def poweroff(self):\n        self.write_cmd(SET_DISP)\n\n    def poweron(self):\n        self.write_cmd(SET_DISP | 0x01)\n\n    def contrast(self, contrast):\n        self.write_cmd(SET_CONTRAST)\n        self.write_cmd(contrast)\n\n    def invert(self, invert):\n        self.write_cmd(SET_NORM_INV | (invert & 1))\n\n    def rotate(self, rotate):\n        self.write_cmd(SET_COM_OUT_DIR | ((rotate & 1) << 3))\n        self.write_cmd(SET_SEG_REMAP | (rotate & 1))\n\n    def show(self):\n        x0 = 0\n        x1 = self.width - 1\n        if self.width != 128:\n            # narrow displays use centred columns\n            col_offset = (128 - self.width) // 2\n            x0 += col_offset\n            x1 += col_offset\n        self.write_cmd(SET_COL_ADDR)\n        self.write_cmd(x0)\n        self.write_cmd(x1)\n        self.write_cmd(SET_PAGE_ADDR)\n        self.write_cmd(0)\n        self.write_cmd(self.pages - 1)\n        self.write_data(self.buffer)\n\n\nclass SSD1306_I2C(SSD1306):\n    def __init__(self, width, height, i2c, addr=0x3C, external_vcc=False):\n        self.i2c = i2c\n        self.addr = addr\n        self.temp = bytearray(2)\n        self.write_list = [b\"\\x40\", None]  # Co=0, D/C#=1\n        super().__init__(width, height, external_vcc)\n\n    def write_cmd(self, cmd):\n        self.temp[0] = 0x80  # Co=1, D/C#=0\n        self.temp[1] = cmd\n        self.i2c.writeto(self.addr, self.temp)\n\n    def write_data(self, buf):\n        self.write_list[1] = buf\n        self.i2c.writevto(self.addr, self.write_list)\n\n\nclass SSD1306_SPI(SSD1306):\n    def __init__(self, width, height, spi, dc, res, cs, external_vcc=False):\n        self.rate = 10 * 1024 * 1024\n        dc.init(dc.OUT, value=0)\n        res.init(res.OUT, value=0)\n        cs.init(cs.OUT, value=1)\n        self.spi = spi\n        self.dc = dc\n        self.res = res\n        self.cs = cs\n        import time\n\n        self.res(1)\n        time.sleep_ms(1)\n        self.res(0)\n        time.sleep_ms(10)\n        self.res(1)\n        super().__init__(width, height, external_vcc)\n\n    def write_cmd(self, cmd):\n        self.spi.init(baudrate=self.rate, polarity=0, phase=0)\n        self.cs(1)\n        self.dc(0)\n        self.cs(0)\n        self.spi.write(bytearray([cmd]))\n        self.cs(1)\n\n    def write_data(self, buf):\n        self.spi.init(baudrate=self.rate, polarity=0, phase=0)\n        self.cs(1)\n        self.dc(1)\n        self.cs(0)\n        self.spi.write(buf)\n        self.cs(1)\n"
+  },
+  "workspace": {
+    "blocks": {
+      "languageVersion": 0,
+      "blocks": [
+        {
+          "type": "pico_start",
+          "id": "-^P$0e_mP)Y!)b$l#Gl_",
+          "x": 20,
+          "y": 20,
+          "inputs": {
+            "DO": {
+              "block": {
+                "type": "pico_led",
+                "id": "rts{wx|_i2@yM2mof}AD",
+                "fields": {
+                  "PART": "display_power",
+                  "ON": "1"
+                },
+                "next": {
+                  "block": {
+                    "type": "pico_wait",
+                    "id": "6X7A=!({n5@j/Y;H%vLw",
+                    "inputs": {
+                      "SECONDS": {
+                        "shadow": {
+                          "type": "math_number",
+                          "id": "]=-UB]o^?21+)%D{Jg9;",
+                          "fields": {
+                            "NUM": 0.1
+                          }
+                        }
+                      }
+                    },
+                    "next": {
+                      "block": {
+                        "type": "pico_display_text",
+                        "id": "~Fd8@9DQq}5ur)-wP,,1",
+                        "fields": {
+                          "PART": "screen"
+                        },
+                        "inputs": {
+                          "LINE": {
+                            "shadow": {
+                              "type": "math_number",
+                              "id": "qhN83?.~F+]-?EJ_{29[",
+                              "fields": {
+                                "NUM": 1
+                              }
+                            }
+                          },
+                          "TEXT": {
+                            "shadow": {
+                              "type": "text",
+                              "id": "y2THtz@P,6e,I9VB*Z6|",
+                              "fields": {
+                                "TEXT": "Hello, Pico!"
+                              }
+                            }
+                          }
+                        },
+                        "next": {
+                          "block": {
+                            "type": "text_print",
+                            "id": "]HaF9F~;J-S[k}Kb_DX(",
+                            "inputs": {
+                              "TEXT": {
+                                "shadow": {
+                                  "type": "text",
+                                  "id": ";G[4;Woga0_VEyu5)mu~",
+                                  "fields": {
+                                    "TEXT": "SSD1306 ready"
+                                  }
+                                }
+                              }
+                            },
+                            "next": {
+                              "block": {
+                                "type": "pico_forever",
+                                "id": "M)Jj).)7(./t[N(b}v8Y",
+                                "inputs": {
+                                  "DO": {
+                                    "block": {
+                                      "type": "pico_wait",
+                                      "id": "923L-je#WUhq{c~H3h:z",
+                                      "inputs": {
+                                        "SECONDS": {
+                                          "shadow": {
+                                            "type": "math_number",
+                                            "id": "p7w;(CSCGKaYL~]1dFE/",
+                                            "fields": {
+                                              "NUM": 1
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "fileWorkspaces": {
+    "main.py": {
+      "source": "from parts import 画面の電源, 画面\nimport time\n\n画面の電源.on()\ntime.sleep(0.1)\n画面.text('Hello, Pico!', 1)\nprint('SSD1306 ready')\nwhile True:\n  time.sleep(1)\n",
+      "version": 5,
+      "state": {
+        "blocks": {
+          "languageVersion": 0,
+          "blocks": [
+            {
+              "type": "pico_start",
+              "id": "-^P$0e_mP)Y!)b$l#Gl_",
+              "x": 20,
+              "y": 20,
+              "inputs": {
+                "DO": {
+                  "block": {
+                    "type": "pico_from_import",
+                    "fields": {
+                      "MODULE": "parts",
+                      "NAMES": "画面の電源, 画面"
+                    },
+                    "next": {
+                      "block": {
+                        "type": "pico_import",
+                        "fields": {
+                          "MODULE": "time"
+                        },
+                        "next": {
+                          "block": {
+                            "type": "pico_led",
+                            "id": "rts{wx|_i2@yM2mof}AD",
+                            "fields": {
+                              "PART": "display_power",
+                              "ON": "1"
+                            },
+                            "next": {
+                              "block": {
+                                "type": "pico_wait",
+                                "id": "6X7A=!({n5@j/Y;H%vLw",
+                                "inputs": {
+                                  "SECONDS": {
+                                    "shadow": {
+                                      "type": "math_number",
+                                      "id": "]=-UB]o^?21+)%D{Jg9;",
+                                      "fields": {
+                                        "NUM": 0.1
+                                      }
+                                    }
+                                  }
+                                },
+                                "next": {
+                                  "block": {
+                                    "type": "pico_display_text",
+                                    "id": "~Fd8@9DQq}5ur)-wP,,1",
+                                    "fields": {
+                                      "PART": "screen"
+                                    },
+                                    "inputs": {
+                                      "LINE": {
+                                        "shadow": {
+                                          "type": "math_number",
+                                          "id": "qhN83?.~F+]-?EJ_{29[",
+                                          "fields": {
+                                            "NUM": 1
+                                          }
+                                        }
+                                      },
+                                      "TEXT": {
+                                        "shadow": {
+                                          "type": "text",
+                                          "id": "y2THtz@P,6e,I9VB*Z6|",
+                                          "fields": {
+                                            "TEXT": "Hello, Pico!"
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "next": {
+                                      "block": {
+                                        "type": "text_print",
+                                        "id": "]HaF9F~;J-S[k}Kb_DX(",
+                                        "inputs": {
+                                          "TEXT": {
+                                            "shadow": {
+                                              "type": "text",
+                                              "id": ";G[4;Woga0_VEyu5)mu~",
+                                              "fields": {
+                                                "TEXT": "SSD1306 ready"
+                                              }
+                                            }
+                                          }
+                                        },
+                                        "next": {
+                                          "block": {
+                                            "type": "pico_forever",
+                                            "id": "M)Jj).)7(./t[N(b}v8Y",
+                                            "inputs": {
+                                              "DO": {
+                                                "block": {
+                                                  "type": "pico_wait",
+                                                  "id": "923L-je#WUhq{c~H3h:z",
+                                                  "inputs": {
+                                                    "SECONDS": {
+                                                      "shadow": {
+                                                        "type": "math_number",
+                                                        "id": "p7w;(CSCGKaYL~]1dFE/",
+                                                        "fields": {
+                                                          "NUM": 1
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "data": "pico-source-root"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {JSDOM}=require('jsdom');
-const {convert,maxBits}=require('../dist/signal-conversion.js');
+const {convert,maxBits}=require('../docs/signal-conversion.js');
 
 test('handwritten timings remain exact and decode each ON/OFF pair with the same threshold as the analyzer',()=>{
  const times=[560,560,560,1120,560],result=convert('times',JSON.stringify(times));
@@ -45,11 +45,11 @@ test('malformed, overflowing and excessive inputs fail without guessing a conver
 });
 
 function page(embedded=false){
- const dom=new JSDOM(fs.readFileSync(embedded?'dist/studio.html':'dist/live-analyzer.html','utf8'),{runScripts:'outside-only',url:'https://example.test/'}),w=dom.window,draws=[];
+ const dom=new JSDOM(fs.readFileSync(embedded?'docs/studio.html':'docs/live-analyzer.html','utf8'),{runScripts:'outside-only',url:'https://example.test/'}),w=dom.window,draws=[];
  w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;
- if(embedded){w.PicoSources=require('../dist/pico-sources.js');w.eval(fs.readFileSync('dist/live-view.js','utf8'));}
+ if(embedded){w.PicoSources=require('../docs/pico-sources.js');w.eval(fs.readFileSync('docs/live-view.js','utf8'));}
  w.LiveAnalyzer={currentCapture:()=>null,drawSignal(canvas,width,times,result,focused){draws.push({times,result,focused});return times.map((d,i)=>({a:i*10,b:(i+1)*10,index:i}));}};
- w.eval(fs.readFileSync('dist/signal-conversion.js','utf8'));w.eval(fs.readFileSync('dist/signal-converter.js','utf8'));
+ w.eval(fs.readFileSync('docs/signal-conversion.js','utf8'));w.eval(fs.readFileSync('docs/signal-converter.js','utf8'));
  return {w,draws,$:id=>w.document.getElementById(id),close:async()=>{await new Promise(resolve=>setTimeout(resolve,0));w.close();}};
 }
 

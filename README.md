@@ -18,7 +18,7 @@ http://127.0.0.1:8043/ を開きます。`src/`、`public/`、`pico/`の保存�
 別のポートを使う場合は`PORT=8044 pnpm dev`と指定します。
 
 ```sh
-pnpm build        # dist/に公開用ファイルを生成
+pnpm build        # docs/に公開用ファイルを生成
 pnpm test         # ビルドとJavaScriptのテスト
 pnpm test:python  # Python 3でPico用コードをテスト
 ```
@@ -43,17 +43,26 @@ Python 3は開発時のテストに使用します。公開サイトを利用す
 | `pico/examples/` | 単体の教材プログラム |
 | `scripts/` | ビルドとローカルサーバー |
 | `tests/` | 自動テスト |
-| `dist/` | 公開用の生成物。Git管理対象外 |
+| `docs/` | 公開用の生成物。ビルド後にコミットして公開 |
 
-`dist/`は直接編集せず、対応するソースを編集します。
+`docs/`は直接編集せず、対応するソースを編集します。
 既存URLを維持するため、ビルド時にブラウザ用ファイルを公開ルートへ配置し、Pythonは`programs/`へ出力します。
 `pico-sources.js`、CodeMirrorのバンドルとライセンス一覧、HTMLのアセットハッシュもビルド時に生成します。
 
 ## 公開
 
-GitHub Pagesの公開元を**GitHub Actions**に設定します。
-`main`へのpushでテスト・ビルド後、`dist/`だけを公開します。Pull requestではテスト・ビルドのみ実行します。
-独自ドメイン`ir.swawa.dev`はリポジトリのPages設定で管理します。
-`public/CNAME`は配布物とともに残していますが、Actions方式ではドメイン設定に使われません。
+GitHub Pagesの公開元は**Deploy from a branch → main → /docs**です。
+ローカルでビルドし、ソースと`docs/`を一緒にコミットしてpushします。
+
+```sh
+pnpm build
+git add -A
+git commit -m '変更内容'
+git push origin HEAD:main
+```
+
+独自のGitHub Actionsワークフローは使いません。
+`public/CNAME`はビルド時に`docs/CNAME`へコピーされます。
+独自ドメイン`ir.swawa.dev`のPages設定と合わせて維持します。
 
 外部ライブラリと公式ファームウェアの出典・ライセンスは`public/vendor/`、`public/firmware/`、`pico/lib/SSD1306-LICENSE.txt`にあります。

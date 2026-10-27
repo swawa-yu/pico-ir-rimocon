@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>資料（仮）｜Pico Studio</title>
+  <link rel="stylesheet" href="style.css?v=e50109bd6cca">
+  <link rel="stylesheet" href="docs.css?v=4831ac04fefb">
+</head>
+<body class="docs">
+<header><a href="studio.html">Pico Studio</a><nav aria-label="ドキュメント"><a href="#firmware">ファームウェア</a><a href="#steps">サンプル</a><a href="#circuits">部品と回路</a><a href="#libraries">ライブラリ</a></nav></header>
+<main>
+  <h1>資料（仮）</h1>
+  <section id="firmware" class="card">
+    <h2>MicroPythonの書き込み</h2>
+    <p>PicoでPythonを実行するために、<strong>MicroPythonファームウェア</strong>を用意します。
+    PCへのPythonのインストールは不要です。
+    普段のプログラム編集では、この作業を繰り返す必要はありません。</p>
+    <h3>ブラウザから書き込む</h3>
+    <p>必要なプロジェクトと、Pico内にだけあるファイルを先に保存してください。
+    書き込みによってPico内のファイルが失われる場合があります。</p>
+    <div class="firmware-installer">
+      <label for="firmware-model">1. 基板の機種</label>
+      <select id="firmware-model"><option value="pico">Pico / Pico H</option><option value="picoW">Pico W / Pico WH</option></select>
+      <p class="hint">基板の表記を確認してください。PicoとPico WはUSBでは区別できません。Studioの「Pico 1」「Pico 2」は接続先の番号です。</p>
+      <p><strong>2. BOOTSELを押しながらUSB接続</strong></p>
+      <p>Studioや外部エディタのUSB接続を切断し、USBを抜きます。書き込む1台だけを、BOOTSELを押したままつなぎ直してください。<code>RPI-RP2</code>が表示されたらボタンを離します。</p>
+      <button id="firmware-write" type="button" disabled>USBを選んで書き込む</button>
+      <progress id="firmware-progress" max="1" value="0" aria-label="ファームウェアの書き込み" hidden></progress>
+      <p id="firmware-status" role="status" aria-live="polite">公式ファームウェアを準備中…</p>
+      <button id="firmware-retry" type="button" hidden>もう一度取得する</button>
+    </div>
+    <p class="hint">PC版Chrome／Edgeで利用できます。WindowsではUSBドライバの状態によって接続できないことがあります。その場合は、下のコピー手順を使ってください。</p>
+    <details>
+    <summary>UF2をドライブへコピーする場合・その他の機種</summary>
+    <p>基板に対応する公式ページからリリース版の<code>.uf2</code>をダウンロードしてください。</p>
+    <div class="table-wrap"><table><thead><tr><th>基板</th><th>公式ダウンロード</th><th>BOOTSELで現れるドライブ</th></tr></thead><tbody>
+      <tr><td>Pico / Pico H</td><td><a href="https://micropython.org/download/RPI_PICO/" target="_blank" rel="noopener">Pico用UF2</a></td><td>RPI-RP2</td></tr>
+      <tr><td>Pico W / Pico WH</td><td><a href="https://micropython.org/download/RPI_PICO_W/" target="_blank" rel="noopener">Pico W用UF2</a></td><td>RPI-RP2</td></tr>
+      <tr><td>Pico 2</td><td><a href="https://micropython.org/download/RPI_PICO2/" target="_blank" rel="noopener">Pico 2用UF2</a></td><td>RP2350</td></tr>
+      <tr><td>Pico 2 W</td><td><a href="https://micropython.org/download/RPI_PICO2_W/" target="_blank" rel="noopener">Pico 2 W用UF2</a></td><td>RP2350</td></tr>
+    </tbody></table></div>
+    <ol>
+      <li>必要なプロジェクトを「ローカルにプロジェクトを保存」で保存します。Pico内にだけあるファイルも、更新前に別途保存してください。</li>
+      <li>StudioのUSB接続を切断し、PicoのUSBケーブルを抜きます。</li>
+      <li>BOOTSELを押したままUSBをつなぎ、ドライブが表示されたらボタンを離します。</li>
+      <li>ダウンロードしたUF2を、そのドライブへコピーします。書き込み後、Picoが再起動してドライブが消えます。</li>
+      <li><a href="studio.html">Studio</a>の「USB接続する」で接続します。</li>
+    </ol>
+    </details>
+    <p>Studioの「書き込み」は、MicroPythonが入ったPicoにプロジェクトの<code>.py</code>ファイルを転送する操作です。</p>
+    <p class="hint"><a href="https://www.raspberrypi.com/documentation/microcontrollers/micropython.html" target="_blank" rel="noopener">Raspberry Pi公式の書き込み手順</a></p>
+  </section>
+  <section id="steps" class="card">
+    <h2>小さな信号から試す</h2>
+    <p>Studioのプロジェクトタブの「＋」を押し、「サンプルプロジェクト」のグループから選んで開きます。
+    最初はロジアナのライブ波形で、入力した時間とON/OFFの対応を確かめます。</p>
+    <div class="table-wrap"><table><thead><tr><th>段階</th><th>送信サンプル</th><th>受信サンプルと確かめること</th></tr></thead><tbody>
+      <tr><td>0を送る</td><td>0を32ビットずつ送る</td><td>リーダ部なしで0を32ビット送り、0.5秒待ちます。</td></tr>
+      <tr><td>1に変える</td><td>同じサンプルの0を1に書き換える</td><td>波形のOFF時間が変わることを比べます。</td></tr>
+      <tr><td>ボタンで切り替える</td><td>BOOTSELで0・1を32ビットずつ送る</td><td>押している間は1、離している間は0を32ビット送ります。</td></tr>
+      <tr><td>1ビット</td><td>1ビットを送る（リーダ部なし）</td><td>1ビットの時間配列を受信する。<code>[560, 1680, 560]</code>のような時間配列を表示します。</td></tr>
+      <tr><td>8ビット</td><td>8ビットを送る（リーダ部なし）</td><td>8ビットを受信して0・1を表示する。送信した8個の値を比べます。</td></tr>
+      <tr><td>32ビット</td><td>32ビットを送る（リーダ部なし）</td><td>長い信号を受信してビット数を調べる。配列と要素数を表示します。</td></tr>
+      <tr><td>データの変換</td><td colspan="2">「データ変換」タブで、時間配列、0と1の配列、文字列、数値の対応を試します。プログラムでの変換は、その後のサンプルで扱います。</td></tr>
+    </tbody></table></div>
+    <p>送信はGP16、受信はGP15を使います。
+    Picoを2台使う場合は、送信と受信のプロジェクトでそれぞれのPicoを選びます。
+    ピンは各プロジェクトの部品設定で変更できます。</p>
+    <h3>時間配列の読み方</h3>
+    <div class="table-wrap"><table><thead><tr><th>例</th><th>ON</th><th>OFF</th></tr></thead><tbody>
+      <tr><td>0：<code>[560, 560]</code></td><td>560µs</td><td>560µs</td></tr>
+      <tr><td>1：<code>[560, 1680]</code></td><td>560µs</td><td>1680µs</td></tr>
+    </tbody></table></div>
+    <p>時間配列はONから始まり、OFF、ON、OFFと交互に並びます。
+    1µsは100万分の1秒です。
+    ONの間は赤外線LEDを38kHzで点滅させます。</p>
+    <p>区切った信号のサンプルでは、最後にONを1区間付けてからOFFにします。
+    受信側は長いOFFで信号の終わりを判断します。
+    BOOTSELのサンプルも32ビットごとに区切られます。ロジアナの履歴と波形で確認してください。</p>
+    <p>リーダ部なしのサンプルをロジアナで読むときは、「解析設定」のデータ開始位置を<code>0</code>にします。
+    0と1はOFF/ON比が2以上なら1、それ未満なら0として判定します。
+    受信モジュールによる時間のずれがあるため、受信した時間は入力値と完全には一致しません。</p>
+    <h3>ASCIIのメッセージを送受信する</h3>
+    <ol>
+      <li>「サンプルプロジェクト」内の「メッセージをやり取りする」から送信と受信のサンプルを開き、それぞれ使うPicoを選びます。送信機はGP16、受信機はGP15です。</li>
+      <li>受信側を先に実行します。「受信待ち」がコンソールに表示されます。</li>
+      <li>送信側を実行し、コンソールの「送る文:」に<code>HELLO</code>と入力してEnterを押します。引用符は不要です。</li>
+      <li>受信側のプロジェクトへ切り替えると、コンソールに受け取った文が表示されます。</li>
+    </ol>
+    <p>1文字をリーダ部付きの8ビット信号で送り、改行コード<code>10</code>で文を区切ります。
+    文字間は20ms待ち、受信側が信号を区切れる間隔を確保します。赤外線LEDの変調はライブラリが処理します。</p>
+    <p>SSD1306表示のサンプルは、GP2で給電し、SCLをGP3、SDAをGP4につなぎます。まず短い英数字で試してください。
+    UTF-8の送受信は「UTF-8（発展）」グループにあります。UTF-8版の表示先はコンソールです。</p>
+  </section>
+  <section id="circuits" class="card">
+    <h2>部品と回路</h2>
+    <p>配線を変えるときは電源を外します。
+    <code>GP15</code>などの番号はGPIO番号で、基板の物理的なピン番号とは異なります。
+    ピン位置は<a href="https://www.raspberrypi.com/documentation/microcontrollers/pico-series.html" target="_blank" rel="noopener">使用する基板の公式ピン配置</a>で確認してください。</p>
+    <h3>赤外線の送受信</h3>
+    <div class="table-wrap"><table><thead><tr><th>部品</th><th>接続</th><th>動き</th></tr></thead><tbody>
+      <tr><td>3.3Vで使える38kHz受信モジュール</td><td>OUT → GP15、VCC → 3V3、GND → GND</td><td>受信中はOUTがLOWになります。端子の並びは製品の表示で確認します。</td></tr>
+      <tr><td>赤外線LEDとドライバ</td><td>3.3V入力対応ドライバの入力 → GP16、GNDを共通化</td><td>PWMで38kHzを出力します。LEDに流す電流は、LEDとドライバの仕様に合わせます。</td></tr>
+    </tbody></table></div>
+    <pre class="circuit" aria-label="赤外線LEDのドライバ接続">Pico GP16 ── ドライバ入力
+Pico GND  ── ドライバGND ── 電源GND
+
+電源＋ ── 電流制限抵抗 ── 赤外線LED ── ドライバ出力</pre>
+    <p>GPIOへ5Vを入力しないでください。
+    5Vで動く受信基板やドライバを使う場合は、信号端子が3.3VのGPIOに接続できる仕様か確認します。</p>
+    <h3>ボタンと出力部品</h3>
+    <div class="table-wrap"><table><thead><tr><th>部品</th><th>接続と設定</th></tr></thead><tbody>
+      <tr><td>BOOTSEL</td><td>基板上のボタンを使います。追加配線は不要です。起動時に押したままUSBをつなぐと、ファームウェア書き込み用のモードになります。</td></tr>
+      <tr><td>外付けボタン</td><td>GPIOと3V3の間へ接続します。部品ライブラリが内部プルダウンを設定し、押すとHIGHになります。</td></tr>
+      <tr><td>LED</td><td>各LEDに電流制限抵抗を入れます。抵抗値はLEDの順方向電圧と使用電流から決めます。</td></tr>
+      <tr><td>フルカラーLED</td><td>R、G、Bをそれぞれ抵抗経由で別のGPIOへ接続します。共通カソードはGND、共通アノードは3V3へ接続し、部品設定で選びます。各色の明るさは0〜100%です。</td></tr>
+      <tr><td>圧電スピーカー</td><td>部品設定でPWMを出すGPIOを指定します。周波数で音程を変え、ONとOFFで発音を制御します。</td></tr>
+      <tr><td>ミニ扇風機</td><td>MOSFETまたはモータードライバを介して制御します。モーターの電源は仕様に合わせ、PicoとGNDを共通化します。サンプルはGP20、25kHzを使います。</td></tr>
+      <tr><td>8連DIPスイッチ</td><td>各スイッチをGPIOとGNDの間へ接続します。内部プルアップを使い、ONでLOWになります。</td></tr>
+      <tr><td>SSD1306（I²C）</td><td>文字表示サンプルはVDD→GP2、SCL→GP3、SDA→GP4です。GPIOから給電できるかはモジュールの消費電流に依存します。3.3Vで使用でき、信号のプルアップ先も3.3Vのモジュールを使います。文字表示は英数字です。</td></tr>
+    </tbody></table></div>
+    <p>同じGPIOを複数の部品へ割り当てないようにします。
+    PWM回路を共有するピンでは周波数にも制約があり、部品設定を反映するときに確認します。</p>
+  </section>
+  <section id="libraries" class="card">
+    <h2>ライブラリとファイル構成</h2>
+    <p>普段は<code>main.py</code>で活動の流れを書きます。
+    部品設定や細かな入出力処理は別のファイルにあり、ファイル一覧から開いて編集できます。</p>
+    <div class="table-wrap"><table><thead><tr><th>ファイル</th><th>役割</th></tr></thead><tbody>
+      <tr><td><code>main.py</code></td><td>実行するプログラム。</td></tr>
+      <tr><td><code>parts.py</code></td><td>部品の名前とピンの対応。部品設定から生成します。</td></tr>
+      <tr><td><code>lib/pico_parts.py</code></td><td>赤外線送信、LED、PWM、画面などの入出力処理。</td></tr>
+      <tr><td><code>lib/ir_data.py</code></td><td>受信処理と、時間配列やビット配列の変換。</td></tr>
+      <tr><td><code>lib/live_receiver.py</code></td><td>赤外線受信の変化時刻を記録する処理。</td></tr>
+      <tr><td><code>lib/ssd1306.py</code></td><td>SSD1306の画面を動かすドライバ。画面を使う場合に含めます。</td></tr>
+    </tbody></table></div>
+    <p>「書き込み」はプロジェクトのファイル群をPicoへ転送し、「書き込み・実行」は転送後にプログラムを動かします。
+    書き込み時の退避フォルダ<code>.pico-studio-番号</code>は、成功時に直近1回分を残します。
+    失敗した書き込みの復旧用データは保持します。</p>
+    <p>プロジェクトの保存にはライブラリも含まれ、開くと保存時の内容を復元します。
+    新しい機能を試すときは、現在のサンプルから始めてください。</p>
+    <h3>使用しているライブラリ</h3>
+    <ul>
+      <li><a href="https://docs.blockly.com/">Blockly</a>：ブロック編集。<a href="vendor/blockly/LICENSE">Apache-2.0ライセンス</a>。</li>
+      <li><a href="https://codemirror.net/">CodeMirrorとLezer</a>：テキスト編集とPythonの構文解析。<a href="vendor/codemirror/LICENSES.txt">MITライセンス一覧</a>。</li>
+      <li>SSD1306ドライバ：<a href="programs/SSD1306-LICENSE.txt">MITライセンス</a>。</li>
+      <li><a href="https://github.com/piersfinlayson/picoflash">picoflash</a>：ファームウェア書き込みのWebUSB通信。<a href="vendor/picoflash/LICENSE">MITライセンス</a>・<a href="vendor/picoflash/SOURCE.txt">取得元</a>。</li>
+      <li>MicroPython v1.29.0：公式UF2を変更せずに配信し、機種の選択後に自動で読み込みます。<a href="firmware/SOURCE.txt">配布元と照合値</a>・<a href="firmware/LICENSES.txt">ライセンスと著作権表示</a>。</li>
+    </ul>
+    <p>USB通信にはブラウザのWeb Serial APIを使います。
+    PC版ChromeでStudioを開き、USBを使う外部エディタは切断してください。
+    Studio内の3つの作業タブは接続を共有します。</p>
+  </section>
+</main>
+<footer><a href="studio.html">Pico Studioへ戻る</a></footer>
+<script type="module" src="firmware-ui.mjs?v=5b83e6b785e7"></script>
+</body>
+</html>

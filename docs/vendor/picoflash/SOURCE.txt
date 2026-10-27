@@ -1,0 +1,4 @@
+Source: https://github.com/piersfinlayson/picoflash
+Commit: 9f647ee9c46a21f4d1efc2d272f19be6cd309d1d
+Files: pkg/{picoboot,connection,constants,errors,target,commands}.js, pkg/package.json, LICENSE
+Unmodified. MIT license; see LICENSE and individual file headers.

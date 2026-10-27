@@ -1,0 +1,24 @@
+.docs{scroll-behavior:auto}
+.docs header{max-width:1120px;flex-wrap:wrap}
+.docs nav{display:flex;gap:18px;flex-wrap:wrap;font-size:.9rem}
+.docs main{max-width:1000px}
+.docs h1{font-size:2rem;margin:8px 0 24px}
+.docs .card{scroll-margin-top:16px}
+.docs h2{margin-top:0}
+.docs h3{margin:28px 0 10px}
+.docs th{background:#f2f6f8;white-space:nowrap}
+.docs td{vertical-align:top}
+.docs ol li,.docs ul li{margin:10px 0}
+.docs .circuit{white-space:pre;overflow:auto;font-size:.9rem}
+.docs .table-wrap{max-height:none}
+.docs p{max-width:76ch}
+.docs-link{font-size:.85rem;font-weight:400;white-space:nowrap}
+.firmware-installer{display:grid;gap:12px;padding:20px;background:#f2f6f8;border:1px solid #dce6ec;border-radius:12px;margin:16px 0}
+.firmware-installer label{font-weight:650}
+.firmware-installer p{margin:0}
+.firmware-installer select,.firmware-installer button{max-width:100%;justify-self:start}
+.firmware-installer progress{width:100%}
+.firmware-installer .error{color:#b42318}
+.firmware-installer [hidden]{display:none}
+.docs details>summary{cursor:pointer;margin:20px 0;font-weight:650}
+@media(max-width:600px){.docs nav{gap:10px}.docs .card{padding:16px}.docs table{font-size:.85rem}}

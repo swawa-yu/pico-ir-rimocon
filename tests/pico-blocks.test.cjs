@@ -3,13 +3,13 @@ const assert=require('node:assert/strict');
 const {spawnSync}=require('node:child_process');
 const {JSDOM}=require('jsdom');
 const dom=new JSDOM('');
-const B=require('../dist/vendor/blockly/blockly_compressed.js');
+const B=require('../docs/vendor/blockly/blockly_compressed.js');
 B.utils.xml.injectDependencies({document:dom.window.document,DOMParser:dom.window.DOMParser,XMLSerializer:dom.window.XMLSerializer});
-require('../dist/vendor/blockly/blocks_compressed.js');
-const {pythonGenerator:g}=require('../dist/vendor/blockly/python_compressed.js');
-Object.assign(B.Msg,require('../dist/vendor/blockly/msg/ja.js'));
-const P=require('../dist/pico-blocks.js');
-const {decodeDurations}=require('../dist/live-core.js');
+require('../docs/vendor/blockly/blocks_compressed.js');
+const {pythonGenerator:g}=require('../docs/vendor/blockly/python_compressed.js');
+Object.assign(B.Msg,require('../docs/vendor/blockly/msg/ja.js'));
+const P=require('../docs/pico-blocks.js');
+const {decodeDurations}=require('../docs/live-core.js');
 let parts=P.defaults();
 P.configure(B,g,()=>parts);
 
@@ -29,7 +29,7 @@ test('part variable names match block labels and generated imports while aliases
  }finally{w.dispose();parts=old;}
 });
 const runtime=require('node:fs').readFileSync(require('node:path').join(__dirname,'../pico/lib/pico_parts.py'),'utf8');
-function generate(w){return P.generateProject(B,g,w,parts,runtime,require('../dist/pico-sources.js').ssd1306,null,require('../dist/pico-sources.js'));}
+function generate(w){return P.generateProject(B,g,w,parts,runtime,require('../docs/pico-sources.js').ssd1306,null,require('../docs/pico-sources.js'));}
 function combined(w){const f=generate(w);return `import types,sys\n_driver=types.ModuleType('pico_parts')\nsys.modules['pico_parts']=_driver\nexec(${JSON.stringify(f['lib/pico_parts.py'])},_driver.__dict__)\n_parts=types.ModuleType('parts')\nsys.modules['parts']=_parts\nexec(${JSON.stringify(f['parts.py'])},_parts.__dict__)\ntry:\n exec(${JSON.stringify(f['main.py'])})\nfinally:\n _driver.close()\n`;} 
 function workspace(example){parts=example==='display'?P.displayParts():example==='receive'?[...P.defaults(),{id:'receiver',name:'赤外線受信',kind:'receiver',pin:15}]:example==='peripherals'?P.peripheralParts():example==='pixels'?P.peripheralParts().filter(p=>p.kind==='ssd1306'):example==='fan'?[...P.defaults(),{id:'fan',name:'扇風機',kind:'pwm',pin:20,frequency:25000}]:P.defaults();const w=new B.Workspace();B.serialization.workspaces.load(P.examples[example](),w);return w;}
 function python(script,source){const result=spawnSync('python3',['-c',script],{input:source,encoding:'utf8'});assert.equal(result.status,0,JSON.stringify({stderr:result.stderr,stdout:result.stdout,signal:result.signal,error:String(result.error)}));return result.stdout;}
@@ -173,7 +173,7 @@ test('functions and lists generate executable MicroPython activity code',()=>{
   const main=generate(w)['main.py'];
   assert.equal(w.getAllBlocks(false).find(b=>b.type==='procedures_defreturn').getSurroundParent().type,'pico_start');
   assert.match(main,/def values/);assert.match(main,/\[65, 66\]/);
-  const map=new Map(),mapped=P.generateProject(B,g,w,parts,runtime,require('../dist/pico-sources.js').ssd1306,map,require('../dist/pico-sources.js'))['main.py'];
+  const map=new Map(),mapped=P.generateProject(B,g,w,parts,runtime,require('../docs/pico-sources.js').ssd1306,map,require('../docs/pico-sources.js'))['main.py'];
   assert.equal(mapped,main);
   const definition=w.getAllBlocks(false).find(b=>b.type==='procedures_defreturn');
   assert.match(main.split('\n')[map.get(definition.id).from-1],/^def values/);
@@ -247,7 +247,7 @@ test('speaker ON and OFF are separate operations, and old timed blocks preserve 
 });
 
 test('display preview uses the selected display block, DIP values and screen bounds without running Python',()=>{
-  const preview=require('../dist/display-preview.js'),w=workspace('peripherals');generate(w);
+  const preview=require('../docs/display-preview.js'),w=workspace('peripherals');generate(w);
   assert.deepEqual(preview.command(w,null,parts,'screen',{switches:129}),{row:1,text:'129'});
   const text=w.getAllBlocks(false).find(b=>b.type==='pico_display_text');
   const clear=w.getAllBlocks(false).find(b=>b.type==='pico_display_clear');
@@ -267,7 +267,7 @@ test('display preview uses the selected display block, DIP values and screen bou
 test('source mapping preserves generated Python and associates selected blocks with their activity lines',()=>{
   for(const example of Object.keys(P.examples)){
     const w=workspace(example),plain=generate(w),map=new Map();
-    const mapped=P.generateProject(B,g,w,parts,runtime,require('../dist/pico-sources.js').ssd1306,map,require('../dist/pico-sources.js'));
+    const mapped=P.generateProject(B,g,w,parts,runtime,require('../docs/pico-sources.js').ssd1306,map,require('../docs/pico-sources.js'));
     assert.equal(mapped['main.py'],plain['main.py'],example);
     const lines=mapped['main.py'].split('\n');
     for(const block of w.getAllBlocks(false)){
@@ -312,7 +312,7 @@ test('console blocks generate input and print, with the entered text reaching ou
 });
 
 test('pixel blocks generate reads, writes, fill, coordinate text and an explicit show with preview bounds matching the screen',()=>{
-  const preview=require('../dist/display-preview.js'),w=workspace('pixels');
+  const preview=require('../docs/display-preview.js'),w=workspace('pixels');
   const block=w.getAllBlocks(false).find(b=>b.type==='pico_display_pixel');
   for(const key of ['X','Y']){
     block.getInputTargetBlock(key).dispose();
@@ -423,8 +423,8 @@ test('receiver sample converts captured timing arrays to chronological bits, bin
  const w=workspace('receive');
  try{
   const files=generate(w),times=P.signalForByte(65,560);
-  assert.equal(files['lib/ir_data.py'],require('../dist/pico-sources.js').irData);
-  assert.equal(files['lib/live_receiver.py'],require('../dist/pico-sources.js').receiver);
+  assert.equal(files['lib/ir_data.py'],require('../docs/pico-sources.js').irData);
+  assert.equal(files['lib/live_receiver.py'],require('../docs/pico-sources.js').receiver);
   const output=python(`import sys,types
 source=sys.stdin.read()
 data=types.ModuleType('ir_data')
@@ -484,11 +484,11 @@ for width in [0, -1, 1.5]:
   pass
  else:
   raise AssertionError(width)
-`,require('../dist/pico-sources.js').irData);
+`,require('../docs/pico-sources.js').irData);
 });
 
 test('beginner sending keeps all digits and beginner reception decodes the same chronological binary',()=>{
- const samples=require('../dist/studio-samples.js'),sources=require('../dist/pico-sources.js');
+ const samples=require('../docs/studio-samples.js'),sources=require('../docs/pico-sources.js');
  python(`import sys, types, time
 sys.modules['machine'] = types.SimpleNamespace(Pin=lambda n: n, PWM=lambda *a, **k: types.SimpleNamespace(duty_u16=lambda value: None, deinit=lambda: None))
 ir_data = types.ModuleType('ir_data')
@@ -523,7 +523,7 @@ assert durations == before
 });
 
 test('time arrays transmit exactly the specified ON/OFF intervals, validate before output and stop on interruption',()=>{
- const source=require('../dist/studio-samples.js').beginner('times').files['main.py'];
+ const source=require('../docs/studio-samples.js').beginner('times').files['main.py'];
  python(`import sys, types
 intervals=[]
 class PWM:
@@ -608,7 +608,7 @@ close()
 });
 
 test('the first sender repeats 32 zeros, and editing zero to one changes all 32 bits without a button',()=>{
- const source=require('../dist/studio-samples.js').beginner('zero32').files['main.py'];
+ const source=require('../docs/studio-samples.js').beginner('zero32').files['main.py'];
  assert(!source.includes('rp2'));assert(!source.includes('bootsel'));
  for(const bit of [0,1])python(`import sys,types
 frames=[];pauses=[]
@@ -628,7 +628,7 @@ assert pauses==[0.5,0.5]
 });
 
 test('BOOTSEL sends 32 data bits without a leader and waits half a second after each frame',()=>{
- const source=require('../dist/studio-samples.js').beginner('continuous').files['main.py'];
+ const source=require('../docs/studio-samples.js').beginner('continuous').files['main.py'];
  python(`import sys,types
 intervals=[];pauses=[]
 class PWM:
@@ -659,7 +659,7 @@ assert output.pwm.duty == 0 and output.pwm.closed
 });
 
 test('one, eight and thirty-two-bit samples transmit without a leader and their receivers recover the same data',()=>{
- const samples=require('../dist/studio-samples.js'),sources=require('../dist/pico-sources.js');
+ const samples=require('../docs/studio-samples.js'),sources=require('../docs/pico-sources.js');
  python(`import sys,types,io,contextlib
 intervals=[]
 class PWM:

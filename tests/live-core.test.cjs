@@ -1,6 +1,6 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {Capture,decodeDurations,validateHistory} = require('../dist/live-core.js');
+const {Capture,decodeDurations,validateHistory} = require('../docs/live-core.js');
 
 function source(capture) {
   let seq = 0, on = 0;
@@ -93,7 +93,7 @@ test('the selected capture stays available in saved history when old captures ex
 });
 
 test('named signals retain recording metadata and older history files remain valid',()=>{
-  const {Capture,validateHistory}=require('../dist/live-core.js');
+  const {Capture,validateHistory}=require('../docs/live-core.js');
   const capture=new Capture(),frame=capture.addFrame({durations:[100,100,100],source:'USB'});
   assert(Number.isSafeInteger(frame.recordedAt));frame.name='電源';
   const saved=JSON.parse(JSON.stringify({format:'pico-ir-history-1',frames:[frame]}));
@@ -112,7 +112,7 @@ test('live transitions remain beyond twenty seconds and old sessions survive str
 });
 
 test('repeat candidates keep their own raw frame and the start-to-start interval',()=>{
-  const {signalKind,visibleEdges}=require('../dist/live-core.js'),c=new Capture(),send=source(c);send(0);
+  const {signalKind,visibleEdges}=require('../docs/live-core.js'),c=new Capture(),send=source(c);send(0);
   const full=[9000,4500];for(let i=0;i<32;i++)full.push(560,i%2?1690:560);full.push(560);
   let start=100,on=1,edges=[];for(const d of full){edges.push([start,on]);start+=d;on=1-on;}edges.push([start,0]);send(start+5000,edges);
   const repeat=[9000,2250,560],repeatStart=110100;start=repeatStart;on=1;edges=[];for(const d of repeat){edges.push([start,on]);start+=d;on=1-on;}edges.push([start,0]);send(start+5000,edges);
@@ -128,7 +128,7 @@ test('live recordings round-trip with frames and reject unordered edges before i
 });
 
 test('overview preserves sub-pixel pulses and carries levels across empty columns',()=>{
-  const {overviewLevels}=require('../dist/live-core.js');
+  const {overviewLevels}=require('../docs/live-core.js');
   const edges=[{time:0,on:0},{time:501,on:1},{time:502,on:0}];
   const levels=overviewLevels(edges,0,1000,10);
   assert.equal(levels[5],3);assert.equal(levels[0],1);assert.equal(levels[9],1);

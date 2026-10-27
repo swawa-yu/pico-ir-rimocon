@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const { JSDOM } = require('jsdom');
-const firmware = import('../dist/firmware.mjs');
+const firmware = import('../docs/firmware.mjs');
 
 function uf2(count = 2) {
   const bytes = new Uint8Array(count * 512);
@@ -38,7 +38,7 @@ test('firmware preparation rejects unapproved images before USB access', async (
 test('bundled official firmware matches each board hash and rejects the other board', async () => {
   const { firmwareModels, prepareFirmware } = await firmware;
   for (const model of ['pico', 'picoW']) {
-    const bytes = new Uint8Array(fs.readFileSync(`dist/firmware/${firmwareModels[model].file}`));
+    const bytes = new Uint8Array(fs.readFileSync(`docs/firmware/${firmwareModels[model].file}`));
     const image = await prepareFirmware(bytes, model);
     assert.equal(image.address, 0x10000000);
     assert.equal(image.data.length, bytes.length / 2);
@@ -54,7 +54,7 @@ test('automatic loading fetches the selected same-origin image and rejects faile
     global.fetch = async (url, options) => {
       assert.equal(url, `firmware/${firmwareModels.picoW.file}`);
       assert.equal(options.signal, signal);
-      return { ok: true, arrayBuffer: async () => fs.readFileSync('dist/'+url) };
+      return { ok: true, arrayBuffer: async () => fs.readFileSync('docs/'+url) };
     };
     assert.equal((await loadFirmware('picoW', { signal })).data.length, 905728);
     global.fetch = async () => ({ ok: false });
@@ -121,7 +121,7 @@ test('non-BOOTSEL devices and invalid memory ranges cannot reach erase', async (
 });
 
 function ui(supported = true, load = async model => ({ board: model, data: new Uint8Array(256) })) {
-  const dom = new JSDOM(fs.readFileSync('dist/docs.html', 'utf8'), { url: 'http://localhost/docs.html', runScripts: 'outside-only' });
+  const dom = new JSDOM(fs.readFileSync('docs/docs.html', 'utf8'), { url: 'http://localhost/docs.html', runScripts: 'outside-only' });
   const w = dom.window; const trace = [];
   if (supported) Object.defineProperty(w.navigator, 'usb', { value: {} });
   w.isSecureContext = true;
@@ -132,7 +132,7 @@ function ui(supported = true, load = async model => ({ board: model, data: new U
     requestBootDevice: async () => { trace.push('choose'); return {}; },
     flashFirmware: async (device, image) => { trace.push(`flash:${image.board}`); return { rebooted: true }; },
   });
-  vm.runInContext(fs.readFileSync('dist/firmware-ui.mjs', 'utf8').replace(/^import[^\n]+\n/, ''), dom.getInternalVMContext());
+  vm.runInContext(fs.readFileSync('docs/firmware-ui.mjs', 'utf8').replace(/^import[^\n]+\n/, ''), dom.getInternalVMContext());
   return { w, dom, trace, get: id => w.document.getElementById(`firmware-${id}`) };
 }
 

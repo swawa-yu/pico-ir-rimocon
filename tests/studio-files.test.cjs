@@ -1,6 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {Files,definitions}=require('../dist/studio-files.js');
+const {Files,definitions}=require('../docs/studio-files.js');
 
 test('block regeneration preserves manual edits in every file and reset affects only the selected file',()=>{
   const f=new Files(),first={'main.py':'print(1)\n','parts.py':'pin = 13\n','lib/pico_parts.py':'def send(): pass\n'};
@@ -20,7 +20,7 @@ test('function outline includes class methods with accurate line numbers',()=>{
 });
 
 test('directory comparison includes local-only files, nested folders and unknown comparisons',()=>{
-  const {compare}=require('../dist/studio-files.js');
+  const {compare}=require('../docs/studio-files.js');
   const files={'main.py':'x','parts.py':'y','lib/pico_parts.py':'z'};
   const entries=[{name:'main.py',dir:false,same:false},{name:'boot.py',dir:false,same:null}];
   assert.deepEqual(compare(files,'',entries).map(e=>[e.name,e.status]),[['lib','編集中のみ'],['boot.py','Pico内のみ'],['main.py','内容が異なる'],['parts.py','編集中のみ']]);
@@ -28,7 +28,7 @@ test('directory comparison includes local-only files, nested folders and unknown
   assert.equal(compare(files,'',[{name:'main.py',dir:false,same:null}]).find(e=>e.name==='main.py').status,'未比較');
 });
 test('line differences align insertions and preserve empty files, trailing newlines and large replacements',()=>{
-  const {diff}=require('../dist/studio-files.js');
+  const {diff}=require('../docs/studio-files.js');
   const rows=diff('a\nb\nc\n','a\ninsert\nb\nc\n');
   assert.deepEqual(rows[1],{kind:'changed',local:null,remote:'insert',localLine:null,remoteLine:2});
   assert.equal(rows[2].localLine,2);assert.equal(rows[2].remoteLine,3);

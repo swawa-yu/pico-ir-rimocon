@@ -1,14 +1,14 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {spawnSync}=require('node:child_process');
-const samples=require('../dist/studio-samples.js');
+const samples=require('../docs/studio-samples.js');
 
 test('received 8-bit percentages control the fan; invalid signals are ignored and stopping turns it off',()=>{
   const source=samples.beginner('fan_receive').files['main.py'];
   const result=spawnSync('python3',['-c',`
 import contextlib,io,json,sys,types
 ir=types.ModuleType('ir_data')
-exec(open('dist/programs/ir_data.py').read(),ir.__dict__)
+exec(open('docs/programs/ir_data.py').read(),ir.__dict__)
 sys.modules['ir_data']=ir
 frames=iter([[],[1]*7,ir.int_to_bits(0),ir.int_to_bits(60),ir.int_to_bits(100),ir.int_to_bits(101),ir.int_to_bits(255),[1]*16])
 events=[]

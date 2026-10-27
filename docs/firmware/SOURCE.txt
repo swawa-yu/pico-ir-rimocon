@@ -1,0 +1,23 @@
+MicroPython v1.29.0 (2026-08-24)
+These official UF2 files are redistributed without modification for Raspberry Pi Pico and Pico W.
+The browser verifies SHA-256 before allowing a write.
+
+RPI_PICO-20260824-v1.29.0.uf2
+https://micropython.org/resources/firmware/RPI_PICO-20260824-v1.29.0.uf2
+SHA-256 e1160e602e277d85920adb5fe741435edccba9ba6ecadc85fdab75252eeff4e9
+
+RPI_PICO_W-20260824-v1.29.0.uf2
+https://micropython.org/resources/firmware/RPI_PICO_W-20260824-v1.29.0.uf2
+SHA-256 f918c0a082c6daf53e27998b7f990ba5f065db2e298b21a34024532a20786794
+
+Official source and corresponding submodule revisions:
+https://github.com/micropython/micropython/tree/v1.29.0
+pico-sdk 98a542c1a62fb549ffb5d66a3e5892b06276b670
+tinyusb b549ac1d84cbbe550c9590951e2290098b3fb16c
+lwip 77dcd25a72509eb83f72b033d219b1d40cd8eb95
+mbedtls 0bebf8b8c7f07abe3571ded48a11aa907a1ffb20
+cyw43-driver 055d64274b014dd7b1c2fc94d26e8a18face7124
+btstack 77e752abd6a0992334047a48038a5a3960e5c6bc
+
+LICENSES.txt retains the MicroPython and dependency notices, including the
+Raspberry Pi-specific cyw43-driver and BTstack terms for Pico W hardware.

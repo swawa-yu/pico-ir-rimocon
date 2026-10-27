@@ -1,8 +1,8 @@
 import {build} from 'esbuild';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 
-await mkdir('dist/vendor/codemirror',{recursive:true});
-const result=await build({entryPoints:['src/editor/code-editor.js'],bundle:true,format:'iife',globalName:'PicoEditor',outfile:'dist/vendor/codemirror/editor.js',minify:true,metafile:true,legalComments:'inline'});
+await mkdir('docs/vendor/codemirror',{recursive:true});
+const result=await build({entryPoints:['src/editor/code-editor.js'],bundle:true,format:'iife',globalName:'PicoEditor',outfile:'docs/vendor/codemirror/editor.js',minify:true,metafile:true,legalComments:'inline'});
 const roots=new Set();
 for(const input of Object.keys(result.metafile.inputs)){
   if(!input.startsWith('node_modules/'))continue;
@@ -15,4 +15,4 @@ for(const root of [...roots].sort()){
   const info=JSON.parse(await readFile(root+'/package.json','utf8'));
   licenses+=`${info.name} ${info.version}\n${await readFile(root+'/LICENSE','utf8')}\n\n`;
 }
-await writeFile('dist/vendor/codemirror/LICENSES.txt',licenses);
+await writeFile('docs/vendor/codemirror/LICENSES.txt',licenses);

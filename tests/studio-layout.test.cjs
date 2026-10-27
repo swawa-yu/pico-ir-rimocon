@@ -1,4 +1,4 @@
-const {test}=require('node:test');const assert=require('node:assert/strict');const {JSDOM}=require('jsdom');const {attach}=require('../dist/studio-layout.js');
+const {test}=require('node:test');const assert=require('node:assert/strict');const {JSDOM}=require('jsdom');const {attach}=require('../docs/studio-layout.js');
 test('panel handles resize, snap closed, restore, and persist their positions',()=>{
  const dom=new JSDOM('<body><div id="grid"><section class="code-panel"></section><section class="blocks-panel"></section></div><section id="console"><header class="console-header"></header><div class="terminal-surface"></div></section></body>',{url:'http://localhost/'}),w=dom.window,d=w.document,grid=d.getElementById('grid'),consolePanel=d.getElementById('console');
  try{
