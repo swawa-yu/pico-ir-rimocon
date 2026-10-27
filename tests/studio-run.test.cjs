@@ -141,6 +141,18 @@ test('opening another project safely leaves a custom file that no longer exists'
  }finally{s.close();}
 });
 
+test('deleting a custom file requires confirmation and does not restore it when switching files',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  s.$('file-create').click();s.$('file-path-input').value='scratch.py';s.$('file-dialog-apply').click();
+  s.window.editorCallbacks.onChange('scratch.py','print(42)\n');
+  s.window.confirm=()=>false;s.$('file-delete').click();assert(s.$('file-tree').textContent.includes('scratch.py'));
+  s.window.confirm=()=>true;s.$('file-delete').click();assert.equal(s.$('file-tree').querySelector('[aria-current=true]').title,'main.py');
+  assert(!s.$('file-tree').textContent.includes('scratch.py'));assert.equal(s.$('file-delete').disabled,true);
+  assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['scratch.py'],undefined);
+ }finally{s.close();}
+});
+
 
 test('real-device step controls highlight the original line, advance through USB input, and unlock after stop',async()=>{
  const s=studio(async()=>JSON.stringify({changed:0}));
@@ -683,10 +695,12 @@ test('Shift-selecting a range extracts an editable function with arguments and r
   const {spawnSync}=require('node:child_process');
   const run=code=>{const result=spawnSync('python3',['-c',code],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);return result.stdout;};
   assert.equal(run(extracted),run(source));
-  await new Promise(resolve=>setTimeout(resolve,30));ws.undo(false);
+  await new Promise(resolve=>setTimeout(resolve,30));s.$('block-undo').click();
   await new Promise(resolve=>setTimeout(resolve,100));
   const restored=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'];
   assert.equal(run(restored),run(source));assert(!restored.includes('def triple'));
+  s.$('block-redo').click();await new Promise(resolve=>setTimeout(resolve,100));
+  const redone=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'];assert.match(redone,/def triple\(value\):/);assert.equal(run(redone),run(source));
  }finally{s.close();}
 });
 

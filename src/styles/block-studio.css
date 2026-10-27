@@ -211,6 +211,9 @@
 .studio-header .docs-link{font-size:.85rem;font-weight:400;white-space:nowrap}
 .definition-actions{display:flex;justify-content:flex-end;gap:6px}
 .definition-actions button{font-size:.8rem;padding:4px 10px}
+.blocks-panel{position:relative}
+.block-actions{position:absolute;right:10px;top:8px;z-index:2;display:flex;gap:4px}
+.block-actions button{font-size:.8rem;padding:4px 10px}
 .pico-range-selected>.blocklyPath{stroke:#fff200!important;stroke-width:3px!important;filter:drop-shadow(0 0 3px #fff200)}
 .definition-preview{width:min(480px,70vw);padding:8px;background:#fff;color:#172c3c;border:1px solid #a9bbc7;border-radius:5px;box-shadow:0 3px 12px #172c3c33}
 .definition-preview-title{font:12px ui-monospace,monospace;color:#526c7a}

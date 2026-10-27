@@ -49,3 +49,14 @@ test('F12 passes the precise cursor position to the definition handler',()=>{
   assert.deepEqual(positions,[position]);
  }finally{dom.window.close();}
 });
+
+test('code undo and redo restore edited text',()=>{
+ const dom=new JSDOM('<div id="editor"></div>',{runScripts:'outside-only',pretendToBeVisual:true});
+ try{
+  const w=dom.window;w.eval(fs.readFileSync('docs/vendor/codemirror/editor.js','utf8'));
+  const editor=w.PicoEditor.create(w.document.getElementById('editor'),{onChange(){},onSave(){},onDefinition(){}});
+  editor.setFile('main.py','first = 1\n');editor.setFile('main.py','first = 2\n');
+  assert.equal(editor.undo(),true);assert.match(w.document.querySelector('.cm-content').textContent,/first = 1/);
+  assert.equal(editor.redo(),true);assert.match(w.document.querySelector('.cm-content').textContent,/first = 2/);
+ }finally{dom.window.close();}
+});

@@ -18,7 +18,7 @@ test('part variable names match block labels and generated imports while aliases
  const w=new B.Workspace();
  try{
   const start=w.newBlock('pico_start'),on=w.newBlock('pico_carrier');on.setFieldValue('infrared','PART');on.setFieldValue('1','ON');start.getInput('DO').connection.connect(on.previousConnection);
-  assert.equal(on.getField('PART').getText(),'赤外線LED');
+  assert.equal(on.getField('PART').getText(),'赤外線LED（GP16）');
   const files=generate(w);
   assert.match(files['main.py'],/from parts import 赤外線LED[\s\S]*赤外線LED\.on\(\)/);
   assert.match(files['parts.py'],/赤外線LED = Infrared\(16, unit=560\)\ninfrared = 赤外線LED\n以前のLED = 赤外線LED/);

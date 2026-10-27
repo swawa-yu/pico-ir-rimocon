@@ -6,7 +6,7 @@ export * as extraction from './python-extract.mjs';
 import {basicSetup} from 'codemirror';
 import {EditorState, StateEffect, StateField, Compartment} from '@codemirror/state';
 import {EditorView, keymap, Decoration, hoverTooltip} from '@codemirror/view';
-import {indentWithTab} from '@codemirror/commands';
+import {indentWithTab,undo,redo} from '@codemirror/commands';
 import {indentUnit} from '@codemirror/language';
 import {python} from '@codemirror/lang-python';
 
@@ -64,7 +64,7 @@ export function create(parent,{onChange,onDefinition,onPreview=()=>null,onSave})
     const anchor=Math.max(0,Math.min(position,view.state.doc.length));
     view.dispatch({selection:{anchor}});view.scrollDOM.scrollTop=Math.max(0,view.lineBlockAt(anchor).top-view.scrollDOM.clientHeight/2);view.focus();
   }
-  return {setFile,goTo,cursor:()=>view.state.selection.main.head,
+  return {setFile,goTo,cursor:()=>view.state.selection.main.head,undo:()=>undo(view),redo:()=>redo(view),forget(path){documents.delete(path);scrollPositions.delete(path);},
     setErrors(issues){const request=++errorRequest;queueMicrotask(()=>{if(request===errorRequest)view.dispatch({effects:setErrors.of(issues)});});},
     setReadOnly(value){view.dispatch({effects:access.reconfigure([EditorState.readOnly.of(value),EditorView.editable.of(!value)])});},
     highlightLines(range){

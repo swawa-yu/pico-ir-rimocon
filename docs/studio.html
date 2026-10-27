@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Pico Studio</title>
   <link rel="stylesheet" href="style.css?v=e50109bd6cca">
-  <link rel="stylesheet" href="block-studio.css?v=e3430addec0d">
+  <link rel="stylesheet" href="block-studio.css?v=84c0fe6f58ab">
   <link rel="stylesheet" href="live-analyzer.css?v=6a84c2970cf4">
   <script src="vendor/blockly/blockly_compressed.js?v=cc761aa447e0" defer></script>
   <script src="vendor/blockly/blocks_compressed.js?v=4f0b3d4079fe" defer></script>
   <script src="vendor/blockly/python_compressed.js?v=7d880e1763a1" defer></script>
   <script src="vendor/blockly/msg/ja.js?v=81647ef6b769" defer></script>
-  <script src="pico-blocks.js?v=b32274cd33af" defer></script>
+  <script src="pico-blocks.js?v=10bc9a831a47" defer></script>
   <script src="pico-repl.js?v=24fce0bfb042" defer></script>
   <script src="pico-devices.js?v=8ba4281b6af8" defer></script>
   <script src="pico-project.js?v=2500a4b1d394" defer></script>
-  <script src="vendor/codemirror/editor.js?v=cbe837f7c6c5" defer></script>
-  <script src="studio-files.js?v=1ae19f45e0dd" defer></script>
+  <script src="vendor/codemirror/editor.js?v=6d5fc27582af" defer></script>
+  <script src="studio-files.js?v=fb1a77020b72" defer></script>
   <script src="pico-sources.js?v=b376e45cb9fd" defer></script>
   <script src="live-core.js?v=d47659fb5907" defer></script>
   <script src="live-view.js?v=301b075e40c9" defer></script>
@@ -26,7 +26,7 @@
   <script src="studio-samples.js?v=c44eda60f47d" defer></script>
   <script src="studio-layout.js?v=1608c13c62d1" defer></script>
   <script src="block-selection.js?v=47fa272699e0" defer></script>
-  <script src="block-studio.js?v=fea3d158eef6" defer></script>
+  <script src="block-studio.js?v=18d8d04ac79b" defer></script>
 </head>
 <body class="block-studio">
 <main>
@@ -55,13 +55,13 @@
       </div>
     <div class="editor-grid">
       <div class="card code-panel">
-        <nav class="definition-actions" aria-label="コードの参照"><button id="definition-back" class="secondary" title="参照元へ戻る" aria-label="参照元へ戻る" disabled>←</button></nav>
+        <nav class="definition-actions" aria-label="コードの操作"><button id="code-undo" class="secondary" title="元に戻す（Ctrl／⌘＋Z）" aria-label="コードを元に戻す">↶</button><button id="code-redo" class="secondary" title="やり直す（Ctrl＋Y／⌘＋Shift＋Z）" aria-label="コードをやり直す">↷</button><button id="definition-back" class="secondary" title="参照元へ戻る" aria-label="参照元へ戻る" disabled>←</button></nav>
         <div class="editor-shell">
-          <aside class="file-sidebar" aria-label="ファイル一覧"><div class="file-actions"><button id="file-create" class="secondary" title="ファイルを作成" aria-label="ファイルを作成"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M14 3H5v18h14V8zM14 3v5h5M8 14h8M12 10v8"/></svg></button><button id="folder-create" class="secondary" title="フォルダを作成" aria-label="フォルダを作成"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 6h7l2 3h9v12H3zM8 15h8M12 11v8"/></svg></button><button id="file-rename" class="secondary" title="名前を変更" aria-label="名前を変更"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m4 16 12-12 4 4L8 20H4zM13 7l4 4"/></svg></button></div><nav id="file-tree" aria-label="プロジェクトのファイル"></nav><details class="outline" open><summary>関数</summary><nav id="file-outline" aria-label="関数一覧"></nav></details></aside>
+          <aside class="file-sidebar" aria-label="ファイル一覧"><div class="file-actions"><button id="file-create" class="secondary" title="ファイルを作成" aria-label="ファイルを作成"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M14 3H5v18h14V8zM14 3v5h5M8 14h8M12 10v8"/></svg></button><button id="folder-create" class="secondary" title="フォルダを作成" aria-label="フォルダを作成"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 6h7l2 3h9v12H3zM8 15h8M12 11v8"/></svg></button><button id="file-rename" class="secondary" title="名前を変更" aria-label="名前を変更"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m4 16 12-12 4 4L8 20H4zM13 7l4 4"/></svg></button><button id="file-delete" class="secondary" title="ファイル・フォルダを削除" aria-label="ファイル・フォルダを削除"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 10v7M14 10v7"/></svg></button></div><nav id="file-tree" aria-label="プロジェクトのファイル"></nav><details class="outline" open><summary>関数</summary><nav id="file-outline" aria-label="関数一覧"></nav></details></aside>
           <div id="code-editor"></div>
         </div>
       </div>
-      <div class="card blocks-panel" title="Shift＋クリックで連続するブロックを選択"><div id="blockly" aria-label="ブロック編集エリア"></div><div id="file-blockly" aria-label="ファイルのブロック編集エリア" hidden></div></div>
+      <div class="card blocks-panel" title="Shift＋クリックで連続するブロックを選択"><nav class="block-actions" aria-label="ブロックの操作"><button id="block-undo" class="secondary" title="元に戻す（Ctrl／⌘＋Z）" aria-label="ブロックを元に戻す">↶</button><button id="block-redo" class="secondary" title="やり直す（Ctrl＋Y／⌘＋Shift＋Z）" aria-label="ブロックをやり直す">↷</button></nav><div id="blockly" aria-label="ブロック編集エリア"></div><div id="file-blockly" aria-label="ファイルのブロック編集エリア" hidden></div></div>
     </div>
 
     </section>

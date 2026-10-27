@@ -18,7 +18,7 @@
     edit(path,text){if(!validPath(path))throw Error('Pythonファイルのパスを指定してください。');if(text===this.generated[path])delete this.edits[path];else this.edits[path]=text;}
     restore(edits){this.edits=validateEdits(edits);}
     reset(path){delete this.edits[path];}
-    protected(path){return paths.some(name=>name===path||name.startsWith(path+'/'));}
+    protected(path){return [...paths,...Object.keys(this.generated)].some(name=>name===path||name.startsWith(path+'/'));}
     parents(path,edits){
       const chunks=path.split('/');
       for(let i=1;i<chunks.length;i++){
@@ -31,6 +31,12 @@
       if(!validPath(path,directory))throw Error('名前には英字・数字・_を使い、先頭は英字か_にしてください。ファイルの拡張子は.pyです。');
       if(Object.keys(this.all).some(name=>name===path||name.startsWith(path+'/')))throw Error('同じ名前が既にあります。');
       const target=directory?path+'/__init__.py':path,edits={};this.parents(target,edits);edits[target]='';Object.assign(this.edits,edits);return target;
+    }
+    remove(path){
+      if(this.protected(path))throw Error('生成ファイルとそのフォルダは削除できません。');
+      const names=Object.keys(this.edits).filter(name=>name===path||name.startsWith(path+'/'));
+      if(!names.length)throw Error('ファイルが見つかりません。');
+      for(const name of names)delete this.edits[name];return names;
     }
     rename(path,target){
       if(this.protected(path))throw Error('生成ファイルとそのフォルダは名前を変更できません。');

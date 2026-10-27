@@ -53,3 +53,11 @@ test('custom files and package folders survive regeneration and rename without c
  const copy=new Files();copy.restore(JSON.parse(JSON.stringify(f.edits)));copy.regenerate(f.generated);
  assert.deepEqual(copy.all,f.all);
 });
+
+test('deleting custom folders preserves generated files',()=>{
+ const f=new Files();f.regenerate({'main.py':'pass','parts.py':'','lib/pico_parts.py':'','lib/ir_data.py':'library'});
+ f.create('tools',true);f.create('tools/work.py');f.edit('tools/work.py','print(1)');
+ assert.throws(()=>f.remove('lib/ir_data.py'));assert.throws(()=>f.remove('lib'));
+ assert.deepEqual(f.remove('tools').sort(),['tools/__init__.py','tools/work.py']);
+ f.regenerate(f.generated);assert.equal(f.all['tools/work.py'],undefined);assert.equal(f.all['lib/ir_data.py'],'library');
+});

@@ -51,13 +51,16 @@
   function configure(Blockly,generator,getParts=defaults){
     const kindFor=kinds;
     Blockly.Msg.DUPLICATE_BLOCK='複製';
+    Blockly.Msg.TEXT_PRINT_TITLE='コンソールに %1 を表示';
+    Blockly.Msg.TEXT_PROMPT_TYPE_TEXT='コンソールで文字列の入力を求める';
+    Blockly.Msg.TEXT_PROMPT_TYPE_NUMBER='コンソールで数値の入力を求める';
     Blockly.Msg.LISTS_SPLIT_WITH_DELIMITER='区切り文字';
     Blockly.Msg.INPUT_LABEL_LISTS_DELIMITER='区切り文字';
     for(const type of ['procedures_defnoreturn','procedures_defreturn']){
       const definition=Blockly.Blocks[type];
       if(!definition.picoDefinitionInit){definition.picoDefinitionInit=definition.init;definition.init=function(){definition.picoDefinitionInit.call(this);this.inputList[0].appendField('を定義');this.setPreviousStatement(true);this.setNextStatement(true);};}
     }
-    const options=kind=>()=>getParts().filter(p=>p.kind===kind).map(p=>[variableFor(p),p.id]).concat(getParts().some(p=>p.kind===kind)?[]:[['部品を設定','__missing']]);
+    const options=kind=>()=>getParts().filter(p=>p.kind===kind).map(p=>[`${variableFor(p)}（${pinsFor(p).map(pin=>'GP'+pin).join('・')}）`,p.id]).concat(getParts().some(p=>p.kind===kind)?[]:[['部品を設定','__missing']]);
     Blockly.defineBlocksWithJsonArray([
       {type:'pico_start',message0:'実行したとき %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],colour:45},
       {type:'pico_forever',message0:'ずっと %1 %2',args0:[{type:'input_dummy'},{type:'input_statement',name:'DO'}],previousStatement:null,colour:45},

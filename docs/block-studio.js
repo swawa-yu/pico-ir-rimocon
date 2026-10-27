@@ -153,6 +153,7 @@
   function openFile(path,line){closeBlockPreview();commitFileBlocks();rangeSelection.clear();activeFile=path;editor.setFile(path,files[path]||'');editor.setReadOnly?.(Boolean(debugSession||debugStarting));editor.highlightLines?.(null);renderFiles();renderFileBlocks();if(line)editor.goLine(line);}
   function updateFileActions(){
     $('file-rename').disabled=!treeSelection||fileStore.protected(treeSelection)||Boolean(debugSession||debugStarting);
+    $('file-delete').disabled=$('file-rename').disabled;
     for(const summary of document.querySelectorAll('#file-tree summary'))summary.classList.toggle('selected',summary.parentElement.dataset.path===treeSelection);
   }
   function startFileOperation(kind){
@@ -166,6 +167,22 @@
   $('file-create').addEventListener('click',()=>startFileOperation('file'));
   $('folder-create').addEventListener('click',()=>startFileOperation('folder'));
   $('file-rename').addEventListener('click',()=>startFileOperation('rename'));
+  $('file-delete').addEventListener('click',()=>{
+    if(!treeSelection||fileStore.protected(treeSelection)||debugSession||debugStarting)return;
+    const selected=treeSelection;
+    if(!window.confirm(`${selected} を削除しますか？`))return;
+    try{
+      commitFileBlocks();const removed=fileStore.remove(selected);
+      for(const path of removed)delete fileModels[path];
+      files=fileStore.all;fileWorkspacePath=null;fileWorkspaceDirty=false;dirty=true;
+      treeSelection='main.py';openFile(removed.includes(activeFile)?'main.py':activeFile);
+      for(const path of removed)editor.forget?.(path);
+      saveProject();renderPicoFiles();notify();
+    }catch(error){notify(error.message);}
+  });
+  $('code-undo').addEventListener('click',()=>{if(!debugSession&&!debugStarting)editor.undo?.();});$('code-redo').addEventListener('click',()=>{if(!debugSession&&!debugStarting)editor.redo?.();});
+  $('block-undo').addEventListener('click',()=>{if(!debugSession&&!debugStarting)(fileWorkspace||workspace).undo(false);});
+  $('block-redo').addEventListener('click',()=>{if(!debugSession&&!debugStarting)(fileWorkspace||workspace).undo(true);});
   $('file-path-input').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();$('file-dialog-apply').click();}});
   $('file-dialog-apply').addEventListener('click',()=>{
     try{
@@ -391,7 +408,8 @@
         if(plan.outputs.length>1){replacement=make('pico_python');replacement.setCode(`${plan.outputs.join(', ')} = ${name}(${plan.parameters.join(', ')})\n`);}
         else{
           const call=make(plan.outputs.length?'pico_call_value':'pico_call',{TARGET:name});
-          call.loadExtraState({argumentCount:plan.parameters.length,argumentNames:plan.parameters});
+          const previous=JSON.stringify(call.saveExtraState());call.loadExtraState({argumentCount:plan.parameters.length,argumentNames:plan.parameters});
+          Blockly.Events.fire(new Blockly.Events.BlockChange(call,'mutation',null,previous,JSON.stringify(call.saveExtraState())));
           plan.parameters.forEach((parameter,index)=>{const value=make('variables_get',{VAR:variable(parameter).getId()});call.getInput('ARG'+index).connection.connect(value.outputConnection);});
           if(plan.outputs.length){replacement=make('variables_set',{VAR:variable(plan.outputs[0]).getId()});replacement.getInput('VALUE').connection.connect(call.outputConnection);}else replacement=call;
         }
