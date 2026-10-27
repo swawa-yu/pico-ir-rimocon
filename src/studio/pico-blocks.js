@@ -50,6 +50,7 @@
   }
   function configure(Blockly,generator,getParts=defaults){
     const kindFor=kinds;
+    Blockly.Msg.DUPLICATE_BLOCK='複製';
     Blockly.Msg.LISTS_SPLIT_WITH_DELIMITER='区切り文字';
     Blockly.Msg.INPUT_LABEL_LISTS_DELIMITER='区切り文字';
     for(const type of ['procedures_defnoreturn','procedures_defreturn']){
