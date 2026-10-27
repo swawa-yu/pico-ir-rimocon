@@ -13,6 +13,22 @@ let api,fromSource,upgrade,testParts=[];
 before(async()=>{const module=await import('../src/editor/python-blocks.mjs');fromSource=module.fromSource;upgrade=module.upgrade;require('../docs/pico-blocks.js').configure(B,g,()=>testParts);api=module.configure(B,g,()=>{});});
 function workspace(source){const ws=new B.Workspace();B.serialization.workspaces.load(fromSource(source),ws);return ws;}
 
+test('sample control flow and expressions retain their Python meaning',()=>{
+ const samples=require('../docs/studio-samples.js');
+ const groups={beginner:'zero32 one_bit byte long receive_one receive_byte receive_long continuous times button_times receive_times number rgb console binary send button_send receive carrier fan fan_receive',basic:'console bits button carrier pwm level times decode send receive',organized:'send receive',message:'ascii_send ascii_receive ascii_display utf8_send utf8_receive'};
+ for(const [group,names] of Object.entries(groups))for(const name of names.split(' ')){
+  const sample=samples[group](name);testParts=sample.parts;
+  for(const [path,source] of Object.entries(sample.files)){const ws=new B.Workspace();try{
+   B.serialization.workspaces.load(fromSource(source,sample.parts,path),ws);
+   const raw=ws.getAllBlocks(false).filter(b=>b.type==='pico_expression'||b.type==='pico_python'&&!/^\s*#/.test(b.pythonCode));
+   assert.deepEqual(raw.map(b=>b.type==='pico_expression'?b.getFieldValue('CODE'):b.pythonCode),[],`${group}_${name} ${path}`);
+   const generated=api.generate(ws,sample.parts,path);
+   const result=spawnSync('python3',['-c',`import ast,sys\nclass Normalize(ast.NodeTransformer):\n def visit_Call(self,n):\n  self.generic_visit(n)\n  if isinstance(n.func,ast.Name) and n.func.id == 'range' and len(n.args) == 1: n.args=[ast.Constant(0),n.args[0],ast.Constant(1)]\n  return n\na=ast.dump(Normalize().visit(ast.parse(${JSON.stringify(source)})))\nb=ast.dump(Normalize().visit(ast.parse(sys.stdin.read())))\nassert a == b`],{input:generated,encoding:'utf8'});
+   assert.equal(result.status,0,`${group}_${name} ${path}: ${result.stderr}\n${generated}`);
+  }finally{ws.dispose();}}
+ }
+});
+
 test('opening and saving Python preserves every byte, including unsupported syntax and incomplete edits',()=>{
  const samples=[fs.readFileSync('docs/programs/pico_parts.py','utf8'),fs.readFileSync('docs/programs/ssd1306.py','utf8'),
   '# comment\nfrom foo import (\n a, b\n)\n\n@decorator\ndef f(x):\n    return x\n',
@@ -164,9 +180,9 @@ test('unsupported statements remain separate and unknown expressions stay editab
  const ws=new B.Workspace();
  try{
   B.serialization.workspaces.load(fromSource('a, b = (1, 2)\nassert a < b\nvalue = {"a": a}["a"]\nprint(value)\n',[]),ws);
-  const raw=ws.getAllBlocks(false).filter(b=>b.type==='pico_python');assert.equal(raw.length,2);
+  const raw=ws.getAllBlocks(false).filter(b=>b.type==='pico_python');assert.equal(raw.length,1);
   assert(raw.every(b=>b.pythonCode.trim().split('\n').length===1));
-  const expression=ws.getAllBlocks(false).find(b=>b.type==='pico_expression');expression.setFieldValue('{"a": b + 5}','CODE');
+  const expression=ws.getAllBlocks(false).find(b=>b.type==='pico_expression'&&b.getFieldValue('CODE').includes('{'));expression.setFieldValue('{"a": b + 5}','CODE');
   const result=spawnSync('python3',['-c',api.generate(ws)],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'7\n');
  }finally{ws.dispose();}
 });

@@ -139,7 +139,17 @@ export function configure(B,g,editRaw,options={}){
   B.defineBlocksWithJsonArray([
     {type:'pico_expression',message0:'%1',args0:[{type:'field_input',name:'CODE',text:'value'}],output:null,colour:210},
     {type:'pico_return',message0:'%1 を返す',args0:[{type:'input_value',name:'VALUE'}],previousStatement:null,nextStatement:null,colour:290},
-    {type:'pico_flow',message0:'%1',args0:[{type:'field_dropdown',name:'CODE',options:[['次の繰り返しへ','continue'],['繰り返しを抜ける','break'],['何もしない','pass']]}],previousStatement:null,nextStatement:null,colour:120}
+    {type:'pico_flow',message0:'%1',args0:[{type:'field_dropdown',name:'CODE',options:[['次の繰り返しへ','continue'],['繰り返しを抜ける','break'],['何もしない','pass']]}],previousStatement:null,nextStatement:null,colour:120},
+    {type:'pico_try_finally',message0:'実行する %1 終了時に必ず実行する %2',args0:[{type:'input_statement',name:'DO'},{type:'input_statement',name:'FINALLY'}],previousStatement:null,nextStatement:null,colour:120},
+    {type:'pico_try_except',message0:'実行する %1 %2 が起きたら %3',args0:[{type:'input_statement',name:'DO'},{type:'field_input',name:'ERROR',text:'Exception'},{type:'input_statement',name:'EXCEPT'}],previousStatement:null,nextStatement:null,colour:120},
+    {type:'pico_attribute',message0:'%1 の %2',args0:[{type:'input_value',name:'OBJECT'},{type:'field_input',name:'NAME',text:'value'}],output:null,colour:210},
+    {type:'pico_keyword',message0:'%1 = %2',args0:[{type:'field_input',name:'NAME',text:'name'},{type:'input_value',name:'VALUE'}],output:null,colour:290},
+    {type:'pico_generator',message0:'%2 の各 %1 について %3',args0:[{type:'field_variable',name:'VAR',variable:'item'},{type:'input_value',name:'LIST'},{type:'input_value',name:'VALUE'}],output:null,colour:260},
+    {type:'pico_tuple_two',message0:'( %1 , %2 )',args0:[{type:'input_value',name:'A'},{type:'input_value',name:'B'}],output:null,colour:260},
+    {type:'pico_unpack_two',message0:'%1 と %2 に %3 を分けて入れる',args0:[{type:'field_variable',name:'FIRST',variable:'first'},{type:'field_variable',name:'SECOND',variable:'second'},{type:'input_value',name:'VALUE'}],previousStatement:null,nextStatement:null,colour:330},
+    {type:'pico_floor_divide',message0:'%1 ÷ %2 の商（切り捨て）',args0:[{type:'input_value',name:'A'},{type:'input_value',name:'B'}],output:'Number',colour:230},
+    {type:'pico_compare_chain',message0:'%1 %2 %3 %4 %5',args0:[{type:'input_value',name:'A'},{type:'field_dropdown',name:'FIRST',options:[['<','<'],['≤','<='],['>','>'],['≥','>='],['=','=='],['≠','!=']]},{type:'input_value',name:'B'},{type:'field_dropdown',name:'SECOND',options:[['<','<'],['≤','<='],['>','>'],['≥','>='],['=','=='],['≠','!=']]},{type:'input_value',name:'C'}],output:'Boolean',colour:210},
+    {type:'pico_add_assign',message0:'%1 に %2 を加える',args0:[{type:'field_variable',name:'VAR',variable:'value'},{type:'input_value',name:'VALUE'}],previousStatement:null,nextStatement:null,colour:330}
   ]);
   for(const type of ['pico_call','pico_call_value'])B.Blocks[type]={
     init(){this.appendDummyInput('TARGET').appendField(new B.FieldTextInput('my_function'),'TARGET');this.argumentCount=0;this.setColour(290);if(type==='pico_call_value')this.setOutput(true);else{this.setPreviousStatement(true);this.setNextStatement(true);}this.setInputsInline(true);},
@@ -150,6 +160,16 @@ export function configure(B,g,editRaw,options={}){
   for(const type of ['pico_call','pico_call_value'])g.forBlock[type]=(block,g)=>{const args=Array.from({length:block.argumentCount},(_,i)=>g.valueToCode(block,'ARG'+i,g.ORDER_NONE)||'None');const code=block.getFieldValue('TARGET')+'('+args.join(', ')+')';return type==='pico_call_value'?[code,g.ORDER_FUNCTION_CALL]:code+'\n';};
   g.forBlock.pico_return=(block,g)=>'return'+(block.getInputTargetBlock('VALUE')?' '+g.valueToCode(block,'VALUE',g.ORDER_NONE):'')+'\n';
   g.forBlock.pico_flow=block=>block.getFieldValue('CODE')+'\n';
+  g.forBlock.pico_try_finally=(b,g)=>'try:\n'+(g.statementToCode(b,'DO')||g.INDENT+'pass\n')+'finally:\n'+(g.statementToCode(b,'FINALLY')||g.INDENT+'pass\n');
+  g.forBlock.pico_try_except=(b,g)=>'try:\n'+(g.statementToCode(b,'DO')||g.INDENT+'pass\n')+'except '+b.getFieldValue('ERROR')+':\n'+(g.statementToCode(b,'EXCEPT')||g.INDENT+'pass\n');
+  g.forBlock.pico_attribute=(b,g)=>[(g.valueToCode(b,'OBJECT',g.ORDER_MEMBER)||'None')+'.'+b.getFieldValue('NAME'),g.ORDER_MEMBER];
+  g.forBlock.pico_keyword=(b,g)=>[b.getFieldValue('NAME')+'='+(g.valueToCode(b,'VALUE',g.ORDER_NONE)||'None'),g.ORDER_NONE];
+  g.forBlock.pico_generator=(b,g)=>['('+(g.valueToCode(b,'VALUE',g.ORDER_NONE)||'None')+' for '+g.getVariableName(b.getFieldValue('VAR'))+' in '+(g.valueToCode(b,'LIST',g.ORDER_NONE)||'[]')+')',g.ORDER_ATOMIC];
+  g.forBlock.pico_tuple_two=(b,g)=>['('+(g.valueToCode(b,'A',g.ORDER_NONE)||'None')+', '+(g.valueToCode(b,'B',g.ORDER_NONE)||'None')+')',g.ORDER_ATOMIC];
+  g.forBlock.pico_unpack_two=(b,g)=>g.getVariableName(b.getFieldValue('FIRST'))+', '+g.getVariableName(b.getFieldValue('SECOND'))+' = '+(g.valueToCode(b,'VALUE',g.ORDER_NONE)||'None')+'\n';
+  g.forBlock.pico_floor_divide=(b,g)=>[(g.valueToCode(b,'A',g.ORDER_MULTIPLICATIVE)||'0')+' // '+(g.valueToCode(b,'B',g.ORDER_MULTIPLICATIVE)||'1'),g.ORDER_MULTIPLICATIVE];
+  g.forBlock.pico_compare_chain=(b,g)=>{const v=n=>g.valueToCode(b,n,g.ORDER_RELATIONAL)||'0';return [v('A')+' '+b.getFieldValue('FIRST')+' '+v('B')+' '+b.getFieldValue('SECOND')+' '+v('C'),g.ORDER_RELATIONAL];};
+  g.forBlock.pico_add_assign=(b,g)=>g.getVariableName(b.getFieldValue('VAR'))+' += '+(g.valueToCode(b,'VALUE',g.ORDER_NONE)||'0')+'\n';
   B.Blocks.pico_python={
     init(){this.appendDummyInput().appendField(new B.FieldLabelSerializable('pass'),'LABEL');this.setPreviousStatement(true);this.setNextStatement(true);this.setColour(210);this.pythonCode='pass\n';},
     saveExtraState(){return {code:this.pythonCode};},

@@ -132,7 +132,7 @@
     for(const [type,method,fallback] of [['pico_bits_text','bits_to_text','[]'],['pico_text_bits','text_to_bits',"''"],['pico_bits_int','bits_to_int','[]']])generator.forBlock[type]=(b,g)=>[`ir_data.${method}(${value(b,g,'VALUE',fallback)})`,g.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_int_bits=(b,g)=>[`ir_data.int_to_bits(${value(b,g,'VALUE','0')}, ${value(b,g,'WIDTH','8')})`,g.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_bitwise=(b,g)=>[`(int(${value(b,g,'A','0')}) ${b.getFieldValue('OP')} int(${value(b,g,'B','0')}))`,g.ORDER_ATOMIC];
-    generator.forBlock.pico_char=(b,g)=>[`chr(int(${value(b,g,'VALUE','0')}))`,g.ORDER_FUNCTION_CALL];
+    generator.forBlock.pico_char=(b,g)=>[`chr(${value(b,g,'VALUE','0')})`,g.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_ord=(b,g)=>[`ord(${value(b,g,'VALUE',"'A'")})`,g.ORDER_FUNCTION_CALL];
     generator.forBlock.pico_index=(b,g)=>[`${g.valueToCode(b,'VALUE',g.ORDER_MEMBER)||'[]'}[${value(b,g,'INDEX','0')}]`,g.ORDER_MEMBER];
     generator.forBlock.pico_set_index=(b,g)=>`${g.valueToCode(b,'VALUE',g.ORDER_MEMBER)||'[]'}[${value(b,g,'INDEX','0')}] = ${value(b,g,'ITEM','None')}\n`;

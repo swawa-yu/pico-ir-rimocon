@@ -1,4 +1,4 @@
-const outputType=b=>!b?null:['variables_get','pico_expression','pico_call_value','pico_index','logic_null'].includes(b.type)?null:['text','pico_char','pico_bits_text','pico_to_text','pico_base_text'].includes(b.type)?'String':['lists_create_with','lists_repeat','pico_receive','pico_int_bits','pico_text_bits','pico_decode_bits','pico_new_bits','pico_receive_bits','pico_range'].includes(b.type)?'Array':b.type.startsWith('logic_')||['pico_bootsel','pico_ir_level','pico_button'].includes(b.type)?'Boolean':'Number';
+const outputType=b=>!b?null:['variables_get','pico_expression','pico_call_value','pico_index','pico_attribute','logic_null','logic_ternary'].includes(b.type)?null:['text','pico_char','pico_bits_text','pico_to_text','pico_base_text'].includes(b.type)?'String':['lists_create_with','lists_repeat','pico_receive','pico_int_bits','pico_text_bits','pico_decode_bits','pico_new_bits','pico_receive_bits','pico_range'].includes(b.type)?'Array':b.type.startsWith('logic_')||['pico_bootsel','pico_ir_level','pico_button','pico_compare_chain'].includes(b.type)?'Boolean':'Number';
 export function friendlyCall(target,items){
   if(items.some(item=>item?.type==='pico_expression'&&/^\s*\*/.test(item.fields?.CODE||'')))return null;
   const number=n=>({type:'math_number',fields:{NUM:n}});
@@ -18,9 +18,10 @@ export function nativeStatement(node,source,parts,parseBody){
   const children=n=>{const values=[];for(let c=n?.firstChild;c;c=c.nextSibling)values.push(c);return values;};
   const args=n=>{
     const items=children(n.getChild('ArgList')).filter(c=>!['(',')'].includes(c.name));
+    if(items.length===5&&items[1].name==='for'&&items[2].name==='VariableName'&&items[3].name==='in')return [{name:'GeneratorArgument',body:items[0],variable:items[2],iterable:items[4],from:items[0].from,to:items[4].to}];
     if(items.some(c=>c.name==='for'))return [{name:'RawExpression',from:items[0].from,to:items.at(-1).to}];
     const result=[];let group=[];
-    function append(){if(group.length)result.push(group.length===1?group[0]:{name:'RawExpression',from:group[0].from,to:group.at(-1).to});group=[];}
+    function append(){if(group.length)result.push(group.length===1?group[0]:group.length===3&&group[0].name==='VariableName'&&text(group[1])==='='?{name:'KeywordArgument',key:group[0],value:group[2],from:group[0].from,to:group[2].to}:{name:'RawExpression',from:group[0].from,to:group.at(-1).to});group=[];}
     for(const child of children(n.getChild('ArgList'))){if(child.name===',')append();else if(!['(',')'].includes(child.name))group.push(child);}
     append();return result;
   };
@@ -44,18 +45,25 @@ export function nativeStatement(node,source,parts,parseBody){
     if(n.name==='Boolean')return {type:'logic_boolean',fields:{BOOL:value.toUpperCase()}};
     if(value==='None')return {type:'logic_null'};
     if(n.name==='VariableName')return variable(value);
+    if(n.name==='ParenthesizedExpression'&&cs.length===3)return expression(cs[1]);
+    if(n.name==='MemberExpression'&&cs.length===3&&cs[1].name==='.')return values('pico_attribute',['OBJECT'],[expression(cs[0])],{NAME:text(cs[2])});
     if(n.name==='MemberExpression'&&cs.length===4&&cs[1].name==='['&&cs[3].name===']'&&cs[2].name!=='SliceExpression')return values('pico_index',['VALUE','INDEX'],[expression(cs[0]),expression(cs[2])]);
     if(n.name==='ArrayExpression'){
       const items=cs.filter(c=>!['[',']',','].includes(c.name)).map(expression);
       if(items.every(Boolean))return {type:'lists_create_with',extraState:{itemCount:items.length},inputs:Object.fromEntries(items.map((b,i)=>['ADD'+i,input(b)]))};
     }
     if(n.name==='UnaryExpression'&&text(cs[0])==='not')return values('logic_negate',['BOOL'],[expression(cs[1])]);
+    if(n.name==='ConditionalExpression'&&cs.length===5)return values('logic_ternary',['THEN','IF','ELSE'],[expression(cs[0]),expression(cs[2]),expression(cs[4])]);
     if(n.name==='BinaryExpression'&&cs.length===3){
       const op=text(cs[1]),arithmetic={'+':'ADD','-':'MINUS','*':'MULTIPLY','/':'DIVIDE','**':'POWER'},compare={'==':'EQ','!=':'NEQ','<':'LT','<=':'LTE','>':'GT','>=':'GTE'};
       if(op==='*'&&cs[0].name==='ArrayExpression'){
         const items=children(cs[0]).filter(child=>!['[',']',','].includes(child.name));
         if(items.length===1)return values('lists_repeat',['ITEM','NUM'],[expression(items[0]),expression(cs[2])]);
       }
+      if(['and','or'].includes(op))return values('logic_operation',['A','B'],[expression(cs[0]),expression(cs[2])],{OP:op.toUpperCase()});
+      if(op==='%')return values('math_modulo',['DIVIDEND','DIVISOR'],[expression(cs[0]),expression(cs[2])]);
+      if(op==='//')return values('pico_floor_divide',['A','B'],[expression(cs[0]),expression(cs[2])]);
+      if(compare[op]&&cs[0].name==='BinaryExpression'){const left=children(cs[0]),first=text(left[1]);if(left.length===3&&compare[first])return values('pico_compare_chain',['A','B','C'],[expression(left[0]),expression(left[2]),expression(cs[2])],{FIRST:first,SECOND:op});}
       if(arithmetic[op])return values('math_arithmetic',['A','B'],[expression(cs[0]),expression(cs[2])],{OP:arithmetic[op]});
       if(compare[op])return values('logic_compare',['A','B'],[expression(cs[0]),expression(cs[2])],{OP:compare[op]});
     }
@@ -83,13 +91,17 @@ export function nativeStatement(node,source,parts,parseBody){
     if(n.name==='CallExpression')return callBlock(n,true);
     return null;
   }
-  function expression(n){return n?(recognizedExpression(n)||{type:'pico_expression',fields:{CODE:text(n)}}):null;}
+  function expression(n){if(n?.name==='KeywordArgument')return {type:'pico_keyword',fields:{NAME:text(n.key)},inputs:{VALUE:input(expression(n.value))}};if(n?.name==='GeneratorArgument')return {type:'pico_generator',fields:{VAR:{name:text(n.variable)}},inputs:{VALUE:input(expression(n.body)),LIST:input(expression(n.iterable))}};return n?(recognizedExpression(n)||{type:'pico_expression',fields:{CODE:text(n)}}):null;}
   function callBlock(n,output=false){
     const arguments_=args(n),target=text(n.firstChild);
     return {type:output?'pico_call_value':'pico_call',fields:{TARGET:target},extraState:{argumentCount:arguments_.length},inputs:Object.fromEntries(arguments_.map((arg,i)=>['ARG'+i,input(expression(arg))]))};
   }
   function condition(n){const block=expression(n);return outputType(block)&&outputType(block)!=='Boolean'?{type:'pico_expression',fields:{CODE:text(n)}}:block;}
   const cs=children(node);
+  if(node.name==='AssignStatement'&&cs.length===5&&cs[0].name==='VariableName'&&cs[1].name===','&&cs[2].name==='VariableName'&&text(cs[3])==='=')return values('pico_unpack_two',['VALUE'],[expression(cs[4])],{FIRST:{name:text(cs[0])},SECOND:{name:text(cs[2])}});
+  if(node.name==='TryStatement'&&cs.length===4&&text(cs[2])==='finally'){const body=parseBody(cs[1]),final=parseBody(cs[3]);if(body&&final)return {type:'pico_try_finally',inputs:{DO:input(body),FINALLY:input(final)}};}
+  if(node.name==='TryStatement'&&cs.length===5&&text(cs[2])==='except'&&cs[3].name==='VariableName'){const body=parseBody(cs[1]),handler=parseBody(cs[4]);if(body&&handler)return {type:'pico_try_except',fields:{ERROR:text(cs[3])},inputs:{DO:input(body),EXCEPT:input(handler)}};}
+  if(node.name==='UpdateStatement'&&cs.length===3&&cs[0].name==='VariableName'&&text(cs[1])==='+=')return values('pico_add_assign',['VALUE'],[expression(cs[2])],{VAR:{name:text(cs[0])}});
   if(node.name==='AssignStatement'&&cs.length===3&&text(cs[1])==='='&&cs[0].name==='MemberExpression'){const target=children(cs[0]);if(target.length===4&&target[1].name==='['&&target[3].name===']'&&target[2].name!=='SliceExpression')return values('pico_set_index',['VALUE','INDEX','ITEM'],[expression(target[0]),expression(target[2]),expression(cs[2])]);}
   if(node.name==='AssignStatement'&&cs.length===3&&cs[0].name==='VariableName'&&text(cs[1])==='='&&text(cs[0])!=='None')return values('variables_set',['VALUE'],[expression(cs[2])],{VAR:{name:text(cs[0])}});
   if(node.name==='ExpressionStatement'&&cs[0]?.name==='CallExpression'){
@@ -119,7 +131,7 @@ export function nativeStatement(node,source,parts,parseBody){
     }
     return callBlock(call);
   }
-  if(node.name==='ReturnStatement')return {type:'pico_return',inputs:cs[1]?{VALUE:input(expression(cs[1]))}:{}};
+  if(node.name==='ReturnStatement')return {type:'pico_return',inputs:cs[1]?{VALUE:input(cs.length===2?expression(cs[1]):cs.length===4&&cs[2].name===','?{type:'pico_tuple_two',inputs:{A:input(expression(cs[1])),B:input(expression(cs[3]))}}:{type:'pico_expression',fields:{CODE:source.slice(cs[1].from,cs.at(-1).to)}})}:{}};
   if(['BreakStatement','ContinueStatement','PassStatement'].includes(node.name))return {type:'pico_flow',fields:{CODE:text(node)}};
   if(node.name==='WhileStatement'&&cs.length===3){
     const test=condition(cs[1]),body=parseBody(cs[2]);
