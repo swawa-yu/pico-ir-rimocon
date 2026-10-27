@@ -25,6 +25,7 @@
   <script src="signal-converter.js" defer></script>
   <script src="studio-samples.js" defer></script>
   <script src="studio-layout.js" defer></script>
+  <script src="block-selection.js" defer></script>
   <script src="block-studio.js" defer></script>
 </head>
 <body class="block-studio">
@@ -60,7 +61,7 @@
           <div id="code-editor"></div>
         </div>
       </div>
-      <div class="card blocks-panel"><div id="blockly" aria-label="ブロック編集エリア"></div><div id="file-blockly" aria-label="ファイルのブロック編集エリア" hidden></div></div>
+      <div class="card blocks-panel" title="Shift＋クリックで連続するブロックを選択"><div id="blockly" aria-label="ブロック編集エリア"></div><div id="file-blockly" aria-label="ファイルのブロック編集エリア" hidden></div></div>
     </div>
 
     </section>
@@ -169,6 +170,7 @@
 <dialog id="python-block-dialog" aria-labelledby="python-block-title">
   <form method="dialog"><h2 id="python-block-title">Python</h2><textarea id="python-block-code" spellcheck="false" aria-label="Pythonブロックのコード"></textarea><div class="bar"><button id="python-block-apply" value="apply">反映</button><button value="cancel" class="secondary">キャンセル</button></div></form>
 </dialog>
+<dialog id="extract-function-dialog" aria-labelledby="extract-function-title"><form method="dialog"><h2 id="extract-function-title">選択部分を関数にする</h2><label for="extract-function-name">関数名</label><input id="extract-function-name" autocomplete="off" spellcheck="false"><p id="extract-function-signature" class="mono"></p><p id="extract-function-error" role="status"></p><div class="bar"><button id="extract-function-apply" type="button">関数化する</button><button value="cancel" class="secondary">キャンセル</button></div></form></dialog>
 <dialog id="function-dialog"><form method="dialog"><h2>ブロックの文章</h2><label for="function-phrase">文章</label><input id="function-phrase" placeholder="{value} を2倍にする"><p id="function-parameters"></p><p id="function-message" role="status"></p><div class="bar"><button id="function-apply" type="button">反映</button><button value="cancel" class="secondary">キャンセル</button></div></form></dialog>
 <dialog id="function-help-dialog"><form method="dialog"><h2 id="function-help-title"></h2><pre id="function-help-text"></pre><button>閉じる</button></form></dialog>
 </body>

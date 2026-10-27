@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Pico Studio</title>
   <link rel="stylesheet" href="style.css?v=e50109bd6cca">
-  <link rel="stylesheet" href="block-studio.css?v=e5549899fd93">
+  <link rel="stylesheet" href="block-studio.css?v=b080e569c9aa">
   <link rel="stylesheet" href="live-analyzer.css?v=6a84c2970cf4">
   <script src="vendor/blockly/blockly_compressed.js?v=cc761aa447e0" defer></script>
   <script src="vendor/blockly/blocks_compressed.js?v=4f0b3d4079fe" defer></script>
@@ -15,7 +15,7 @@
   <script src="pico-repl.js?v=24fce0bfb042" defer></script>
   <script src="pico-devices.js?v=8ba4281b6af8" defer></script>
   <script src="pico-project.js?v=2500a4b1d394" defer></script>
-  <script src="vendor/codemirror/editor.js?v=5db0e1c23f3a" defer></script>
+  <script src="vendor/codemirror/editor.js?v=511a6358a97c" defer></script>
   <script src="studio-files.js?v=1ae19f45e0dd" defer></script>
   <script src="pico-sources.js?v=b376e45cb9fd" defer></script>
   <script src="live-core.js?v=d47659fb5907" defer></script>
@@ -25,7 +25,8 @@
   <script src="signal-converter.js?v=655f9a027ef8" defer></script>
   <script src="studio-samples.js?v=c44eda60f47d" defer></script>
   <script src="studio-layout.js?v=655fbdfc2fe8" defer></script>
-  <script src="block-studio.js?v=15173c6cc1c5" defer></script>
+  <script src="block-selection.js?v=47fa272699e0" defer></script>
+  <script src="block-studio.js?v=922de70d3049" defer></script>
 </head>
 <body class="block-studio">
 <main>
@@ -60,7 +61,7 @@
           <div id="code-editor"></div>
         </div>
       </div>
-      <div class="card blocks-panel"><div id="blockly" aria-label="ブロック編集エリア"></div><div id="file-blockly" aria-label="ファイルのブロック編集エリア" hidden></div></div>
+      <div class="card blocks-panel" title="Shift＋クリックで連続するブロックを選択"><div id="blockly" aria-label="ブロック編集エリア"></div><div id="file-blockly" aria-label="ファイルのブロック編集エリア" hidden></div></div>
     </div>
 
     </section>
@@ -169,6 +170,7 @@
 <dialog id="python-block-dialog" aria-labelledby="python-block-title">
   <form method="dialog"><h2 id="python-block-title">Python</h2><textarea id="python-block-code" spellcheck="false" aria-label="Pythonブロックのコード"></textarea><div class="bar"><button id="python-block-apply" value="apply">反映</button><button value="cancel" class="secondary">キャンセル</button></div></form>
 </dialog>
+<dialog id="extract-function-dialog" aria-labelledby="extract-function-title"><form method="dialog"><h2 id="extract-function-title">選択部分を関数にする</h2><label for="extract-function-name">関数名</label><input id="extract-function-name" autocomplete="off" spellcheck="false"><p id="extract-function-signature" class="mono"></p><p id="extract-function-error" role="status"></p><div class="bar"><button id="extract-function-apply" type="button">関数化する</button><button value="cancel" class="secondary">キャンセル</button></div></form></dialog>
 <dialog id="function-dialog"><form method="dialog"><h2>ブロックの文章</h2><label for="function-phrase">文章</label><input id="function-phrase" placeholder="{value} を2倍にする"><p id="function-parameters"></p><p id="function-message" role="status"></p><div class="bar"><button id="function-apply" type="button">反映</button><button value="cancel" class="secondary">キャンセル</button></div></form></dialog>
 <dialog id="function-help-dialog"><form method="dialog"><h2 id="function-help-title"></h2><pre id="function-help-text"></pre><button>閉じる</button></form></dialog>
 </body>

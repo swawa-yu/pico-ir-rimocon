@@ -211,3 +211,6 @@
 .studio-header .docs-link{font-size:.85rem;font-weight:400;white-space:nowrap}
 .definition-actions{display:flex;justify-content:flex-end;gap:6px}
 .definition-actions button{font-size:.8rem;padding:4px 10px}
+.pico-range-selected>.blocklyPath{stroke:#075b81!important;stroke-width:3px!important}
+#extract-function-dialog input{margin-top:8px}
+#extract-function-error{color:#a32626}

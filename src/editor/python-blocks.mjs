@@ -185,7 +185,13 @@ export function configure(B,g,editRaw,options={}){
   }if(one)break;const next=block.getNextBlock();if(next&&code&&!code.endsWith('\n')&&!(/^[\r\n]/.test(next.pythonBefore||'')||next.type==='pico_python'&&/^[\r\n]/.test(next.pythonCode)))code+='\n';block=next;}return code;}
   for(const type of ['pico_module','pico_class','pico_def','pico_import','pico_import_as','pico_from_import','pico_python'])g.forBlock[type]=(block,g)=>sequence(block,g,true);
   const ui=installBlockUI(B,g,options);
-  return {diagnose:ui.diagnose,generate(workspace,parts=[],path='main.py'){
+  return {diagnose:ui.diagnose,codeForRange(blocks){
+    if(!blocks.length)return '';
+    const getVariableName=g.getVariableName,workspace=blocks[0].workspace;
+    g.getVariableName=id=>workspace.getVariableMap().getVariableById(id)?.name||id;
+    try{g.init(workspace);let code='';for(const block of blocks){const next=sequence(block,g,true);if(code&&!code.endsWith('\n')&&next&&!/^[\r\n]/.test(next))code+='\n';code+=next;}return code;}
+    finally{g.getVariableName=getVariableName;}
+  },generate(workspace,parts=[],path='main.py'){
     const getVariableName=g.getVariableName;
     g.getVariableName=id=>workspace.getVariableMap().getVariableById(id)?.name||id;
     B.Events.disable();

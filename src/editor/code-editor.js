@@ -2,6 +2,7 @@ export * as blocks from './python-blocks.mjs';
 export * as symbols from './python-symbols.mjs';
 export * as step from './pico-step.mjs';
 export * as definitions from './python-definitions.mjs';
+export * as extraction from './python-extract.mjs';
 import {basicSetup} from 'codemirror';
 import {EditorState, StateEffect, StateField, Compartment} from '@codemirror/state';
 import {EditorView, keymap, Decoration} from '@codemirror/view';

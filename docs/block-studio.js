@@ -149,7 +149,7 @@
   $('project-discard-close').addEventListener('click',()=>{$('project-close-dialog').close();finishClosingProject();});
   $('project-save-close').addEventListener('click',()=>{if(projectLocked())return;if(closingProjectIndex!==activeProject)switchProject(closingProjectIndex);if(closingProjectIndex!==activeProject||projectLocked())return;saveProjectFile();$('project-close-dialog').close();finishClosingProject();});
   $('project-reopen').addEventListener('click',()=>{const entry=lastClosedProject;if(!entry)return;if(openProject(()=>restoreProject(entry.data,false))){openedProjects[activeProject].savedSignature=entry.savedSignature??null;lastClosedProject=null;saveProject();$('project-add-dialog').close();}});
-  function openFile(path,line){commitFileBlocks();activeFile=path;editor.setFile(path,files[path]||'');editor.setReadOnly?.(Boolean(debugSession||debugStarting));editor.highlightLines?.(null);renderFiles();renderFileBlocks();if(line)editor.goLine(line);}
+  function openFile(path,line){commitFileBlocks();rangeSelection.clear();activeFile=path;editor.setFile(path,files[path]||'');editor.setReadOnly?.(Boolean(debugSession||debugStarting));editor.highlightLines?.(null);renderFiles();renderFileBlocks();if(line)editor.goLine(line);}
   function updateFileActions(){
     $('file-rename').disabled=!treeSelection||fileStore.protected(treeSelection)||Boolean(debugSession||debugStarting);
     for(const summary of document.querySelectorAll('#file-tree summary'))summary.classList.toggle('selected',summary.parentElement.dataset.path===treeSelection);
@@ -232,7 +232,7 @@
       try{
         const cached=model?.source===source;
         const state=cached?(model.version===5?model.state:PicoEditor.blocks.upgrade(model.state,parts,activeFile)):PicoEditor.blocks.fromSource(source,parts,activeFile);
-        Blockly.serialization.workspaces.load(state,fileWorkspace);
+        rangeSelection.clear();Blockly.serialization.workspaces.load(state,fileWorkspace);
         if(!cached||model.version!==5)PicoEditor.blocks.layout(fileWorkspace);
         fileWorkspace.clearUndo();
       }finally{Blockly.Events.enable();}
@@ -289,6 +289,100 @@
     const origin=definitionHistory.pop();$('definition-back').disabled=!definitionHistory.length;
     if(origin&&Object.hasOwn(files,origin.path)){openFile(origin.path);editor.goTo?.(origin.position);notify();}
   });
+  const chain=first=>{const blocks=[];for(let block=first;block;block=block.getNextBlock())blocks.push(block);return blocks;};
+  let extractionContext=null;
+  const rangeSelection=new StudioBlockSelection.Selection();
+  const extractMenuId='pico_extract_function';
+  if(Blockly.ContextMenuRegistry.registry.getItem(extractMenuId))Blockly.ContextMenuRegistry.registry.unregister(extractMenuId);
+  Blockly.ContextMenuRegistry.registry.register({id:extractMenuId,scopeType:Blockly.ContextMenuRegistry.ScopeType.BLOCK,weight:20,
+    displayText:()=> '選択部分を関数にする…',
+    preconditionFn(scope){
+      const block=scope.block;if(!block||block.workspace.isFlyout)return 'hidden';
+      rangeSelection.ensure(block);
+      return block.previousConnection&&block.isEnabled()&&!block.getInheritedDisabled()&&!debugSession&&!debugStarting&&!deploying?'enabled':'disabled';
+    },callback:()=>prepareExtraction()
+  });
+  for(const id of ['blockly','file-blockly'])$(id).addEventListener('pointerdown',event=>{
+    const element=event.target.closest?.('[data-id]');if(!element)return;
+    const owner=id==='blockly'?workspace:fileWorkspace,block=owner?.getBlockById(element.getAttribute('data-id'));if(!block)return;
+    if(event.button===2)rangeSelection.ensure(block);
+    else if(event.button===0){
+      if(event.shiftKey){event.preventDefault();event.stopPropagation();if(!rangeSelection.select(block,true))notify('同じ並びの連続するブロックを選んでください。');}
+      else rangeSelection.select(block);
+    }
+  },true);
+  function prepareExtraction(){
+    try{
+      commitFileBlocks();
+      const blocks=[...rangeSelection.blocks],first=blocks[0],last=blocks.at(-1);
+      if(!first?.previousConnection?.targetConnection||StudioBlockSelection.between(first,last)?.length!==blocks.length)throw Error('連続する処理のブロックを選択してください。');
+      let scope=first.getSurroundParent();
+      while(scope&&!['pico_def','pico_class','pico_start','pico_module'].includes(scope.type))scope=scope.getSurroundParent();
+      if(!scope)throw Error('実行する処理の中から選択してください。');
+      const fragment=pythonBlocks.codeForRange(blocks),scopeSource=pythonBlocks.codeForRange(chain(scope.getInputTargetBlock('DO')));
+      const parameters=scope.type==='pico_def'?PicoEditor.symbols.headerInfo(scope.getFieldValue('HEADER'))?.params||[]:[];
+      const levels=[];
+      for(let block=first;block&&block!==scope;block=block.getSurroundParent()){
+        const before=[];for(let current=block,previous=current.getPreviousBlock();previous&&previous.getNextBlock()===current;current=previous,previous=current.getPreviousBlock())before.unshift(previous);
+        levels.unshift({before,parent:block.getSurroundParent()});
+      }
+      let available=parameters;
+      for(const level of levels){available=PicoEditor.extraction.definedNames(pythonBlocks.codeForRange(level.before),available);if(['controls_forEach','controls_for'].includes(level.parent?.type))available.push(level.parent.getField('VAR').getVariable().name);}
+      const plan=PicoEditor.extraction.planExtraction(fragment,scopeSource,files[activeFile],parameters,available,scope.type!=='pico_def');
+      if(plan.outputs.length&&!last.nextConnection)throw Error('結果を返せる処理の範囲を選択してください。');
+      extractionContext={blocks,plan,path:activeFile,source:files[activeFile]};
+      let name='new_function',number=2;while(PicoEditor.symbols.inspect(files[activeFile]).declared.has(name))name='new_function_'+number++;
+      $('extract-function-name').value=name;$('extract-function-error').textContent='';
+      showExtractionSignature();$('extract-function-dialog').showModal();$('extract-function-name').focus({preventScroll:true});$('extract-function-name').select();
+    }catch(error){notify(error.message);}
+  }
+  function showExtractionSignature(){
+    if(!extractionContext)return;
+    const {parameters,outputs}=extractionContext.plan;
+    $('extract-function-signature').textContent=`${$('extract-function-name').value}(${parameters.join(', ')})`+(outputs.length?' → '+outputs.join(', '):'');
+  }
+  $('extract-function-name').addEventListener('input',showExtractionSignature);
+  $('extract-function-apply').addEventListener('click',()=>{
+    let saved=null,owner=null;
+    try{
+      const context=extractionContext;if(!context||context.path!==activeFile||context.source!==files[activeFile])throw Error('選択し直してください。');
+      const {blocks,plan}=context,first=blocks[0],last=blocks.at(-1);
+      owner=first.workspace;
+      if(first.isDeadOrDying()||StudioBlockSelection.between(first,last)?.length!==blocks.length)throw Error('選択し直してください。');
+      const name=PicoEditor.extraction.validateFunctionName($('extract-function-name').value.trim(),files[activeFile]);
+      const root=first.getRootBlock(),before=first.previousConnection.targetConnection,after=last.nextConnection?.targetConnection;
+      if(!root.getInput('DO')||!before)throw Error('実行する処理の中から選択してください。');
+      saved=Blockly.serialization.workspaces.save(owner);
+      const group=Blockly.Events.getGroup();Blockly.Events.setGroup(true);
+      try{
+        const make=(type,fields={})=>{const block=owner.newBlock(type);for(const [key,value]of Object.entries(fields))block.setFieldValue(value,key);block.initSvg?.();block.render?.();return block;};
+        const variable=name=>{const map=owner.getVariableMap();return map.getVariable(name)||map.createVariable(name);};
+        const definition=make('pico_def',{HEADER:`${name}(${plan.parameters.join(', ')})`});
+        let replacement;
+        if(plan.outputs.length>1){replacement=make('pico_python');replacement.setCode(`${plan.outputs.join(', ')} = ${name}(${plan.parameters.join(', ')})\n`);}
+        else{
+          const call=make(plan.outputs.length?'pico_call_value':'pico_call',{TARGET:name});
+          call.loadExtraState({argumentCount:plan.parameters.length,argumentNames:plan.parameters});
+          plan.parameters.forEach((parameter,index)=>{const value=make('variables_get',{VAR:variable(parameter).getId()});call.getInput('ARG'+index).connection.connect(value.outputConnection);});
+          if(plan.outputs.length){replacement=make('variables_set',{VAR:variable(plan.outputs[0]).getId()});replacement.getInput('VALUE').connection.connect(call.outputConnection);}else replacement=call;
+        }
+        if(after)after.disconnect();before.disconnect();
+        before.connect(replacement.previousConnection);
+        if(after)replacement.nextConnection.connect(after);
+        definition.getInput('DO').connection.connect(first.previousConnection);
+        if(plan.outputs.length){const result=make('pico_return'),value=make('pico_expression',{CODE:plan.outputs.join(', ')});result.getInput('VALUE').connection.connect(value.outputConnection);last.nextConnection.connect(result.previousConnection);}
+        let insertion=root.getInput('DO').connection;
+        while(insertion.targetBlock()&&PicoEditor.extraction.isPreamble(pythonBlocks.codeForRange([insertion.targetBlock()])))insertion=insertion.targetBlock().nextConnection;
+        const head=insertion.targetConnection;if(head)head.disconnect();
+        insertion.connect(definition.previousConnection);if(head)definition.nextConnection.connect(head);
+      }finally{Blockly.Events.setGroup(group);}
+      rangeSelection.clear();fileWorkspaceDirty=true;commitFileBlocks();renderFiles();$('extract-function-dialog').close();notify();
+    }catch(error){
+      if(saved&&owner){Blockly.Events.disable();try{Blockly.serialization.workspaces.load(saved,owner);}finally{Blockly.Events.enable();}rangeSelection.clear();}
+      $('extract-function-error').textContent=error.message;
+    }
+  });
+  $('extract-function-dialog').addEventListener('close',()=>{extractionContext=null;});
   function clearPicoFiles(){
     picoSnapshot=null;picoSelected=null;picoContents.clear();
     $('pico-file-tree').replaceChildren();$('pico-directory').replaceChildren();$('pico-diff').hidden=true;
@@ -447,7 +541,7 @@
     }
     catch(error){parts=oldParts;Blockly.serialization.workspaces.load(previous,workspace);throw error;}
     finally {Blockly.Events.enable();}
-    definitionHistory.length=0;$('definition-back').disabled=true;
+    rangeSelection.clear();definitionHistory.length=0;$('definition-back').disabled=true;
     projectName=nextName;clearTimeout(fileRefreshTimer);fileWorkspaceDirty=false;fileWorkspacePath=null;fileModels=structuredClone(nextModels);fileStore.restore(restoredEdits);workspace.scrollCenter();selectedId=null;dirty=false;partsDirty=false;renderParts();refresh();return true;
   }
   function download(name,text,type){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}

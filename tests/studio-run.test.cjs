@@ -24,7 +24,7 @@ function studio(exec,stored={},hash=''){
   const workspaces=[workspace];
   w.Blockly=Object.create(Blockly);w.Blockly.inject=id=>{if(id==='blockly')return workspace;const ws=new Blockly.Workspace();ws.registerToolboxCategoryCallback=()=>{};workspaces.push(ws);return ws;};w.Blockly.svgResize=()=>{};
   w.python={pythonGenerator};
-  w.PicoBlocks=require('../docs/pico-blocks.js');w.StudioFiles=require('../docs/studio-files.js');
+  w.StudioBlockSelection=require('../docs/block-selection.js');w.PicoBlocks=require('../docs/pico-blocks.js');w.StudioFiles=require('../docs/studio-files.js');
   w.StudioSamples=require('../docs/studio-samples.js');w.PicoSources=require('../docs/pico-sources.js');w.PicoProject={...require('../docs/pico-project.js'),async upload(device,files){calls.push(['write',files]);return JSON.parse(await exec(files));}};
   const links={};let linkNumber=0;
   w.PicoREPL=function(callbacks){const id=String(++linkNumber),link=id==='2'?device:{...device,id};Object.assign(link,callbacks);links[id]=link;return link;};
@@ -36,7 +36,7 @@ function studio(exec,stored={},hash=''){
 
   w.eval(fs.readFileSync('docs/vendor/codemirror/editor.js','utf8'));
   w.structuredClone=global.structuredClone;
-  w.PicoEditor={definitions:w.PicoEditor.definitions,symbols:w.PicoEditor.symbols,blocks:w.PicoEditor.blocks,step:w.PicoEditor.step,create:(_element,callbacks)=>{w.editorCallbacks=callbacks;return {setFile(){},cursor(){return w.editorPosition||0;},goTo(position){calls.push(['position',position]);},setReadOnly(value){calls.push(['readonly',value]);},highlightLines(range){calls.push(['highlight',range]);},goLine(line){calls.push(['line',line]);}};}};
+  w.PicoEditor={extraction:w.PicoEditor.extraction,definitions:w.PicoEditor.definitions,symbols:w.PicoEditor.symbols,blocks:w.PicoEditor.blocks,step:w.PicoEditor.step,create:(_element,callbacks)=>{w.editorCallbacks=callbacks;return {setFile(){},cursor(){return w.editorPosition||0;},goTo(position){calls.push(['position',position]);},setReadOnly(value){calls.push(['readonly',value]);},highlightLines(range){calls.push(['highlight',range]);},goLine(line){calls.push(['line',line]);}};}};
   w.LiveAnalyzer={show(){}};w.SignalConverter={show(){calls.push(['conversion-show']);}};
   w.ResizeObserver=class{observe(){}};
   w.HTMLElement.prototype.scrollIntoView=function(){calls.push(['scroll',this.id]);};
@@ -639,5 +639,83 @@ test('unavailable builtin definitions leave the active file and reference histor
   assert.equal(s.$('file-tree').querySelector('[aria-current=true]').title,'main.py');
   assert.equal(s.$('definition-back').disabled,true);
   assert.match(s.$('studio-status').textContent,/このプロジェクト内に定義が見つかりません/);
+ }finally{s.close();}
+});
+
+function pointAtBlock(s,block,{shiftKey=false,button=0}={}){
+ const node=s.window.document.createElementNS('http://www.w3.org/2000/svg','g');node.setAttribute('data-id',block.id);
+ s.$('file-blockly').append(node);block.getSvgRoot=()=>node;
+ node.dispatchEvent(new s.window.MouseEvent('pointerdown',{bubbles:true,cancelable:true,shiftKey,button}));
+ return node;
+}
+
+test('Shift-selecting a range extracts an editable function with arguments and return values and supports Undo',async()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  const source='value = 2\nresult = value * 3\nprint(result)\nprint(result + 1)\n';
+  s.window.editorCallbacks.onChange('main.py',source);
+  const ws=s.workspaces[1],first=ws.getAllBlocks(false).find(b=>b.type==='variables_set'&&b.getField('VAR').getVariable().name==='result'),last=first.getNextBlock();
+  const a=pointAtBlock(s,first),b=pointAtBlock(s,last,{shiftKey:true});
+  assert(a.classList.contains('pico-range-selected'));assert(b.classList.contains('pico-range-selected'));
+  pointAtBlock(s,last,{button:2});
+  const menu=Blockly.ContextMenuRegistry.registry.getItem('pico_extract_function');
+  assert.equal(menu.preconditionFn({block:last}),'enabled');menu.callback({block:last});
+  assert(s.$('extract-function-dialog').open);
+  assert.match(s.$('extract-function-signature').textContent,/new_function\(value\) → result/);
+  s.$('extract-function-name').value='triple';s.$('extract-function-apply').click();
+  assert.equal(s.$('extract-function-error').textContent,'');assert.equal(s.$('extract-function-dialog').open,false);
+  const extracted=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'];
+  assert.match(extracted,/def triple\(value\):/);assert.match(extracted,/return result/);assert.match(extracted,/result = triple\(value\)/);
+  const {spawnSync}=require('node:child_process');
+  const run=code=>{const result=spawnSync('python3',['-c',code],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);return result.stdout;};
+  assert.equal(run(extracted),run(source));
+  await new Promise(resolve=>setTimeout(resolve,30));ws.undo(false);
+  await new Promise(resolve=>setTimeout(resolve,100));
+  const restored=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'];
+  assert.equal(run(restored),run(source));assert(!restored.includes('def triple'));
+ }finally{s.close();}
+});
+
+test('right-click highlights the current block and unsafe flow is rejected without modifying the source',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  const source='def original(value):\n    return value\n';s.window.editorCallbacks.onChange('main.py',source);
+  const block=s.workspaces[1].getAllBlocks(false).find(b=>b.type==='pico_return');
+  const node=pointAtBlock(s,block,{button:2});assert(node.classList.contains('pico-range-selected'));
+  const menu=Blockly.ContextMenuRegistry.registry.getItem('pico_extract_function');menu.preconditionFn({block});menu.callback({block});
+  assert.equal(s.$('extract-function-dialog').open,false);assert.match(s.$('studio-status').textContent,/return/);
+  assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],source);
+ }finally{s.close();}
+});
+
+test('extracting multiple results from a method preserves execution and failed name validation keeps the selection',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  const source='class Calculator:\n    def run(self, value):\n        left = value + 1\n        right = value + 2\n        return left + right\nprint(Calculator().run(3))\n';
+  s.window.editorCallbacks.onChange('main.py',source);
+  const ws=s.workspaces[1],first=ws.getAllBlocks(false).find(b=>b.type==='variables_set'&&b.getField('VAR').getVariable().name==='left'),last=first.getNextBlock();
+  pointAtBlock(s,first);pointAtBlock(s,last,{shiftKey:true});
+  const menu=Blockly.ContextMenuRegistry.registry.getItem('pico_extract_function');menu.preconditionFn({block:first});menu.callback({block:first});
+  assert(s.$('extract-function-dialog').open);
+  s.$('extract-function-name').value='print';s.$('extract-function-apply').click();
+  assert.match(s.$('extract-function-error').textContent,/使われています/);
+  assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],source);
+  s.$('extract-function-name').value='pair';s.$('extract-function-apply').click();assert.equal(s.$('extract-function-dialog').open,false);
+  const extracted=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'];
+  assert.match(extracted,/def pair\(value\):/);assert.match(extracted,/left, right = pair\(value\)/);
+  const result=require('node:child_process').spawnSync('python3',['-c',extracted],{encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'9\n');
+ }finally{s.close();}
+});
+
+test('a conditionally assigned value is not passed before its first definition',()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  const source='flag = True\nif flag:\n    value=1\nprint(value)\n';s.window.editorCallbacks.onChange('main.py',source);
+  const ws=s.workspaces[1],first=ws.getAllBlocks(false).find(b=>b.type==='controls_if'),last=first.getNextBlock();
+  pointAtBlock(s,first);pointAtBlock(s,last,{shiftKey:true});
+  const menu=Blockly.ContextMenuRegistry.registry.getItem('pico_extract_function');menu.preconditionFn({block:last});menu.callback({block:last});
+  assert.equal(s.$('extract-function-dialog').open,false);assert.match(s.$('studio-status').textContent,/値を用意する部分/);
+  assert.equal(JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files['main.py'],source);
  }finally{s.close();}
 });
