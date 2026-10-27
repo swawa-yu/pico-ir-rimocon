@@ -668,15 +668,15 @@ test('a module import offers a preview and opens its project file',async()=>{
  }finally{s.close();}
 });
 
-test('a connected disabled block shows a non-interactive comment mark',async()=>{
+test('a connected disabled block shows a comment mark in its first field',async()=>{
  const s=studio(async()=>JSON.stringify({changed:0}));
  try{
   s.window.editorCallbacks.onChange('main.py','print(1)\n');
-  const block=s.workspaces[1].getAllBlocks(false).find(b=>b.type==='text_print'),node=s.window.document.createElementNS('http://www.w3.org/2000/svg','g');
-  s.$('file-blockly').append(node);block.getSvgRoot=()=>node;
+  const block=s.workspaces[1].getAllBlocks(false).find(b=>b.type==='text_print');
   block.setDisabledReason(true,'MANUALLY_DISABLED');await new Promise(resolve=>setTimeout(resolve,30));
-  const mark=node.querySelector('.pico-disabled-mark');assert(mark);assert.equal(mark.textContent,'#');assert.equal(mark.getAttribute('pointer-events'),'none');
-  block.setDisabledReason(false,'MANUALLY_DISABLED');await new Promise(resolve=>setTimeout(resolve,30));assert.equal(node.querySelector('.pico-disabled-mark'),null);
+  const mark=block.getField('PICO_DISABLED_MARK');assert(mark);assert.equal(mark.getText(),'#');assert.equal(block.inputList[0].fieldRow[0],mark);
+  assert.doesNotMatch(JSON.stringify(Blockly.serialization.workspaces.save(s.workspaces[1])),/PICO_DISABLED_MARK/);
+  block.setDisabledReason(false,'MANUALLY_DISABLED');await new Promise(resolve=>setTimeout(resolve,30));assert.equal(block.getField('PICO_DISABLED_MARK'),null);
  }finally{s.close();}
 });
 

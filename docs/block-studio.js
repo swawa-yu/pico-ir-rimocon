@@ -212,18 +212,14 @@
   });
   function renderDisabledMarks(ws){
     for(const block of ws.getAllBlocks(false)){
-      const root=block.getSvgRoot?.();if(!root)continue;
       const visible=block.hasDisabledReason('MANUALLY_DISABLED')&&['pico_start','pico_module'].includes(block.getRootBlock().type);
-      let mark=root.querySelector(':scope > .pico-disabled-mark');
-      if(!visible){mark?.remove();continue;}
-      if(!mark){
-        mark=document.createElementNS('http://www.w3.org/2000/svg','g');mark.setAttribute('class','pico-disabled-mark');mark.setAttribute('pointer-events','none');
-        const background=document.createElementNS('http://www.w3.org/2000/svg','rect');background.setAttribute('width','18');background.setAttribute('height','18');background.setAttribute('rx','4');
-        const text=document.createElementNS('http://www.w3.org/2000/svg','text');text.setAttribute('x','9');text.setAttribute('y','13');text.setAttribute('text-anchor','middle');text.textContent='#';mark.append(background,text);root.append(mark);
+      const mark=block.getField('PICO_DISABLED_MARK');
+      const input=mark&&block.inputList.find(input=>input.fieldRow.includes(mark));
+      if(input&&(!visible||input!==block.inputList[0]))input.removeField('PICO_DISABLED_MARK');
+      if(visible&&!block.getField('PICO_DISABLED_MARK')){
+        const first=block.inputList[0]||block.appendDummyInput('PICO_DISABLED_ROW');
+        first.insertFieldAt(0,new Blockly.FieldLabel('#','pico-disabled-mark'),'PICO_DISABLED_MARK');
       }
-      const path=root.querySelector(':scope > .blocklyPath');let width=block.getHeightWidth?.().width||36;
-      try{if(path?.getBBox)width=path.getBBox().width;}catch(_){}
-      mark.setAttribute('transform',`translate(${Math.max(2,width-21)}, 2)`);
     }
   }
   function ensureFileWorkspace(){
