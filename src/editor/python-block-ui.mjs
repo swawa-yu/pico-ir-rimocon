@@ -5,6 +5,14 @@ export function installBlockUI(B,g,{getFiles=()=>({}),getPath=()=> 'main.py',edi
  const functions=()=>{const files=getFiles(),path=getPath();if(files!==cachedFiles||path!==cachedPath){cachedFiles=files;cachedPath=path;cachedFunctions=catalog(files,path);}return cachedFunctions;};
  function button(symbol,label,callback){const field=new B.FieldImage(icon(symbol),18,18,label,callback);field.setTooltip?.(label);return field;}
  function mutate(block,change){const before=JSON.stringify(block.saveExtraState?.()||{}),group=B.Events.getGroup();B.Events.setGroup(group||true);try{change();B.Events.fire(new B.Events.BlockChange(block,'mutation',null,before,JSON.stringify(block.saveExtraState?.()||{})));}finally{B.Events.setGroup(group||false);}}
+ function removeAt(block,index,count,prefix,resize){
+  const before=JSON.stringify(block.saveExtraState?.()||{}),group=B.Events.getGroup(),connections=[];B.Events.setGroup(group||true);
+  try{
+   for(let i=index;i<count;i++){const input=block.getInput(prefix+i).connection,target=input.targetConnection;connections.push(target);if(target)input.disconnect();}
+   resize(count-1);B.Events.fire(new B.Events.BlockChange(block,'mutation',null,before,JSON.stringify(block.saveExtraState?.()||{})));
+   for(let i=index+1;i<count;i++)if(connections[i-index])block.getInput(prefix+(i-1)).connection.connect(connections[i-index]);
+  }finally{B.Events.setGroup(group||false);}
+ }
  for(const type of ['pico_call','pico_call_value'])B.Blocks[type]={
   init(){
    const block=this;
@@ -21,10 +29,11 @@ export function installBlockUI(B,g,{getFiles=()=>({}),getPath=()=> 'main.py',edi
    while(this.argumentCount<count)this.appendValueInput('ARG'+this.argumentCount++);
    const phrase=this.callSentence&&sentenceParts(this.callSentence,this.argumentNames),use=phrase&&this.argumentCount===this.argumentNames.length;
    this.getField('TARGET').setVisible(!use);
-   for(let i=0;i<count;i++){const input=this.getInput('ARG'+i);input.removeField('LABEL'+i,true);input.appendField(new B.FieldLabel(use?phrase[i]:(i?',':'(')),'LABEL'+i);}
-   const end=this.appendDummyInput('END');end.appendField(use?phrase.at(-1):(count?')':'()')+(type==='pico_call_value'?' を呼び出した結果':' を呼び出す'));
+   for(let i=0;i<count;i++){const input=this.getInput('ARG'+i);input.removeField('LABEL'+i,true);input.removeField('REMOVE'+i,true);input.appendField(new B.FieldLabel(use?phrase[i]:(i?',':'(')),'LABEL'+i);input.appendField(button('−','この引数を外す',()=>removeAt(this,i,this.argumentCount,'ARG',n=>this.updateArguments(n))),'REMOVE'+i);}
+   const end=this.appendDummyInput('END');
+   if(!use&&!count)end.appendField('(');
    end.appendField(button('+','引数を追加',()=>mutate(this,()=>this.updateArguments(this.argumentCount+1))),'ADD');
-   end.appendField(button('−','最後の引数を外す',()=>{if(this.argumentCount)mutate(this,()=>this.updateArguments(this.argumentCount-1));}),'REMOVE');
+   end.appendField(use?phrase.at(-1):')'+(type==='pico_call_value'?' を呼び出した結果':' を呼び出す'));
    end.appendField(button('?','関数の説明',()=>{const fn=functions().find(fn=>fn.target===this.getFieldValue('TARGET'));showHelp(fn||{target:this.getFieldValue('TARGET'),help:'関数名を直接編集するか、一覧から選べます。'});}), 'HELP');
   },
   chooseFunction(fn){mutate(this,()=>{this.setFieldValue(fn.target,'TARGET');this.argumentNames=fn.params;this.callSentence=fn.sentence||'';this.importModule=fn.module||'';this.updateArguments(fn.params.length);});},
@@ -42,19 +51,18 @@ export function installBlockUI(B,g,{getFiles=()=>({}),getPath=()=> 'main.py',edi
    if(!this.getInput('OPEN_ROW'))this.appendEndRowInput('OPEN_ROW');
    for(let i=0;i<this.itemCount_;i++){
     if(!this.getInput('ADD'+i))this.appendValueInput('ADD'+i);
-    if(!this.getInput('COMMA'+i))this.appendDummyInput('COMMA'+i).appendField('', 'SEPARATOR'+i);
+    if(!this.getInput('COMMA'+i))this.appendDummyInput('COMMA'+i).appendField('', 'SEPARATOR'+i).appendField(button('−','この項目を外す',()=>removeAt(this,i,this.itemCount_,'ADD',n=>{this.itemCount_=n;this.updateShape_();})),'REMOVE'+i);
     this.setFieldValue(i<this.itemCount_-1?',':'','SEPARATOR'+i);
     if(!this.getInput('ROW'+i))this.appendEndRowInput('ROW'+i);
    }
    for(let i=this.itemCount_;this.getInput('ADD'+i);i++)for(const prefix of ['ADD','COMMA','ROW'])this.removeInput(prefix+i);
-   if(!this.getInput('CLOSE'))this.appendDummyInput('CLOSE').appendField(']');
+   if(!this.getInput('CLOSE'))this.appendDummyInput('CLOSE').appendField(button('+','リストの項目を追加',()=>mutate(this,()=>{this.itemCount_++;this.updateShape_();})),'ADD_ITEM').appendField(']');
    const order=['OPEN','OPEN_ROW',...Array.from({length:this.itemCount_},(_,i)=>['ADD'+i,'COMMA'+i,'ROW'+i]).flat(),'CLOSE'];
-   if(this.getInput('PICO_ITEMS'))order.push('PICO_ITEMS');
    for(const name of order)this.moveInputBefore(name,null);
    this.getInput('OPEN_ROW').setVisible(this.itemCount_>0);
    this.setInputsInline(true);
   };
-  list.picoListInit=list.init;list.init=function(){list.picoListInit.call(this);this.setMutator(null);const input=this.appendDummyInput('PICO_ITEMS');input.appendField(button('+','リストの項目を追加',()=>mutate(this,()=>{this.itemCount_++;this.updateShape_();})));input.appendField(button('−','最後の項目を外す',()=>{if(this.itemCount_)mutate(this,()=>{this.itemCount_--;this.updateShape_();});}));};}
+  list.picoListInit=list.init;list.init=function(){list.picoListInit.call(this);this.setMutator(null);};}
  const def=B.Blocks.pico_def,init=def.init,save=def.saveExtraState,load=def.loadExtraState;
  def.init=function(){init.call(this);this.pythonSentence='';this.inputList[0].appendField(button('+','関数の引数を追加',()=>{const header=this.getFieldValue('HEADER'),info=headerInfo(header);if(!info)return;let i=1;while(info.params.includes('arg'+i))i++;const inside=header.slice(info.from+1,info.to-1);if(inside.includes('**')){this.setWarningText('**引数のある定義は、関数名の欄で編集してください。','signature');return;}this.setFieldValue(header.slice(0,info.to-1)+(info.params.length?', ':'')+'arg'+i+(inside.includes('=')?'=None':'')+header.slice(info.to-1),'HEADER');}));};
  def.saveExtraState=function(){return {...save.call(this),sentence:this.pythonSentence||''};};

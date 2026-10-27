@@ -295,12 +295,34 @@ test('plus buttons preserve connected arguments and list items through save and 
   B.serialization.workspaces.load(fromSource('values = [1, 2]\nprint(values, "done")\n',[]),ws);
   const call=ws.getAllBlocks(false).find(b=>b.type==='pico_call');
   const first=call.getInputTargetBlock('ARG0');call.getField('ADD').showEditor_();assert.equal(call.argumentCount,3);assert.equal(call.getInputTargetBlock('ARG0'),first);
-  call.getField('REMOVE').showEditor_();assert.equal(call.argumentCount,2);
+  call.getField('REMOVE2').showEditor_();assert.equal(call.argumentCount,2);
   const list=ws.getAllBlocks(false).find(b=>b.type==='lists_create_with'),item=list.getInputTargetBlock('ADD0');
-  list.getInput('PICO_ITEMS').fieldRow[0].showEditor_();assert.equal(list.itemCount_,3);assert.equal(list.getInputTargetBlock('ADD0'),item);
+  list.getField('ADD_ITEM').showEditor_();assert.equal(list.itemCount_,3);assert.equal(list.getInputTargetBlock('ADD0'),item);
   B.serialization.workspaces.load(B.serialization.workspaces.save(ws),copy);assert.equal(copy.getAllBlocks(false).find(b=>b.type==='lists_create_with').itemCount_,3);
   assert.equal(copy.getAllBlocks(false).find(b=>b.type==='pico_call').argumentCount,2);
  }finally{ws.dispose();copy.dispose();}
+});
+
+test('removing a middle list item or call argument keeps the other connected values',async()=>{
+ const ws=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource('values = [1, 2, 3]\nprint(4, 5, 6)\n',[]),ws);await new Promise(resolve=>setTimeout(resolve,20));ws.clearUndo();
+  const list=ws.getAllBlocks(false).find(b=>b.type==='lists_create_with'),removed=list.getInputTargetBlock('ADD1'),last=list.getInputTargetBlock('ADD2');
+  list.getField('REMOVE1').showEditor_();assert.equal(list.itemCount_,2);assert.equal(list.getInputTargetBlock('ADD1'),last);assert.equal(removed.getParent(),null);
+  await new Promise(resolve=>setTimeout(resolve,20));ws.undo(false);assert.equal(list.itemCount_,3);assert.equal(list.getInputTargetBlock('ADD1'),removed);assert.equal(list.getInputTargetBlock('ADD2'),last);
+  await new Promise(resolve=>setTimeout(resolve,20));ws.undo(true);assert.equal(list.itemCount_,2);assert.equal(list.getInputTargetBlock('ADD1'),last);
+  const call=ws.getAllBlocks(false).find(b=>b.type==='pico_call'),argument=call.getInputTargetBlock('ARG1'),third=call.getInputTargetBlock('ARG2');
+  call.getField('REMOVE1').showEditor_();assert.equal(call.argumentCount,2);assert.equal(call.getInputTargetBlock('ARG1'),third);assert.equal(argument.getParent(),null);
+  await new Promise(resolve=>setTimeout(resolve,20));ws.undo(false);assert.equal(call.argumentCount,3);assert.equal(call.getInputTargetBlock('ARG1'),argument);assert.equal(call.getInputTargetBlock('ARG2'),third);
+ }finally{ws.dispose();}
+});
+
+test('removing a list item keeps the following shadow values',()=>{
+ const ws=new B.Workspace();try{
+  const state={blocks:{languageVersion:0,blocks:[{type:'lists_create_with',extraState:{itemCount:3},inputs:Object.fromEntries([1,2,3].map((n,i)=>['ADD'+i,{shadow:{type:'math_number',fields:{NUM:n}}}]))}]}};
+  B.serialization.workspaces.load(state,ws);const list=ws.getTopBlocks(false)[0];list.getField('REMOVE1').showEditor_();
+  assert.equal(list.getInputTargetBlock('ADD0').getFieldValue('NUM'),1);assert.equal(list.getInputTargetBlock('ADD1').getFieldValue('NUM'),3);
+ }finally{ws.dispose();}
 });
 
 test('sentence-defined functions remain ordinary Python and selection retains the value-returning call shape',async()=>{
@@ -384,8 +406,8 @@ test('None stays a literal block, and bracketed list inputs preserve items when 
  try{
   const list=ws.getAllBlocks(false).find(b=>b.type==='lists_create_with');
   assert.equal(list.getInputTargetBlock('ADD0').type,'logic_null');
-  assert.equal(list.getInput('OPEN').fieldRow[0].getText(),'[');assert.equal(list.getInput('CLOSE').fieldRow[0].getText(),']');
-  const none=list.getInputTargetBlock('ADD0');list.getInput('PICO_ITEMS').fieldRow[0].showEditor_();assert.equal(list.getInputTargetBlock('ADD0'),none);
+  assert.equal(list.getInput('OPEN').fieldRow[0].getText(),'[');assert.equal(list.getInput('CLOSE').fieldRow.at(-1).getText(),']');
+  const none=list.getInputTargetBlock('ADD0');list.getField('ADD_ITEM').showEditor_();assert.equal(list.getInputTargetBlock('ADD0'),none);
   assert.match(api.generate(ws),/\[None, 1, None\]/);
  }finally{ws.dispose();}
 });

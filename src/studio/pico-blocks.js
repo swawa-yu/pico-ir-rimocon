@@ -54,6 +54,9 @@
     Blockly.Msg.TEXT_PRINT_TITLE='コンソールに %1 を表示';
     Blockly.Msg.TEXT_PROMPT_TYPE_TEXT='コンソールで文字列の入力を求める';
     Blockly.Msg.TEXT_PROMPT_TYPE_NUMBER='コンソールで数値の入力を求める';
+    Blockly.Msg.LISTS_GET_SUBLIST_START_FROM_START='開始位置：';
+    Blockly.Msg.LISTS_GET_SUBLIST_START_FROM_END='開始位置：後ろから';
+    Blockly.Msg.LISTS_GET_SUBLIST_START_FIRST='最初から';
     Blockly.Msg.LISTS_SPLIT_WITH_DELIMITER='区切り文字';
     Blockly.Msg.INPUT_LABEL_LISTS_DELIMITER='区切り文字';
     for(const type of ['procedures_defnoreturn','procedures_defreturn']){
