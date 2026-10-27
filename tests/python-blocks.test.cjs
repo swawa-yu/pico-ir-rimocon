@@ -13,6 +13,19 @@ let api,fromSource,upgrade,testParts=[];
 before(async()=>{const module=await import('../src/editor/python-blocks.mjs');fromSource=module.fromSource;upgrade=module.upgrade;require('../docs/pico-blocks.js').configure(B,g,()=>testParts);api=module.configure(B,g,()=>{});});
 function workspace(source){const ws=new B.Workspace();B.serialization.workspaces.load(fromSource(source),ws);return ws;}
 
+test('list addition remains editable across Python and block conversion',()=>{
+ const source='a = [1, 2]\nb = [3]\nresult = a + (b + [4])\nprint(result)\n',ws=new B.Workspace(),copy=new B.Workspace();
+ try{
+  B.serialization.workspaces.load(fromSource(source,[]),ws);
+  assert.equal(ws.getAllBlocks(false).filter(b=>b.type==='pico_add').length,2);
+  const code=api.generate(ws),run=text=>spawnSync('python3',['-c',text],{encoding:'utf8'});
+  assert.equal(run(code).stdout,'[1, 2, 3, 4]\n');
+  B.serialization.workspaces.load(fromSource(code,[]),copy);
+  assert.equal(copy.getAllBlocks(false).filter(b=>b.type==='pico_add').length,2);
+  assert.equal(run(api.generate(copy)).stdout,'[1, 2, 3, 4]\n');
+ }finally{ws.dispose();copy.dispose();}
+});
+
 test('sample control flow and expressions retain their Python meaning',()=>{
  const samples=require('../docs/studio-samples.js');
  const groups={beginner:'zero32 one_bit byte long receive_one receive_byte receive_long continuous times button_times receive_times number rgb console binary send button_send receive carrier fan fan_receive',basic:'console bits button carrier pwm level times decode send receive',organized:'send receive',message:'ascii_send ascii_receive ascii_display utf8_send utf8_receive'};

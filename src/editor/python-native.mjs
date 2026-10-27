@@ -1,4 +1,4 @@
-const outputType=b=>!b?null:['variables_get','pico_expression','pico_call_value','pico_index','pico_attribute','logic_null','logic_ternary'].includes(b.type)?null:['text','pico_char','pico_bits_text','pico_to_text','pico_base_text'].includes(b.type)?'String':['lists_create_with','lists_repeat','pico_receive','pico_int_bits','pico_text_bits','pico_decode_bits','pico_new_bits','pico_receive_bits','pico_range'].includes(b.type)?'Array':b.type.startsWith('logic_')||['pico_bootsel','pico_ir_level','pico_button','pico_compare_chain'].includes(b.type)?'Boolean':'Number';
+const outputType=b=>!b?null:['variables_get','pico_expression','pico_call_value','pico_index','pico_attribute','pico_add','logic_null','logic_ternary'].includes(b.type)?null:['text','pico_char','pico_bits_text','pico_to_text','pico_base_text'].includes(b.type)?'String':['lists_create_with','lists_repeat','pico_receive','pico_int_bits','pico_text_bits','pico_decode_bits','pico_new_bits','pico_receive_bits','pico_range'].includes(b.type)?'Array':b.type.startsWith('logic_')||['pico_bootsel','pico_ir_level','pico_button','pico_compare_chain'].includes(b.type)?'Boolean':'Number';
 export function friendlyCall(target,items){
   if(items.some(item=>item?.type==='pico_expression'&&/^\s*\*/.test(item.fields?.CODE||'')))return null;
   const number=n=>({type:'math_number',fields:{NUM:n}});
@@ -60,6 +60,7 @@ export function nativeStatement(node,source,parts,parseBody){
         const items=children(cs[0]).filter(child=>!['[',']',','].includes(child.name));
         if(items.length===1)return values('lists_repeat',['ITEM','NUM'],[expression(items[0]),expression(cs[2])]);
       }
+      if(op==='+'){const left=expression(cs[0]),right=expression(cs[2]);if(outputType(left)!=='Number'||outputType(right)!=='Number')return values('pico_add',['A','B'],[left,right]);}
       if(['and','or'].includes(op))return values('logic_operation',['A','B'],[expression(cs[0]),expression(cs[2])],{OP:op.toUpperCase()});
       if(op==='%')return values('math_modulo',['DIVIDEND','DIVISOR'],[expression(cs[0]),expression(cs[2])]);
       if(op==='//')return values('pico_floor_divide',['A','B'],[expression(cs[0]),expression(cs[2])]);
