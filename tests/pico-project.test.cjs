@@ -1,7 +1,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {spawnSync}=require('node:child_process');
-const P=require('../pico-project.js');
+const P=require('../dist/pico-project.js');
 const files={'main.py':'from parts import infrared\ninfrared.send(65)\n','parts.py':'# 設定\n','lib/pico_parts.py':'# library\n'};
 function run(body){const r=spawnSync('python3',['-c',`import sys,os,tempfile,json,types,binascii
 sys.modules['ubinascii']=binascii

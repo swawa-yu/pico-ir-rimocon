@@ -3,9 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "test": "node --test tests/*.test.cjs",
+    "build": "node scripts/build.mjs",
     "build:editor": "node scripts/build-editor.mjs",
-    "build:sources": "node scripts/build-sources.mjs"
+    "build:sources": "node scripts/build-sources.mjs",
+    "dev": "pnpm build && node scripts/dev.mjs",
+    "test": "pnpm build && node --test tests/*.test.cjs",
+    "test:python": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p \"test_*.py\""
   },
   "devDependencies": {
     "@codemirror/commands": "6.11.1",
@@ -15,6 +18,16 @@
     "@codemirror/view": "6.43.15",
     "codemirror": "6.0.2",
     "esbuild": "0.28.2",
-    "jsdom": "27.4.0"
+    "jsdom": "27.4.0",
+    "@lezer/python": "1.1.19"
+  },
+  "packageManager": "pnpm@10.10.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

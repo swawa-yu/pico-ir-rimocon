@@ -1,6 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {PicoREPL}=require('../pico-repl.js');
+const {PicoREPL}=require('../dist/pico-repl.js');
 function fakePort(result='OKhello\r\n\x04\x04>'){
   const trace=[],queue=[];let waiting,locked=false,writerLocked=false,code='';
   function push(text){const item=typeof text==='string'?{value:new TextEncoder().encode(text),done:false}:text;if(waiting){const resolve=waiting;waiting=null;resolve(item);}else queue.push(item);}

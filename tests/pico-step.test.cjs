@@ -1,9 +1,9 @@
 const {test,before}=require('node:test');
 const assert=require('node:assert/strict');
 const {spawnSync}=require('node:child_process');
-const P=require('../pico-project.js');
+const P=require('../dist/pico-project.js');
 let prepare,Output;
-before(async()=>{({prepare,Output}=await import('../pico-step.mjs'));});
+before(async()=>{({prepare,Output}=await import('../src/editor/pico-step.mjs'));});
 function run(script){const r=spawnSync('python3',['-c',script],{encoding:'utf8'});assert.equal(r.status,0,JSON.stringify({stderr:r.stderr,stdout:r.stdout,signal:r.signal}));return r.stdout;}
 
 test('instrumentation preserves classes, functions, docstrings, inline branches and multiline literals',()=>{

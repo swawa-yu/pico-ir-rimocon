@@ -2,13 +2,13 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {JSDOM}=require('jsdom');
-const Blockly=require('../vendor/blockly/blockly_compressed.js');
-require('../vendor/blockly/blocks_compressed.js');
-Object.assign(Blockly.Msg,require('../vendor/blockly/msg/ja.js'));
-const {pythonGenerator}=require('../vendor/blockly/python_compressed.js');
+const Blockly=require('../dist/vendor/blockly/blockly_compressed.js');
+require('../dist/vendor/blockly/blocks_compressed.js');
+Object.assign(Blockly.Msg,require('../dist/vendor/blockly/msg/ja.js'));
+const {pythonGenerator}=require('../dist/vendor/blockly/python_compressed.js');
 
 function studio(exec,stored={},hash=''){
-  const dom=new JSDOM(fs.readFileSync('studio.html','utf8'),{url:'http://localhost/'+hash,runScripts:'outside-only'});
+  const dom=new JSDOM(fs.readFileSync('dist/studio.html','utf8'),{url:'http://localhost/'+hash,runScripts:'outside-only'});
   const w=dom.window,calls=[];
   Blockly.utils.xml.injectDependencies({document:w.document,DOMParser:w.DOMParser,XMLSerializer:w.XMLSerializer});
   const workspace=new Blockly.Workspace();
@@ -24,24 +24,24 @@ function studio(exec,stored={},hash=''){
   const workspaces=[workspace];
   w.Blockly=Object.create(Blockly);w.Blockly.inject=id=>{if(id==='blockly')return workspace;const ws=new Blockly.Workspace();ws.registerToolboxCategoryCallback=()=>{};workspaces.push(ws);return ws;};w.Blockly.svgResize=()=>{};
   w.python={pythonGenerator};
-  w.PicoBlocks=require('../pico-blocks.js');w.StudioFiles=require('../studio-files.js');
-  w.StudioSamples=require('../studio-samples.js');w.PicoSources=require('../pico-sources.js');w.PicoProject={...require('../pico-project.js'),async upload(device,files){calls.push(['write',files]);return JSON.parse(await exec(files));}};
+  w.PicoBlocks=require('../dist/pico-blocks.js');w.StudioFiles=require('../dist/studio-files.js');
+  w.StudioSamples=require('../dist/studio-samples.js');w.PicoSources=require('../dist/pico-sources.js');w.PicoProject={...require('../dist/pico-project.js'),async upload(device,files){calls.push(['write',files]);return JSON.parse(await exec(files));}};
   const links={};let linkNumber=0;
   w.PicoREPL=function(callbacks){const id=String(++linkNumber),link=id==='2'?device:{...device,id};Object.assign(link,callbacks);links[id]=link;return link;};
-  w.eval(fs.readFileSync('pico-devices.js','utf8'));
+  w.eval(fs.readFileSync('dist/pico-devices.js','utf8'));
   for(const entry of w.PicoDevices.devices){entry.state='connected';entry.task='program';}
   w.PicoDevices.select('program','2');w.PicoDevices.select('observer','2');
   const forRole=w.PicoDevices.forRole.bind(w.PicoDevices);w.PicoDevices.forRole=(role,watcher)=>{if(role==='program')w.deviceWatcher=watcher;return forRole(role,watcher);};
   w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
 
-  w.eval(fs.readFileSync('vendor/codemirror/editor.js','utf8'));
+  w.eval(fs.readFileSync('dist/vendor/codemirror/editor.js','utf8'));
   w.structuredClone=global.structuredClone;
   w.PicoEditor={blocks:w.PicoEditor.blocks,step:w.PicoEditor.step,create:(_element,callbacks)=>{w.editorCallbacks=callbacks;return {setFile(){},setReadOnly(value){calls.push(['readonly',value]);},highlightLines(range){calls.push(['highlight',range]);},goLine(line){calls.push(['line',line]);}};}};
   w.LiveAnalyzer={show(){}};w.SignalConverter={show(){calls.push(['conversion-show']);}};
   w.ResizeObserver=class{observe(){}};
   w.HTMLElement.prototype.scrollIntoView=function(){calls.push(['scroll',this.id]);};
   for(const [key,value] of Object.entries(stored))w.localStorage.setItem(key,value);
-  w.eval(fs.readFileSync('block-studio.js','utf8'));
+  w.eval(fs.readFileSync('dist/block-studio.js','utf8'));
   return {window:w,device,links,calls,workspaces,$:id=>w.document.getElementById(id),close(){for(const ws of workspaces)ws.dispose();dom.window.close();for(const type of Object.keys(Blockly.Blocks))if(type.startsWith('pico_'))delete Blockly.Blocks[type];}};
 }
 
@@ -572,7 +572,7 @@ test('untouched untitled 65 and BOOTSEL starters are upgraded on startup, preser
 });
 
 test('legacy untitled starter workspaces also open as button-free zero senders',()=>{
- const data={format:'pico-blocks-2',parts:require('../pico-blocks.js').defaults(),workspace:require('../pico-blocks.js').examples.send()};
+ const data={format:'pico-blocks-2',parts:require('../dist/pico-blocks.js').defaults(),workspace:require('../dist/pico-blocks.js').examples.send()};
  const s=studio(async()=>JSON.stringify({changed:0}),{'pico-blocks-project-2':JSON.stringify(data)});
  try{const restored=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2'));assert.equal(restored.name,'無題');assert.match(restored.files['main.py'],/send_bits\(\[0\] \* 32, leader=False\)/);}
  finally{s.close();}

@@ -1,6 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {Connections}=require('../pico-devices.js');
+const {Connections}=require('../dist/pico-devices.js');
 class REPL{
   constructor(callbacks){Object.assign(this,callbacks);this.port=null;this.busy=false;this.running=false;this.opens=0;}
   async connect(port){this.port=port;this.opens++;this.onState('connected');}

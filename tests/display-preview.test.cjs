@@ -1,8 +1,8 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const vm=require('node:vm'),fs=require('node:fs');
-const {Surface}=require('../display-preview.js');
-const font=vm.runInNewContext(fs.readFileSync('vendor/petme128.js','utf8')+';Array.from(PicoFont8x8)');
+const {Surface}=require('../dist/display-preview.js');
+const font=vm.runInNewContext(fs.readFileSync('dist/vendor/petme128.js','utf8')+';Array.from(PicoFont8x8)');
 
 test('pixel preview buffers edits, returns their values, and publishes only on show',()=>{
   const s=new Surface(128,64,font);

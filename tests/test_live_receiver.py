@@ -28,7 +28,7 @@ class ReceiverTests(unittest.TestCase):
         self.disabled = False
         machine = types.SimpleNamespace(Pin=Pin, disable_irq=self.disable, enable_irq=self.enable)
         clock = types.SimpleNamespace(ticks_us=lambda: self.clock, ticks_diff=lambda a,b: (a-b+512)%1024-512)
-        spec = importlib.util.spec_from_file_location('live_receiver', Path(__file__).parents[1]/'programs/live_receiver.py')
+        spec = importlib.util.spec_from_file_location('live_receiver', Path(__file__).parents[1]/'pico/lib/live_receiver.py')
         self.module = importlib.util.module_from_spec(spec)
         with patch.dict(sys.modules, {'machine':machine, 'micropython':types.SimpleNamespace(), 'time':clock}):
             spec.loader.exec_module(self.module)

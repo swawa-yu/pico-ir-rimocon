@@ -1,18 +1,18 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {spawnSync}=require('node:child_process');
-const samples=require('../studio-samples.js');
+const samples=require('../dist/studio-samples.js');
 
 const harness=`import ast,contextlib,io,json,sys,types
 data=json.load(sys.stdin)
 for sample in data['samples'].values():
  for path,source in sample['files'].items():ast.parse(source,filename=path)
 namespace={}
-tree=ast.parse(open('programs/pico_parts.py').read())
+tree=ast.parse(open('dist/programs/pico_parts.py').read())
 infrared=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=='Infrared')
 send=next(node for node in infrared.body if isinstance(node,ast.FunctionDef) and node.name=='send')
 exec(compile(ast.Module(body=[send],type_ignores=[]),'<send>','exec'),namespace)
-ir=types.ModuleType('ir_data');exec(open('programs/ir_data.py').read(),ir.__dict__);sys.modules['ir_data']=ir
+ir=types.ModuleType('ir_data');exec(open('dist/programs/ir_data.py').read(),ir.__dict__);sys.modules['ir_data']=ir
 class Finished(Exception):pass
 events=[];frames=[]
 class Transmitter:

@@ -1,4 +1,4 @@
-import { Picoboot } from './vendor/picoflash/picoboot.js';
+import { Picoboot } from '../../public/vendor/picoflash/picoboot.js';
 
 export const firmwareModels = {
   pico: {

@@ -11,13 +11,13 @@ function page(serial) {
       getContext(){return new Proxy({},{get(){return ()=>{};},set(){return true;}});}};
   }
   const context = vm.createContext({
-    PicoREPL:require('../pico-repl.js').PicoREPL,PicoSources:require('../pico-sources.js'),
-    Blob,URL:{createObjectURL(blob){blobs.push(blob);return 'blob:test';},revokeObjectURL(){}},URLSearchParams, location:{search:'',origin:'http://localhost'}, LiveIR:require('../live-core.js'), navigator:serial?{serial}:{}, TextDecoder,
+    PicoREPL:require('../dist/pico-repl.js').PicoREPL,PicoSources:require('../dist/pico-sources.js'),
+    Blob,URL:{createObjectURL(blob){blobs.push(blob);return 'blob:test';},revokeObjectURL(){}},URLSearchParams, location:{search:'',origin:'http://localhost'}, LiveIR:require('../dist/live-core.js'), navigator:serial?{serial}:{}, TextDecoder,
     performance:{now:()=>now}, requestAnimationFrame(){}, setInterval(){},setTimeout(){},clearInterval(){},
     window:{addEventListener(){}},
     document:{getElementById(id){if(!elements.has(id))elements.set(id,element());return elements.get(id);},createElement:element},
   });
-  vm.runInContext(fs.readFileSync(require.resolve('../live-analyzer.js'),'utf8'),context);
+  vm.runInContext(fs.readFileSync(require.resolve('../dist/live-analyzer.js'),'utf8'),context);
   return {context,elements,blobs,setNow(value){now=value;}};
 }
 function serialPort() {
@@ -207,7 +207,7 @@ test('wheel zoom changes scale continuously and preserves the time under the poi
 
 test('history places binary beside HEX and the previous-signal interval after the recording time',()=>{
  const {context,elements}=page();
- const durations=require('../pico-blocks.js').signalForByte(65,560);
+ const durations=require('../dist/pico-blocks.js').signalForByte(65,560);
  elements.get('start').value='2';elements.get('order').value='msb';
  vm.runInContext(`capture.addFrame({durations:${JSON.stringify(durations)},source:'USB',intervalUs:108000,recordedAt:1700000000000});renderHistory()`,context);
  const cells=elements.get('history-rows').children[0].children;

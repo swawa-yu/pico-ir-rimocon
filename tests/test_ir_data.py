@@ -37,7 +37,7 @@ class IRDataTests(unittest.TestCase):
                                           sleep_ms=lambda ms: setattr(self, 'now', self.now + ms * 1000))
         })
         self.modules.start()
-        path = Path(__file__).parents[1] / 'programs/ir_data.py'
+        path = Path(__file__).parents[1] / 'pico/lib/ir_data.py'
         spec = importlib.util.spec_from_file_location('ir_data_test', path)
         self.data = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.data)

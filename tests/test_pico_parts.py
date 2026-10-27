@@ -87,8 +87,8 @@ class PartsTests(unittest.TestCase):
             'time': self.clock,
         })
         self.modules.start()
-        sys.modules['ssd1306'] = load('ssd1306', 'programs/ssd1306.py')
-        self.parts = load('test_parts_runtime', 'programs/pico_parts.py')
+        sys.modules['ssd1306'] = load('ssd1306', 'pico/lib/ssd1306.py')
+        self.parts = load('test_parts_runtime', 'pico/lib/pico_parts.py')
 
     def tearDown(self):
         self.modules.stop()

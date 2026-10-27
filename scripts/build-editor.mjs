@@ -1,18 +1,18 @@
 import {build} from 'esbuild';
-import {readFile,writeFile} from 'node:fs/promises';
-import {createHash} from 'node:crypto';
-const result=await build({entryPoints:['code-editor.js'],bundle:true,format:'iife',globalName:'PicoEditor',outfile:'vendor/codemirror/editor.js',minify:true,metafile:true,legalComments:'inline'});
-const packages=new Set(Object.keys(result.metafile.inputs).filter(p=>p.startsWith('node_modules/')).map(p=>p.split('/').slice(1,p.split('/')[1].startsWith('@')?3:2).join('/')));
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
+
+await mkdir('dist/vendor/codemirror',{recursive:true});
+const result=await build({entryPoints:['src/editor/code-editor.js'],bundle:true,format:'iife',globalName:'PicoEditor',outfile:'dist/vendor/codemirror/editor.js',minify:true,metafile:true,legalComments:'inline'});
+const roots=new Set();
+for(const input of Object.keys(result.metafile.inputs)){
+  if(!input.startsWith('node_modules/'))continue;
+  const start=input.lastIndexOf('/node_modules/')+1;
+  const segments=input.slice(start).split('/');
+  roots.add(input.slice(0,start)+segments.slice(0,segments[1].startsWith('@')?3:2).join('/'));
+}
 let licenses='';
-for(const name of [...packages].sort()){
-  const root='node_modules/'+name,info=JSON.parse(await readFile(root+'/package.json','utf8'));
-  const license=await readFile(root+'/LICENSE','utf8');
-  licenses+=`${name} ${info.version}\n${license}\n\n`;
+for(const root of [...roots].sort()){
+  const info=JSON.parse(await readFile(root+'/package.json','utf8'));
+  licenses+=`${info.name} ${info.version}\n${await readFile(root+'/LICENSE','utf8')}\n\n`;
 }
-await writeFile('vendor/codemirror/LICENSES.txt',licenses);
-let html=await readFile('studio.html','utf8');
-for(const match of [...html.matchAll(/(<(?:script|link)\b[^>]*?\b(?:src|href)=")([^"?]+)(?:\?[^"\s]*)?("[^>]*>)/g)]){
-  const version=createHash('sha256').update(await readFile(match[2])).digest('hex').slice(0,12);
-  html=html.replace(match[0],`${match[1]}${match[2]}?v=${version}${match[3]}`);
-}
-await writeFile('studio.html',html);
+await writeFile('dist/vendor/codemirror/LICENSES.txt',licenses);

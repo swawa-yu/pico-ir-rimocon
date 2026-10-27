@@ -3,18 +3,18 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {spawnSync}=require('node:child_process');
 const {JSDOM}=require('jsdom');
-const B=require('../vendor/blockly/blockly_compressed.js');
-require('../vendor/blockly/blocks_compressed.js');
-Object.assign(B.Msg,require('../vendor/blockly/msg/ja.js'));
-const {pythonGenerator:g}=require('../vendor/blockly/python_compressed.js');
+const B=require('../dist/vendor/blockly/blockly_compressed.js');
+require('../dist/vendor/blockly/blocks_compressed.js');
+Object.assign(B.Msg,require('../dist/vendor/blockly/msg/ja.js'));
+const {pythonGenerator:g}=require('../dist/vendor/blockly/python_compressed.js');
 const dom=new JSDOM('');
 B.utils.xml.injectDependencies({document:dom.window.document,DOMParser:dom.window.DOMParser,XMLSerializer:dom.window.XMLSerializer});
 let api,fromSource,upgrade,testParts=[];
-before(async()=>{const module=await import('../python-blocks.mjs');fromSource=module.fromSource;upgrade=module.upgrade;require('../pico-blocks.js').configure(B,g,()=>testParts);api=module.configure(B,g,()=>{});});
+before(async()=>{const module=await import('../src/editor/python-blocks.mjs');fromSource=module.fromSource;upgrade=module.upgrade;require('../dist/pico-blocks.js').configure(B,g,()=>testParts);api=module.configure(B,g,()=>{});});
 function workspace(source){const ws=new B.Workspace();B.serialization.workspaces.load(fromSource(source),ws);return ws;}
 
 test('opening and saving Python preserves every byte, including unsupported syntax and incomplete edits',()=>{
- const samples=[fs.readFileSync('programs/pico_parts.py','utf8'),fs.readFileSync('programs/ssd1306.py','utf8'),
+ const samples=[fs.readFileSync('dist/programs/pico_parts.py','utf8'),fs.readFileSync('dist/programs/ssd1306.py','utf8'),
   '# comment\nfrom foo import (\n a, b\n)\n\n@decorator\ndef f(x):\n    return x\n',
   'import time', 'import a; print("a")\n','class Empty: pass\n',
   'class Tabbed:\r\n\tx = """class Fake:\nimport fake\n"""\r\n',
@@ -197,10 +197,10 @@ test('function parameters, keyword arguments and generator expressions preserve 
 
 
 test('all bundled Python files still parse after conversion into structured blocks',()=>{
- for(const name of fs.readdirSync('programs').filter(name=>name.endsWith('.py'))){
+ for(const name of fs.readdirSync('dist/programs').filter(name=>name.endsWith('.py'))){
   const ws=new B.Workspace();
   try{
-   B.serialization.workspaces.load(fromSource(fs.readFileSync('programs/'+name,'utf8'),[]),ws);
+   B.serialization.workspaces.load(fromSource(fs.readFileSync('dist/programs/'+name,'utf8'),[]),ws);
    const result=spawnSync('python3',['-c','import ast,sys;ast.parse(sys.stdin.read())'],{input:api.generate(ws,[],'lib/'+name),encoding:'utf8'});
    assert.equal(result.status,0,name+': '+result.stderr);
   }finally{ws.dispose();}
@@ -266,7 +266,7 @@ test('plus buttons preserve connected arguments and list items through save and 
 });
 
 test('sentence-defined functions remain ordinary Python and selection retains the value-returning call shape',async()=>{
- const {catalog}=await import('../python-symbols.mjs');
+ const {catalog}=await import('../src/editor/python-symbols.mjs');
  const source='# ブロック: {value} を2倍にする\ndef twice(value):\n    return value * 2\n\nprint(twice(21))\n',ws=new B.Workspace();
  try{
   B.serialization.workspaces.load(fromSource(source,[]),ws);
@@ -289,7 +289,7 @@ test('missing call targets and missing arguments produce block diagnostics witho
 });
 
 test('minimal infrared samples use main.py and their transmitted timings decode to 65 with English or Japanese names',()=>{
- const samples=require('../studio-samples.js');
+ const samples=require('../dist/studio-samples.js');
  for(const jp of [false,true]){
   const generated={};
   for(const mode of ['send','receive']){
@@ -363,7 +363,7 @@ test('imports required by a new wait block appear in main as connected import bl
 });
 
 test('foundation programs are editable main-only code and organized transmission preserves PWM and timings',()=>{
- const samples=require('../studio-samples.js');
+ const samples=require('../dist/studio-samples.js');
  for(const name of ['console','bits','button','carrier','pwm','level','times','decode','send','receive']){
   const sample=samples.basic(name);assert.deepEqual(Object.keys(sample.files),['main.py']);assert.doesNotMatch(sample.files['main.py'],/from (parts|pico_parts|ir_data) import/);
   const ws=new B.Workspace();try{B.serialization.workspaces.load(fromSource(sample.files['main.py'],[]),ws);const code=api.generate(ws);const result=spawnSync('python3',['-c',`compile(${JSON.stringify(code)}, 'main.py', 'exec')`],{encoding:'utf8',timeout:5000});assert.equal(result.status,0,result.stderr);}finally{ws.dispose();}
@@ -398,7 +398,7 @@ assert module.decode([9000,4500,560,1680,560,560,560]) == ([1,0],1)
 });
 
 test('beginner samples expose editable binary, receive and send blocks and regenerate changed digits',()=>{
- const samples=require('../studio-samples.js');
+ const samples=require('../dist/studio-samples.js');
  for(const name of ['zero32','one_bit','byte','long','receive_one','receive_byte','receive_long','continuous','times','button_times','receive_times','console','binary','number','send','receive','button_send','carrier','fan','rgb']){
   const sample=samples.beginner(name),source=sample.files['main.py'],ws=new B.Workspace();testParts=sample.parts;
   B.serialization.workspaces.load(fromSource(source,sample.parts),ws);

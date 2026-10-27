@@ -5,13 +5,13 @@ const {createHash}=require('node:crypto');
 const {JSDOM}=require('jsdom');
 
 test('the page loads the current editor bundle and its public highlight API works',async()=>{
-  const bundle=fs.readFileSync('vendor/codemirror/editor.js','utf8');
-  const dom=new JSDOM(fs.readFileSync('studio.html','utf8'),{runScripts:'outside-only',pretendToBeVisual:true});
+  const bundle=fs.readFileSync('dist/vendor/codemirror/editor.js','utf8');
+  const dom=new JSDOM(fs.readFileSync('dist/studio.html','utf8'),{runScripts:'outside-only',pretendToBeVisual:true});
   try{
     const {window}=dom;
     for(const asset of window.document.querySelectorAll('script[src],link[rel="stylesheet"]')){
       const reference=asset.getAttribute(asset.tagName==='SCRIPT'?'src':'href'),[path,query]=reference.split('?');
-      const version=createHash('sha256').update(fs.readFileSync(path)).digest('hex').slice(0,12);
+      const version=createHash('sha256').update(fs.readFileSync('dist/'+path)).digest('hex').slice(0,12);
       assert.equal(query,'v='+version,'stale asset reference: '+path);
     }
     window.eval(bundle);
