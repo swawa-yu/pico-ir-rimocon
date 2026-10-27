@@ -58,3 +58,12 @@ test('block references match calls inside their enclosing class and function',as
  assert.equal(first.length,1);assert.equal(second.length,1);assert(first[0]<second[0]);
  assert.deepEqual(callPositions(source,'self.show'),[]);
 });
+
+test('module names in from-import open the module file and preview its contents',async()=>{
+ const {definitionPreview}=await import('../src/editor/python-definitions.mjs');
+ const files={'main.py':'from parts import infrared\n','parts.py':'def setup():\n    return 1\n'};
+ const destination=find(files,'main.py',files['main.py'].indexOf('parts')+2);
+ assert.deepEqual(destination,{path:'parts.py',line:1,from:0,kind:'module'});
+ assert.equal(definitionPreview(files,destination).text,files['parts.py']);
+ assert.equal(find(files,'main.py',files['main.py'].indexOf('infrared')+2),null);
+});

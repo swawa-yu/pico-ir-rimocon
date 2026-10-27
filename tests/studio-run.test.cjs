@@ -602,7 +602,7 @@ test('definition navigation follows an imported alias and returns to the call wi
   s.window.editorCallbacks.onChange('main.py',source);
   s.window.editorPosition=source.lastIndexOf('double')+2;
   const before=JSON.parse(s.window.localStorage.getItem('pico-blocks-project-2')).files;
-  s.$('go-definition').click();
+  s.window.editorCallbacks.onDefinition(s.window.editorPosition);
   assert.equal(s.$('file-tree').querySelector('[aria-current=true]').title,'tools.py');
   assert(s.calls.some(call=>call[0]==='line'&&call[1]===2));
   assert.equal(s.$('definition-back').disabled,false);
@@ -639,6 +639,20 @@ test('unavailable builtin definitions leave the active file and reference histor
   assert.equal(s.$('file-tree').querySelector('[aria-current=true]').title,'main.py');
   assert.equal(s.$('definition-back').disabled,true);
   assert.match(s.$('studio-status').textContent,/このプロジェクト内に定義が見つかりません/);
+ }finally{s.close();}
+});
+
+test('a module import offers a preview and opens its project file',async()=>{
+ const s=studio(async()=>JSON.stringify({changed:0}));
+ try{
+  const source='from parts import infrared\ninfrared.send(65)\n';s.window.editorCallbacks.onChange('main.py',source);
+  const position=source.indexOf('parts')+2,preview=s.window.editorCallbacks.onPreview(position);
+  assert.equal(preview.path,'parts.py');assert.match(preview.text,/infrared/);
+  const block=s.workspaces[1].getAllBlocks(false).find(b=>b.type==='pico_from_import');assert(block);
+  const node=s.window.document.createElementNS('http://www.w3.org/2000/svg','g');node.setAttribute('data-id',block.id);s.$('file-blockly').append(node);
+  node.dispatchEvent(new s.window.MouseEvent('pointerover',{bubbles:true}));await new Promise(resolve=>setTimeout(resolve,450));
+  const popup=s.window.document.querySelector('.block-definition-preview');assert.equal(popup.hidden,false);assert.match(popup.textContent,/parts.py/);
+  popup.querySelector('button').click();assert.equal(s.$('file-tree').querySelector('[aria-current=true]').title,'parts.py');
  }finally{s.close();}
 });
 

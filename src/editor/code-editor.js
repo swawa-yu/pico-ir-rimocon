@@ -5,12 +5,12 @@ export * as definitions from './python-definitions.mjs';
 export * as extraction from './python-extract.mjs';
 import {basicSetup} from 'codemirror';
 import {EditorState, StateEffect, StateField, Compartment} from '@codemirror/state';
-import {EditorView, keymap, Decoration} from '@codemirror/view';
+import {EditorView, keymap, Decoration, hoverTooltip} from '@codemirror/view';
 import {indentWithTab} from '@codemirror/commands';
 import {indentUnit} from '@codemirror/language';
 import {python} from '@codemirror/lang-python';
 
-export function create(parent,{onChange,onDefinition,onSave}){
+export function create(parent,{onChange,onDefinition,onPreview=()=>null,onSave}){
   const documents=new Map(),scrollPositions=new Map();
   let active=null,changing=false,errorRequest=0;
   const access=new Compartment();
@@ -25,6 +25,19 @@ export function create(parent,{onChange,onDefinition,onSave}){
   const setErrors=StateEffect.define();
   const errors=StateField.define({create:()=>Decoration.none,update(value,tr){if(tr.docChanged)value=Decoration.none;for(const effect of tr.effects)if(effect.is(setErrors))value=Decoration.set(effect.value.filter(()=>tr.state.doc.length>0).map(e=>{const from=Math.max(0,Math.min(e.from,tr.state.doc.length-1));return Decoration.mark({class:'cm-source-error',attributes:{title:e.message}}).range(from,Math.min(tr.state.doc.length,Math.max(from+1,e.to)));}),true);return value;},provide:field=>EditorView.decorations.from(field)});
   const extensions=[basicSetup,python(),access.of([]),indentUnit.of('    '),highlights,errors,
+    hoverTooltip((view,position)=>{
+      const line=view.state.doc.lineAt(position),offset=position-line.from;
+      const before=line.text.slice(0,offset).match(/[\p{L}\p{N}_.]+$/u)?.[0]||'',after=line.text.slice(offset).match(/^[\p{L}\p{N}_.]+/u)?.[0]||'';
+      if(!before&&!after)return null;
+      const info=onPreview(position);if(!info)return null;
+      return {pos:position-before.length,end:position+after.length,above:true,create(){
+        const dom=document.createElement('div');dom.className='definition-preview';
+        const title=document.createElement('div');title.className='definition-preview-title';title.textContent=info.path+':'+info.line;
+        const code=document.createElement('pre');code.textContent=info.text;
+        const button=document.createElement('button');button.type='button';button.textContent='定義へ移動';button.addEventListener('click',()=>onDefinition(position));
+        dom.append(title,code,button);return {dom};
+      }};
+    },{hideOnChange:true}),
     keymap.of([indentWithTab,{key:'F12',run:()=>{onDefinition(view.state.selection.main.head);return true;}},{key:'Mod-s',run:()=>{onSave();return true;}}]),
     EditorView.domEventHandlers({mousedown(event,view){
       if(event.button!==0||!event.metaKey&&!event.ctrlKey)return false;

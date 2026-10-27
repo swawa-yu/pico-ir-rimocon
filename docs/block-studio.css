@@ -212,5 +212,10 @@
 .definition-actions{display:flex;justify-content:flex-end;gap:6px}
 .definition-actions button{font-size:.8rem;padding:4px 10px}
 .pico-range-selected>.blocklyPath{stroke:#fff200!important;stroke-width:3px!important;filter:drop-shadow(0 0 3px #fff200)}
+.definition-preview{width:min(480px,70vw);padding:8px;background:#fff;color:#172c3c;border:1px solid #a9bbc7;border-radius:5px;box-shadow:0 3px 12px #172c3c33}
+.definition-preview-title{font:12px ui-monospace,monospace;color:#526c7a}
+.definition-preview pre{max-height:240px;overflow:auto;margin:6px 0;white-space:pre;font:12px/1.5 ui-monospace,monospace}
+.definition-preview button{font-size:12px;padding:4px 8px}
+.block-definition-preview{position:fixed;z-index:100;width:min(480px,45vw)}
 #extract-function-dialog input{margin-top:8px}
 #extract-function-error{color:#a32626}

@@ -126,6 +126,11 @@ export function findDefinition(files,path,position,target=null){
   if(target){node=parser.parse(target).topNode.firstChild?.firstChild;}
   else{
     node=at(path,position);
+    let statement=node;while(statement&&statement.name!=='ImportStatement'&&statement.name!=='Script')statement=statement.parent;
+    if(statement?.name==='ImportStatement'){
+      const source=text(statement,path),match=source.match(/^from\s+(\S+)\s+import\b/);
+      if(match){const start=statement.from+match[0].indexOf(match[1]);if(position>=start&&position<start+match[1].length){const module=moduleEntity(match[1],path);if(module?.path)return {path:module.path,line:1,from:0,kind:'module'};}}
+    }
     if(!['VariableName','PropertyName'].includes(node.name))node=tree(path).resolveInner(Math.max(0,position-1),1);
     if(node.name==='PropertyName')node=node.parent;
     else if(node.name!=='VariableName')return null;
@@ -138,4 +143,12 @@ export function findDefinition(files,path,position,target=null){
   if(!entity?.path)return null;
   const from=entity.node?.from||0,line=files[entity.path].slice(0,from).split('\n').length;
   return {path:entity.path,line,from};
+}
+
+export function definitionPreview(files,destination){
+ const source=files[destination?.path];if(typeof source!=='string')return null;
+ const tree=parser.parse(source),node=tree.resolveInner(destination.from,1);
+ let definition=destination.kind==='module'?null:node;while(definition&&!['FunctionDefinition','ClassDefinition'].includes(definition.name))definition=definition.parent;
+ const start=definition?source.lastIndexOf('\n',definition.from-1)+1:0;
+ return {path:destination.path,line:destination.line,text:source.slice(start,definition?.to??source.length)};
 }

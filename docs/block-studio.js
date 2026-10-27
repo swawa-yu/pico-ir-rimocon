@@ -92,8 +92,9 @@
   $('program-device').addEventListener('device-error',event=>notify(event.detail));
   PicoDevices.listeners.add(()=>{updateDevice();renderConsole();});
   const editor=PicoEditor.create($('code-editor'),{
-    onChange(path,text){clearTimeout(fileRefreshTimer);fileWorkspaceDirty=false;fileStore.edit(path,text);files=fileStore.regenerate(generatedProject());dirty=true;renderFiles();renderFileBlocks();renderPicoFiles();saveProject();updateDevice();},
+    onChange(path,text){closeBlockPreview();clearTimeout(fileRefreshTimer);fileWorkspaceDirty=false;fileStore.edit(path,text);files=fileStore.regenerate(generatedProject());dirty=true;renderFiles();renderFileBlocks();renderPicoFiles();saveProject();updateDevice();},
     onDefinition:goDefinition,
+    onPreview(position){const destination=PicoEditor.definitions.findDefinition(files,activeFile,position);return PicoEditor.definitions.definitionPreview(files,destination);},
     onSave(){download(activeFile.split('/').pop(),files[activeFile]||'','text/x-python');}
   });
   function projectSignature(data){return JSON.stringify({name:data.name,pico:data.pico,parts:data.parts,files:Object.fromEntries(Object.entries(data.files).sort(([a],[b])=>a.localeCompare(b)))});}
@@ -149,7 +150,7 @@
   $('project-discard-close').addEventListener('click',()=>{$('project-close-dialog').close();finishClosingProject();});
   $('project-save-close').addEventListener('click',()=>{if(projectLocked())return;if(closingProjectIndex!==activeProject)switchProject(closingProjectIndex);if(closingProjectIndex!==activeProject||projectLocked())return;saveProjectFile();$('project-close-dialog').close();finishClosingProject();});
   $('project-reopen').addEventListener('click',()=>{const entry=lastClosedProject;if(!entry)return;if(openProject(()=>restoreProject(entry.data,false))){openedProjects[activeProject].savedSignature=entry.savedSignature??null;lastClosedProject=null;saveProject();$('project-add-dialog').close();}});
-  function openFile(path,line){commitFileBlocks();rangeSelection.clear();activeFile=path;editor.setFile(path,files[path]||'');editor.setReadOnly?.(Boolean(debugSession||debugStarting));editor.highlightLines?.(null);renderFiles();renderFileBlocks();if(line)editor.goLine(line);}
+  function openFile(path,line){closeBlockPreview();commitFileBlocks();rangeSelection.clear();activeFile=path;editor.setFile(path,files[path]||'');editor.setReadOnly?.(Boolean(debugSession||debugStarting));editor.highlightLines?.(null);renderFiles();renderFileBlocks();if(line)editor.goLine(line);}
   function updateFileActions(){
     $('file-rename').disabled=!treeSelection||fileStore.protected(treeSelection)||Boolean(debugSession||debugStarting);
     for(const summary of document.querySelectorAll('#file-tree summary'))summary.classList.toggle('selected',summary.parentElement.dataset.path===treeSelection);
@@ -259,6 +260,11 @@
   }
   function blockReference(block){
     if(block.workspace.isFlyout)return null;
+    if(block.type==='pico_from_import'){
+      const module=block.getFieldValue('MODULE'),source=files[activeFile]||'',lines=source.matchAll(/^\s*from\s+(\S+)\s+import\b/gm),positions=[];
+      for(const line of lines)if(line[1]===module)positions.push(line.index+line[0].indexOf(module));
+      const position=positions[0];return {position:position??0,destination:position===undefined?null:PicoEditor.definitions.findDefinition(files,activeFile,position)};
+    }
     const methods={pico_send:'send',pico_send_bits:'send_bits',pico_send_times:'send_times',pico_receive:'receive',pico_receive_bits:'receive_bits',pico_ir_level:'is_on',pico_button:'is_pressed',pico_pwm:'set',pico_rgb:'set',pico_rgb_off:'off',pico_speaker_on:'on',pico_speaker_off:'off',pico_tone:'tone',pico_display_text:'text',pico_display_clear:'clear',pico_display_pixel:'pixel',pico_display_get_pixel:'pixel',pico_display_fill:'fill',pico_display_text_at:'text_at',pico_display_show:'show',pico_dip_on:'is_on',pico_dip_value:'value'};
     const conversions={pico_new_bits:'new_bits',pico_set_bits:'set_bits',pico_int_bits:'int_to_bits',pico_text_bits:'text_to_bits',pico_bits_text:'bits_to_text',pico_bits_int:'bits_to_int',pico_decode_bits:'durations_to_bits'};
     let target=['pico_call','pico_call_value'].includes(block.type)?block.getFieldValue('TARGET'):null;
@@ -284,11 +290,34 @@
     commitFileBlocks();
     navigateDefinition(PicoEditor.definitions.findDefinition(files,activeFile,position),position);
   }
-  $('go-definition').addEventListener('click',()=>goDefinition());
   $('definition-back').addEventListener('click',()=>{
     const origin=definitionHistory.pop();$('definition-back').disabled=!definitionHistory.length;
     if(origin&&Object.hasOwn(files,origin.path)){openFile(origin.path);editor.goTo?.(origin.position);notify();}
   });
+  const blockPreview=document.createElement('div');blockPreview.className='definition-preview block-definition-preview';blockPreview.hidden=true;document.body.append(blockPreview);
+  let previewTimer=null,previewCloseTimer=null,previewBlock=null;
+  function closeBlockPreview(){clearTimeout(previewTimer);clearTimeout(previewCloseTimer);blockPreview.hidden=true;previewBlock=null;}
+  function scheduleBlockPreviewClose(){clearTimeout(previewCloseTimer);previewCloseTimer=setTimeout(closeBlockPreview,200);}
+  for(const id of ['blockly','file-blockly']){
+    const area=$(id);
+    area.addEventListener('pointerover',event=>{
+      const node=event.target.closest?.('[data-id]'),block=node&&(fileWorkspace?.getBlockById(node.dataset.id)||workspace.getBlockById(node.dataset.id));
+      if(!block){scheduleBlockPreviewClose();return;}if(block===previewBlock){clearTimeout(previewCloseTimer);return;}
+      clearTimeout(previewTimer);clearTimeout(previewCloseTimer);blockPreview.hidden=true;previewBlock=block;
+      previewTimer=setTimeout(()=>{
+        const reference=blockReference(block),info=PicoEditor.definitions.definitionPreview(files,reference?.destination);if(!info)return;
+        const title=document.createElement('div');title.className='definition-preview-title';title.textContent=info.path+':'+info.line;
+        const code=document.createElement('pre');code.textContent=info.text;
+        const button=document.createElement('button');button.type='button';button.textContent='定義へ移動';button.addEventListener('click',()=>{closeBlockPreview();navigateDefinition(reference.destination,reference.position);});
+        blockPreview.replaceChildren(title,code,button);blockPreview.hidden=false;
+        const rect=node.getBoundingClientRect(),width=blockPreview.offsetWidth,height=blockPreview.offsetHeight;
+        blockPreview.style.left=Math.max(0,Math.min(innerWidth-width,rect.right+8))+'px';blockPreview.style.top=Math.max(0,Math.min(innerHeight-height,rect.top))+'px';
+      },400);
+    });
+    area.addEventListener('pointerout',event=>{if(!area.contains(event.relatedTarget))scheduleBlockPreviewClose();});
+    area.addEventListener('pointerdown',closeBlockPreview);
+  }
+  blockPreview.addEventListener('pointerenter',()=>clearTimeout(previewCloseTimer));blockPreview.addEventListener('pointerleave',scheduleBlockPreviewClose);
   const chain=first=>{const blocks=[];for(let block=first;block;block=block.getNextBlock())blocks.push(block);return blocks;};
   let extractionContext=null;
   const rangeSelection=new StudioBlockSelection.Selection();
