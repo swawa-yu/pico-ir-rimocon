@@ -515,7 +515,7 @@
     deploying=true;debugStarting=stepped;if(stepped)lockDebug(true);updateDevice();notify();consoleAppend(($('output').textContent==='—'?'':'\n')+'書き込み中…\n');
     try{
       const result=await PicoProject.upload(device,snapshot);clearPicoFiles();
-      const message=result.backup?`退避先: ${result.backup}/（manifest.json に元のファイル名を記録）`:'ファイルの変更なし';
+      const message=result.backup?`退避先: ${result.backup}/`:'ファイルの変更なし';
       consoleAppend('書き込み完了\n'+message+'\n'+(result.cleanupErrors?.length?`古い退避フォルダを削除できませんでした: ${result.cleanupErrors.join(', ')}\n`:''));
       if(writeOnly)return;
       if(stepped){

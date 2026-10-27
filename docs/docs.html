@@ -138,18 +138,16 @@ Pico GND  ── ドライバGND ── 電源GND
     <p>「書き込み」はプロジェクトのファイル群をPicoへ転送し、「書き込み・実行」は転送後にプログラムを動かします。
     書き込み時の退避フォルダ<code>.pico-studio-番号</code>は、成功時に直近1回分を残します。
     失敗した書き込みの復旧用データは保持します。</p>
-    <p>プロジェクトの保存にはライブラリも含まれ、開くと保存時の内容を復元します。
-    新しい機能を試すときは、現在のサンプルから始めてください。</p>
+    <p>プロジェクトの保存にはライブラリも含まれ、開くと保存時の内容を復元します。</p>
     <h3>使用しているライブラリ</h3>
     <ul>
       <li><a href="https://docs.blockly.com/">Blockly</a>：ブロック編集。<a href="vendor/blockly/LICENSE">Apache-2.0ライセンス</a>。</li>
       <li><a href="https://codemirror.net/">CodeMirrorとLezer</a>：テキスト編集とPythonの構文解析。<a href="vendor/codemirror/LICENSES.txt">MITライセンス一覧</a>。</li>
       <li>SSD1306ドライバ：<a href="programs/SSD1306-LICENSE.txt">MITライセンス</a>。</li>
       <li><a href="https://github.com/piersfinlayson/picoflash">picoflash</a>：ファームウェア書き込みのWebUSB通信。<a href="vendor/picoflash/LICENSE">MITライセンス</a>・<a href="vendor/picoflash/SOURCE.txt">取得元</a>。</li>
-      <li>MicroPython v1.29.0：公式UF2を変更せずに配信し、機種の選択後に自動で読み込みます。<a href="firmware/SOURCE.txt">配布元と照合値</a>・<a href="firmware/LICENSES.txt">ライセンスと著作権表示</a>。</li>
+      <li>MicroPython v1.29.0：Pico／Pico W用ファームウェア。<a href="firmware/SOURCE.txt">配布元と照合値</a>・<a href="firmware/LICENSES.txt">ライセンスと著作権表示</a>。</li>
     </ul>
-    <p>USB通信にはブラウザのWeb Serial APIを使います。
-    PC版ChromeでStudioを開き、USBを使う外部エディタは切断してください。
+    <p>USB接続にはPC版ChromeでStudioを開き、USBを使う外部エディタは切断してください。
     Studio内の3つの作業タブは接続を共有します。</p>
   </section>
 </main>
