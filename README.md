@@ -61,8 +61,4 @@ git commit -m '変更内容'
 git push origin HEAD:main
 ```
 
-独自のGitHub Actionsワークフローは使いません。
-`public/CNAME`はビルド時に`docs/CNAME`へコピーされます。
-独自ドメイン`ir.swawa.dev`のPages設定と合わせて維持します。
-
 外部ライブラリと公式ファームウェアの出典・ライセンスは`public/vendor/`、`public/firmware/`、`pico/lib/SSD1306-LICENSE.txt`にあります。
